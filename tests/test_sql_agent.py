@@ -1,0 +1,37 @@
+import os
+import unittest
+import pandas as pd
+
+from typing import List
+from src.components.agents.sql_agent import SqlAgent
+from src.components.client import OllamaClient
+from src.components.data_types import Messages
+from src.components.sources.sqlite_source import SqliteSource
+
+_path = os.path.dirname(os.path.abspath(__file__))
+
+sqlite_source = SqliteSource(
+    name="London Archaeological Data",
+    db_path="../data/london_archaeological_data.db",
+)
+sqlite_source.ingest(
+    df=pd.read_csv(os.path.join(_path, "../data/london_archaeological_data.csv")),
+    table_name="archaeological_findings",
+)
+
+class TestSqlAgent(unittest.TestCase):
+    def test_simple_output(self):
+        client = OllamaClient(
+            model="gemma3:4b",
+            temperature=0.4,
+            max_tokens=1000,
+        )
+        messages = Messages().add_user_utterance("what are the most common types of finds in the dataset?")
+        message_queue: List[str] = []
+        agent = SqlAgent(client, source=sqlite_source)
+        answer = agent.query(
+            messages=messages,
+            message_queue=message_queue,
+        )
+        expected = "Archaeological Priority Area - Tier II"
+        self.assertIn(expected, answer)

@@ -9,8 +9,8 @@ from src.components.agents.prompts import reflection_agent_prompt_template
 
 class ReflectionAgent(BaseAgent):
     _system_prompt: PromptTemplate = reflection_agent_prompt_template
-    _completing_tags: List[str] = ["COMPLETED_TASK"]
-    _output_tag = "```output"
+    _completing_tags: List[str] = ["<task-completed/>"]
+    _output_tag = "```text"
     _stop_sequences = []
     _max_steps = 5
 
@@ -26,11 +26,11 @@ class ReflectionAgent(BaseAgent):
             answer = self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            if self.is_complete(answer) or answer.strip() == "":
+            if (self._output_tag not in answer and self.is_complete(answer)) or answer.strip() == "":
                 break
 
             messages = messages.add_user_utterance(
-                f"The answer is:\n\n{answer}\n\nThink if you need to do more otherwise output {self._completing_tags[0]}.\n"
+                f"The answer is:\n\n{answer}\n\nThink if you need to do more otherwise output {self._completing_tags[0]} at the beginning of your answer.\n"
             )
             matches = re.findall(
                 rf"{self._output_tag}(.+)```",
@@ -43,15 +43,15 @@ class ReflectionAgent(BaseAgent):
         return current_output
 
     def get_description(self) -> str:
-        return """
+        return f"""
 Self-reflection agent: This agent thinks step by step about the actions to take.
 Use it when you need to think about the task.
 Inform the agent about the tools at your disposal (SQL and Visualization).
-To call this agent write ```self-reflection-agent THINGS TO THINK ABOUT ```
+To call this agent write {self.get_opening_tag()} THINGS TO THINK ABOUT {self.get_closing_tag()}
         """
 
     def get_opening_tag(self) -> str:
-        return "```self-reflection-agent"
+        return "<self-reflection-agent>"
 
     def get_closing_tag(self) -> str:
-        return "```"
+        return "</self-reflection-agent>"

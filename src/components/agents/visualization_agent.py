@@ -1,12 +1,12 @@
 import base64
 import os
-from io import StringIO
 
 import sys
-
 import matplotlib
 import re
+import numpy as np
 
+from io import StringIO
 from typing import List, Dict, Optional
 from src.components.agents.base_agent import BaseAgent
 from src.components.client import BaseClient
@@ -18,9 +18,9 @@ matplotlib.use("Agg")
 
 class VisualizationAgent(BaseAgent):
     _system_prompt: PromptTemplate = visualization_agent_prompt_template
-    _completing_tags: List[str] = ["COMPLETED_TASK"]
+    _completing_tags: List[str] = ["<task-completed/>"]
     _output_tag = "```python"
-    _stop_sequences = _completing_tags + ["```\n"]
+    _stop_sequences = _completing_tags
     _max_steps = 5
     _hash_to_images_dict: Dict[str, str] = {}
 
@@ -53,15 +53,17 @@ class VisualizationAgent(BaseAgent):
                     exec(code)
                     sys.stdout = old_stdout
                     code_result = redirected_output.getvalue()
+                    if code_result.strip() == "":
+                        code_result = ""
                 except Exception as e:
                     print(e)
                     code_result = f"Error while executing the code above.\nThis exception is raised {str(e)}"
 
-            if self.is_complete(answer) or answer.strip() == "":
+            if self.is_complete(answer) or answer.strip() == "" or code_result.strip() == "":
                 break
 
-            messages.add_user_utterance(
-                f"The result is:\n\n{code_result}\n\n.Think if you need to do more otherwise output {self._completing_tags[0]}.\n"
+            messages.add_assistant_utterance(
+                f"The result is: {code_result}. If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
             )
 
         with open(image_name, "rb") as file:
@@ -77,14 +79,14 @@ class VisualizationAgent(BaseAgent):
         return replaced_answer
 
     def get_description(self) -> str:
-        return """
+        return f"""
 Visualization agent: This agent creates the relevant visualization in the format of a graph plot using a markdown table.
-To call this agent write ```visualization-agent MARKDOWN TABLE ABOUT WHAT TO PLOT ```
+To call this agent write {self.get_opening_tag()} MARKDOWN TABLE ABOUT WHAT TO PLOT {self.get_closing_tag()}
 The information about what to plot will be then used by the agent.
         """
 
     def get_opening_tag(self) -> str:
-        return "```visualization-agent"
+        return "<visualization-agent>"
 
     def get_closing_tag(self) -> str:
-        return "```"
+        return "</visualization-agent>"

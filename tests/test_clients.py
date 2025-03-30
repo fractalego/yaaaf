@@ -16,6 +16,6 @@ class TestClients(unittest.TestCase):
             .add_system_prompt("You only say hello.")
             .add_user_utterance("Hello, how are you?")
         )
-        answer = client.predict(messages=messages, stop_sequences=["COMPLETED_TASK"])
+        answer = client.predict(messages=messages, stop_sequences=["<task-completed/>"])
         expected = "hello"
         self.assertIn(expected, answer.lower())

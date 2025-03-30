@@ -11,10 +11,13 @@ You have these agents at your disposal:
 {agents_list}
    
 These agents only know what you write between tags and have no memory.
-You can only call one agent at a time. *Do not* output more than one agent-related markdown block.
-When you are 100% sure about the answer and the task is done, write the tag COMPLETED_TASK.
+Use the agents to get what you want. Do not write the answer yourself.
+The only html tags they understand are these ones: {all_tags_list}. Use these tags to call the agents.
+
+When you think you have reached your goal, write out the final answer and then <task-completed/>
     """
 )
+
 
 sql_agent_prompt_template = PromptTemplate(
     prompt="""
@@ -27,6 +30,7 @@ In the end, you need to output and SQL instruction string that would retrieve in
 You can think step-by-step on the actions to take.
 However the final output needs to be an SQL instruction string.
 This output *must* be between the markdown tags ```sql SQL INSTRUCTION STRING ```
+Only give one SQL instruction string per answer.
 Limit the number of output rows to 20 at most.
     """
 )
@@ -36,7 +40,7 @@ reflection_agent_prompt_template = PromptTemplate(
     prompt="""
 Your task is to think step by step about the actions to take.
 Think about the instructions and creat an action plan to follow them. Be concise and clear.
-When you are satisfied with the instructions, you need to output the actions plan between the markdown tags ```output ... ```
+When you are satisfied with the instructions, you need to output the actions plan between the markdown tags ```text ... ```
 """
 )
 
@@ -49,6 +53,6 @@ The goal of the code is generating and image in matplotlib that explains the dat
 This image must be saved in a file named {filename}.
 Just save the file, don't show() it.
 
-Whe you are done, output the tag COMPLETED_TASK.
+If the code runs without errors, just write <task-completed/> at the beginning of your answer.
 """
 )

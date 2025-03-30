@@ -10,12 +10,12 @@ from src.components.agents.reflection_agent import ReflectionAgent
 from tests.test_sql_agent import sqlite_source
 
 text_client = OllamaClient(
-    model="llama3.1:8b",
+    model="qwen2.5:32b",
     temperature=0.4,
     max_tokens=100,
 )
 code_client = OllamaClient(
-    model="llama3.1:8b",
+    model="qwen2.5:32b",
     temperature=0.4,
     max_tokens=1000,
 )
@@ -42,7 +42,7 @@ class TestOrchestratorAgent(unittest.TestCase):
     def test_query2(self):
         message_queue: list[str] = []
         messages = Messages().add_user_utterance(
-            "What is the most common archeological finding in the SQL dataset provided?"
+            "What is the most common description of archeological finding? visualize the top5 and give me the answer in a single sentence."
         )
         answer = agent.query(
             messages=messages,

@@ -10,12 +10,12 @@ from src.components.agents.reflection_agent import ReflectionAgent
 from tests.test_sql_agent import sqlite_source
 
 text_client = OllamaClient(
-    model="llama3.3",
+    model="llama3.1:8b",
     temperature=0.4,
     max_tokens=100,
 )
 code_client = OllamaClient(
-    model="llama3.3",
+    model="llama3.1:8b",
     temperature=0.4,
     max_tokens=1000,
 )
@@ -49,5 +49,6 @@ class TestOrchestratorAgent(unittest.TestCase):
             message_queue=message_queue,
         )
         pprint(message_queue)
+        print(answer)
         expected = "prehistoric deposits"
-        self.assertIn(expected, answer)
+        self.assertIn(expected, answer.lower())

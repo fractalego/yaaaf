@@ -11,7 +11,7 @@ You have these agents at your disposal:
 {agents_list}
    
 These agents only know what you write between tags and have no memory.
-You can only call one agent at a time. *Do not* output more than one agent call.
+You can only call one agent at a time. *Do not* output more than one agent-related markdown block.
 When you are 100% sure about the answer and the task is done, write the tag COMPLETED_TASK.
     """
 )
@@ -26,7 +26,7 @@ Your task is to write an SQL query according the schema below and the user's ins
 In the end, you need to output and SQL instruction string that would retrieve information on an sqlite instance
 You can think step-by-step on the actions to take.
 However the final output needs to be an SQL instruction string.
-This output *must* be between the markdown tags ```sql_call SQL INSTRUCTION STRING ```
+This output *must* be between the markdown tags ```sql SQL INSTRUCTION STRING ```
 Limit the number of output rows to 20 at most.
     """
 )

@@ -40,7 +40,7 @@ class VisualizationAgent(BaseAgent):
             )
             messages.add_assistant_utterance(answer)
             matches = re.findall(
-                rf"{self._output_tag}(.+)$",
+                rf"{self._output_tag}(.+)```",
                 answer,
                 re.DOTALL | re.MULTILINE,
             )
@@ -60,7 +60,7 @@ class VisualizationAgent(BaseAgent):
             if self.is_complete(answer) or answer.strip() == "":
                 break
 
-            messages.add_assistant_utterance(
+            messages.add_user_utterance(
                 f"The result is:\n\n{code_result}\n\n.Think if you need to do more otherwise output {self._completing_tags[0]}.\n"
             )
 

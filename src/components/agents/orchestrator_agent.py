@@ -11,8 +11,8 @@ class OrchestratorAgent(BaseAgent):
     _system_prompt: str = orchestrator_prompt_template
     _completing_tags: List[str] = ["COMPLETED_TASK"]
     _agents_map: {str: BaseAgent} = {}
-    _stop_sequences = _completing_tags.copy()
-    _max_steps = 5
+    _stop_sequences = []
+    _max_steps = 10
 
     def __init__(self, client: BaseClient):
         self._client = client
@@ -40,9 +40,14 @@ class OrchestratorAgent(BaseAgent):
                 )
                 if message_queue is not None:
                     message_queue.append(agent_to_call.clean_answer(answer))
-            messages = messages.add_assistant_utterance(
-                f"The answer from the agent is:\n\n{answer}\n\n"
-            )
+                messages = messages.add_user_utterance(
+                    f"The answer from the agent is:\n\n{answer}\n\n"
+                )
+            else:
+                messages = messages.add_assistant_utterance(answer)
+                messages = messages.add_user_utterance(
+                    f"You didn't call any agent. Is the answer finished or did you miss outputting the tags? Reminder: use markdown blocks to call the relevant agents.\n\n"
+                )
         if not self.is_complete(answer) and step_index == self._max_steps - 1:
             answer += "\nThe Orchestrator agent has finished its maximum number of steps. COMPLETED_TASK"
         return answer
@@ -65,7 +70,7 @@ class OrchestratorAgent(BaseAgent):
     def map_answer_to_agent(self, answer: str) -> Tuple[BaseAgent | None, str]:
         for tag, agent in self._agents_map.items():
             if tag in answer:
-                matches = re.findall(rf"{tag}(.+)$", answer, re.DOTALL | re.MULTILINE)
+                matches = re.findall(rf"{tag}(.+)```", answer, re.DOTALL | re.MULTILINE)
                 if matches:
                     return agent, matches[0]
 

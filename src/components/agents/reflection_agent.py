@@ -11,7 +11,7 @@ class ReflectionAgent(BaseAgent):
     _system_prompt: PromptTemplate = reflection_agent_prompt_template
     _completing_tags: List[str] = ["COMPLETED_TASK"]
     _output_tag = "```output"
-    _stop_sequences = ["COMPLETED_TASK"]
+    _stop_sequences = []
     _max_steps = 5
 
     def __init__(self, client: BaseClient) -> None:
@@ -29,11 +29,11 @@ class ReflectionAgent(BaseAgent):
             if self.is_complete(answer) or answer.strip() == "":
                 break
 
-            messages = messages.add_assistant_utterance(
+            messages = messages.add_user_utterance(
                 f"The answer is:\n\n{answer}\n\nThink if you need to do more otherwise output {self._completing_tags[0]}.\n"
             )
             matches = re.findall(
-                rf"{self._output_tag}(.+)$",
+                rf"{self._output_tag}(.+)```",
                 answer,
                 re.DOTALL | re.MULTILINE,
             )

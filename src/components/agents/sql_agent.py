@@ -15,7 +15,7 @@ class SqlAgent(BaseAgent):
     _system_prompt: PromptTemplate = sql_agent_prompt_template
     _completing_tags: List[str] = ["COMPLETED_TASK"]
     _output_tag = "```sql_call"
-    _stop_sequences = ["COMPLETED_TASK"]
+    _stop_sequences = []
     _max_steps = 5
 
     def __init__(self, client: BaseClient, source: SqliteSource):
@@ -38,7 +38,7 @@ class SqlAgent(BaseAgent):
                 break
 
             matches = re.findall(
-                rf"{self._output_tag}(.+)$",
+                rf"{self._output_tag}(.+)```",
                 answer,
                 re.DOTALL | re.MULTILINE,
             )
@@ -59,7 +59,7 @@ class SqlAgent(BaseAgent):
                     f"If there are errors correct the SQL query accordingly."
                 )
             else:
-                messages = messages.add_assistant_utterance(
+                messages = messages.add_user_utterance(
                     f"The answer is {answer} but there is no SQL call. Try again. If there are errors correct the SQL query accordingly."
                 )
 

@@ -5,7 +5,9 @@ from typing import Optional, List
 
 
 class BaseClient:
-    def predict(self, messages: "Messages", stop_sequences: Optional[List[str]] = None) -> str:
+    def predict(
+        self, messages: "Messages", stop_sequences: Optional[List[str]] = None
+    ) -> str:
         """
         Predicts the next message based on the input messages and stop sequences.
 
@@ -18,30 +20,38 @@ class BaseClient:
 
 class OllamaClient(BaseClient):
     """Client for Ollama API."""
-    def __init__(self, model: str, temperature: float = 0.4, max_tokens: int = 1000, host: str = "http://localhost:11434"):
+
+    def __init__(
+        self,
+        model: str,
+        temperature: float = 0.4,
+        max_tokens: int = 1000,
+        host: str = "http://localhost:11434",
+    ):
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.host = host
 
-    def predict(self, messages: "Messages", stop_sequences: Optional[List[str]] = None) -> str:
+    def predict(
+        self, messages: "Messages", stop_sequences: Optional[List[str]] = None
+    ) -> str:
         headers = {"Content-Type": "application/json"}
         data = {
             "model": self.model,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             "messages": messages.model_dump()["utterances"],
-            "stop_sequences": stop_sequences,
+            "options": {
+                "stop": stop_sequences,
+            },
             "stream": False,
         }
-        response = requests.post(f"{self.host}/api/chat", headers=headers, data=json.dumps(data))
+        response = requests.post(
+            f"{self.host}/api/chat", headers=headers, data=json.dumps(data)
+        )
         if response.status_code == 200:
             return json.loads(response.text)["message"]["content"]
         else:
             raise Exception(f"Error: {response.status_code}, {response.text}")
         return response.json().get("message", "")
-
-
-
-
-

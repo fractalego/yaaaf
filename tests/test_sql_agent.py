@@ -19,6 +19,7 @@ sqlite_source.ingest(
     table_name="archaeological_findings",
 )
 
+
 class TestSqlAgent(unittest.TestCase):
     def test_simple_output(self):
         client = OllamaClient(
@@ -26,7 +27,9 @@ class TestSqlAgent(unittest.TestCase):
             temperature=0.4,
             max_tokens=1000,
         )
-        messages = Messages().add_user_utterance("what are the most common types of finds in the dataset?")
+        messages = Messages().add_user_utterance(
+            "what are the most common types of finds in the dataset?"
+        )
         message_queue: List[str] = []
         agent = SqlAgent(client, source=sqlite_source)
         answer = agent.query(

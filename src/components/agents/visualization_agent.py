@@ -13,39 +13,37 @@ from src.components.client import BaseClient
 from src.components.data_types import PromptTemplate, Messages
 from src.components.agents.prompts import visualization_agent_prompt_template
 
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 
 
 class VisualizationAgent(BaseAgent):
     _system_prompt: PromptTemplate = visualization_agent_prompt_template
-    _completing_tags: List[str] = ["<complete/>"]
-    _output_tag = "<code>"
-    _stop_sequences = _completing_tags
+    _completing_tags: List[str] = ["COMPLETED_TASK"]
+    _output_tag = "```python"
+    _stop_sequences = _completing_tags + ["```\n"]
     _max_steps = 5
     _hash_to_images_dict: Dict[str, str] = {}
 
     def __init__(self, client: BaseClient):
         self._client = client
 
-    def query(self, messages: Messages, message_queue: Optional[List[str]] = None) -> str:
+    def query(
+        self, messages: Messages, message_queue: Optional[List[str]] = None
+    ) -> str:
         image_name: str = str(hash(str(messages))).replace("-", "") + ".png"
         messages = messages.add_system_prompt(
             self._system_prompt.complete(filename=image_name)
         )
         for _ in range(self._max_steps):
-            answer = self._client.predict(messages=messages, stop_sequences=self._stop_sequences)
+            answer = self._client.predict(
+                messages=messages, stop_sequences=self._stop_sequences
+            )
             messages.add_assistant_utterance(answer)
             matches = re.findall(
-                rf"{self._output_tag}(.+?){self._output_tag.replace('<','</')}",
+                rf"{self._output_tag}(.+)$",
                 answer,
                 re.DOTALL | re.MULTILINE,
             )
-            if not matches:
-                matches = re.findall(
-                    rf"```python(.+?)```",
-                    answer,
-                    re.DOTALL | re.MULTILINE,
-                )
             code_result = "No code found"
             if matches:
                 code = matches[0]
@@ -59,7 +57,7 @@ class VisualizationAgent(BaseAgent):
                     print(e)
                     code_result = f"Error while executing the code above.\nThis exception is raised {str(e)}"
 
-            if self.is_complete(answer):
+            if self.is_complete(answer) or answer.strip() == "":
                 break
 
             messages.add_assistant_utterance(
@@ -77,3 +75,16 @@ class VisualizationAgent(BaseAgent):
         for filename, base64_image in self._hash_to_images_dict.items():
             replaced_answer = replaced_answer.replace(filename, base64_image)
         return replaced_answer
+
+    def get_description(self) -> str:
+        return """
+Visualization agent: This agent creates the relevant visualization in the format of a graph plot using a markdown table.
+To call this agent write ```visualization-agent MARKDOWN TABLE ABOUT WHAT TO PLOT ```
+The information about what to plot will be then used by the agent.
+        """
+
+    def get_opening_tag(self) -> str:
+        return "```visualization-agent"
+
+    def get_closing_tag(self) -> str:
+        return "```"

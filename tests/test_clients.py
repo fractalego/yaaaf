@@ -11,10 +11,11 @@ class TestClients(unittest.TestCase):
             temperature=0.7,
             max_tokens=100,
         )
-        messages = Messages().add_system_prompt("You only say hello.").add_user_utterance("Hello, how are you?")
-        answer = client.predict(
-            messages=messages,
-            stop_sequences=["<complete/>"]
+        messages = (
+            Messages()
+            .add_system_prompt("You only say hello.")
+            .add_user_utterance("Hello, how are you?")
         )
+        answer = client.predict(messages=messages, stop_sequences=["COMPLETED_TASK"])
         expected = "hello"
         self.assertIn(expected, answer.lower())

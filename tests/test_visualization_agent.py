@@ -13,7 +13,9 @@ class TestVisualizationAgent(unittest.TestCase):
             temperature=0.7,
             max_tokens=1000,
         )
-        messages = Messages().add_user_utterance("Create a plot of the first 100 prime numbers")
+        messages = Messages().add_user_utterance(
+            "Create a plot of the first 100 prime numbers"
+        )
         message_queue: List[str] = []
         agent = VisualizationAgent(client)
         answer = agent.query(

@@ -20,7 +20,9 @@ class SqliteSource(BaseSource):
     def get_sql_schema(self) -> str:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
+        tables = cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table';"
+        ).fetchall()
         markdown_schema: str = ""
         for table_name in tables:
             table_name = table_name[0].replace(" ", "_")
@@ -31,7 +33,9 @@ class SqliteSource(BaseSource):
         conn.close()
         return markdown_schema
 
-    def ingest(self, df: pd.DataFrame, table_name: str, if_exists: str="replace") -> None:
+    def ingest(
+        self, df: pd.DataFrame, table_name: str, if_exists: str = "replace"
+    ) -> None:
         conn = sqlite3.connect(self.db_path)
         df.columns = [col.replace(" ", "_") for col in df.columns]
         df.to_sql(table_name, conn, if_exists=if_exists, index=False)

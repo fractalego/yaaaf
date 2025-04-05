@@ -11,6 +11,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "matplotlib" },
+    { name = "mdpd" },
     { name = "nltk" },
     { name = "pandas" },
     { name = "pydantic" },
@@ -23,6 +24,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.1" },
+    { name = "mdpd", specifier = ">=0.2.1" },
     { name = "nltk", specifier = ">=3.9.1" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "pydantic", specifier = ">=2.11.1" },
@@ -337,6 +339,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c9/db/b05bf463689134789b06dea85828f8ebe506fa1e37593f723b65b86c9582/matplotlib-3.10.1-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a3dfb036f34873b46978f55e240cff7a239f6c4409eac62d8145bad3fc6ba5a3", size = 8613864 },
     { url = "https://files.pythonhosted.org/packages/c2/04/41ccec4409f3023a7576df3b5c025f1a8c8b81fbfe922ecfd837ac36e081/matplotlib-3.10.1-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:dc6ab14a7ab3b4d813b88ba957fc05c79493a037f54e246162033591e770de6f", size = 9409487 },
     { url = "https://files.pythonhosted.org/packages/ac/c2/0d5aae823bdcc42cc99327ecdd4d28585e15ccd5218c453b7bcd827f3421/matplotlib-3.10.1-cp313-cp313t-win_amd64.whl", hash = "sha256:bc411ebd5889a78dabbc457b3fa153203e22248bfa6eedc6797be5df0164dbf9", size = 8134832 },
+]
+
+[[package]]
+name = "mdpd"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2f/ec/b31ac809b79e1baa0550e60325273ef437fdde77a65aaa68bdc2b3e82ef9/mdpd-0.2.1.tar.gz", hash = "sha256:041bcd0faabddc8982f70432b71ebe033442f6d495ae4026678ace1b8c4f9897", size = 2834 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d7/9c/f8c498687901bf5c39e05015ea17e689d7f5e68b19a0d5e0c22edb309997/mdpd-0.2.1-py3-none-any.whl", hash = "sha256:7735776f1fa96ac318e89e536aa0e8a9a896163e042d57b1e1c43298d6f6fc26", size = 3449 },
 ]
 
 [[package]]

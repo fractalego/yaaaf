@@ -17,7 +17,7 @@ class SqliteSource(BaseSource):
         except pd.errors.DatabaseError as e:
             return f"Error: {e}"
 
-    def get_sql_schema(self) -> str:
+    def get_description(self) -> str:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         tables = cursor.execute(

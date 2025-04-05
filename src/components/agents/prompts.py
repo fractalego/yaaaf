@@ -29,7 +29,7 @@ Your task is to write an SQL query according the schema below and the user's ins
 {schema}
 </schema>
     
-In the end, you need to output and SQL instruction string that would retrieve information on an sqlite instance
+In the end, you need to output an SQL instruction string that would retrieve information on an sqlite instance
 You can think step-by-step on the actions to take.
 However the final output needs to be an SQL instruction string.
 This output *must* be between the markdown tags ```sql SQL INSTRUCTION STRING ```
@@ -58,4 +58,21 @@ Just save the file, don't show() it.
 
 If the code runs without errors, just write <task-completed/> at the beginning of your answer.
 """
+)
+
+rag_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to retrieve information from a collection of texts and pages organised in a list of folders. 
+The folders indices with their relative descriptions are given below.
+<folders>
+{folders}
+</folders>
+
+Each folder can be queried with a specific query in plain English.
+In the end, you need to output a markdown table with the folder_index and the English query to run on for each folder to answer the user's question.
+You can think step-by-step on the actions to take.
+However the final output needs to be a markdown table.
+This output *must* be between the markdown tags ```retrieved ... ```
+The table must have the following columns: folder_index | query
+    """
 )

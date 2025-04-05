@@ -11,3 +11,9 @@ class BaseSource:
         Get data from the source.
         """
         raise NotImplementedError("Subclasses should implement this method.")
+
+    def get_description(self) -> str:
+        """
+        Get description of the source.
+        """
+        raise NotImplementedError("Subclasses should implement this method.")

@@ -6,7 +6,8 @@ from nltk.tokenize import word_tokenize
 from typing import List, Tuple
 from rank_bm25 import BM25, BM25Okapi
 
-download('stopwords')
+download("stopwords")
+download("punkt_tab")
 
 
 class BM25LocalDB:
@@ -21,15 +22,13 @@ class BM25LocalDB:
         self._texts.append(word_tokenize(text))
 
     def get_indices_from_text(
-            self, text: str, topn: int
+        self, text: str, topn: int
     ) -> Tuple[List[str], List[str]]:
         scores = self._bm25.get_scores(word_tokenize(text))
-        top_n = np.argsort(-scores)[:topn]
-        return [self._indices[i] for i in top_n], scores[:top_n]
+        best_n = np.argsort(-scores)[:topn]
+        return [self._indices[i] for i in best_n], scores[:topn]
 
     def build(self):
         if self._bm25 is None:
             del self._bm25
         self._bm25 = BM25Okapi(self._texts)
-
-

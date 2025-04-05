@@ -19,7 +19,7 @@ class SqlAgent(BaseAgent):
     _max_steps = 5
 
     def __init__(self, client: BaseClient, source: SqliteSource):
-        self._schema = source.get_sql_schema()
+        self._schema = source.get_description()
         self._client = client
         self._source = source
 

@@ -14,9 +14,7 @@ class TestGoalExtractor(unittest.TestCase):
             temperature=0.7,
             max_tokens=1000,
         )
-        messages = Messages().add_user_utterance(
-            "I will need to know the time"
-        )
+        messages = Messages().add_user_utterance("I will need to know the time")
         goal_extractor = GoalExtractor(client=client)
         goal: str = goal_extractor.extract(messages)
         expected: str = "time"

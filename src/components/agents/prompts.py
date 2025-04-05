@@ -14,7 +14,10 @@ These agents only know what you write between tags and have no memory.
 Use the agents to get what you want. Do not write the answer yourself.
 The only html tags they understand are these ones: {all_tags_list}. Use these tags to call the agents.
 
-When you think you have reached your goal, write out the final answer and then <task-completed/>
+The goal to reach is the following:
+{goal}
+
+When you think you have reached this goal, write out the final answer and then <task-completed/>
     """
 )
 

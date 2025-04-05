@@ -1,0 +1,23 @@
+from src.components.client import BaseClient
+from src.components.data_types import Messages, PromptTemplate
+from src.components.extractors.base_extractor import BaseExtractor
+from src.components.extractors.prompts import goal_extractor_prompt
+
+
+class GoalExtractor(BaseExtractor):
+    """
+    GoalExtractor is a class that extracts the goal from a given message.
+    It uses a specific prompt template to guide the extraction process.
+    """
+    _goal_extractor_prompt: PromptTemplate = goal_extractor_prompt
+
+    def __init__(self, client: BaseClient):
+        self._client = client
+
+    def extract(self, messages: Messages) -> str:
+        instructions = Messages().add_system_prompt(
+            self._goal_extractor_prompt.complete(messages=str(messages))
+        )
+        instructions = instructions.add_user_utterance("Write below the goal in a single sentence")
+        answer = self._client.predict(instructions)
+        return answer

@@ -40,3 +40,6 @@ class Messages(BaseModel):
         return "\n".join(
             [f"{utterance.role}: {utterance.content}" for utterance in self.utterances]
         )
+
+    def __str__(self):
+        return self.__repr__()

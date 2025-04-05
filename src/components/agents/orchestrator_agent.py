@@ -1,10 +1,11 @@
 import re
-from typing import List, Tuple, Callable, Optional
+from typing import List, Tuple, Optional
 
 from src.components.agents.base_agent import BaseAgent
 from src.components.client import BaseClient
 from src.components.data_types import Messages
 from src.components.agents.prompts import orchestrator_prompt_template
+from src.components.extractors.goal_extractor import GoalExtractor
 
 
 class OrchestratorAgent(BaseAgent):
@@ -13,6 +14,7 @@ class OrchestratorAgent(BaseAgent):
     _agents_map: {str: BaseAgent} = {}
     _stop_sequences = []
     _max_steps = 10
+    _goal_extractor = GoalExtractor()
 
     def __init__(self, client: BaseClient):
         self._client = client
@@ -23,7 +25,12 @@ class OrchestratorAgent(BaseAgent):
     def query(
         self, messages: Messages, message_queue: Optional[List[str]] = None
     ) -> str:
+        goal = self._goal_extractor.extract_goal(messages)
+        self._system_prompt = self._system_prompt.complete(
+            goal=goal,
+        )
         messages = messages.add_system_prompt(self._system_prompt)
+
         answer: str = ""
         for step_index in range(self._max_steps):
             answer = self._client.predict(messages, stop_sequences=self._stop_sequences)

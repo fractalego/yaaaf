@@ -1,4 +1,4 @@
-from src.components.data_types import PromptTemplate
+from yaaf.components.data_types import PromptTemplate
 
 
 orchestrator_prompt_template = PromptTemplate(

@@ -8,10 +8,10 @@ import numpy as np
 
 from io import StringIO
 from typing import List, Dict, Optional
-from src.components.agents.base_agent import BaseAgent
-from src.components.client import BaseClient
-from src.components.data_types import PromptTemplate, Messages
-from src.components.agents.prompts import visualization_agent_prompt_template
+from yaaf.components.agents.base_agent import BaseAgent
+from yaaf.components.client import BaseClient
+from yaaf.components.data_types import PromptTemplate, Messages
+from yaaf.components.agents.prompts import visualization_agent_prompt_template
 
 matplotlib.use("Agg")
 

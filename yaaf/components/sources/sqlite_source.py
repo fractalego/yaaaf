@@ -1,7 +1,7 @@
 import sqlite3
 import pandas as pd
 
-from src.components.sources.base_source import BaseSource
+from yaaf.components.sources.base_source import BaseSource
 
 
 class SqliteSource(BaseSource):

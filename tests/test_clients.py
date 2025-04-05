@@ -1,7 +1,7 @@
 import unittest
 
-from src.components.client import OllamaClient
-from src.components.data_types import Messages
+from yaaf.components.client import OllamaClient
+from yaaf.components.data_types import Messages
 
 
 class TestClients(unittest.TestCase):

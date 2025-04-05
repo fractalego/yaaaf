@@ -1,11 +1,11 @@
 import re
 from typing import List, Tuple, Optional
 
-from src.components.agents.base_agent import BaseAgent
-from src.components.client import BaseClient
-from src.components.data_types import Messages, PromptTemplate
-from src.components.agents.prompts import orchestrator_prompt_template
-from src.components.extractors.goal_extractor import GoalExtractor
+from yaaf.components.agents.base_agent import BaseAgent
+from yaaf.components.client import BaseClient
+from yaaf.components.data_types import Messages, PromptTemplate
+from yaaf.components.agents.prompts import orchestrator_prompt_template
+from yaaf.components.extractors.goal_extractor import GoalExtractor
 
 
 class OrchestratorAgent(BaseAgent):

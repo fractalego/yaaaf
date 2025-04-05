@@ -3,10 +3,10 @@ import unittest
 import pandas as pd
 
 from typing import List
-from src.components.agents.sql_agent import SqlAgent
-from src.components.client import OllamaClient
-from src.components.data_types import Messages
-from src.components.sources.sqlite_source import SqliteSource
+from yaaf.components.agents.sql_agent import SqlAgent
+from yaaf.components.client import OllamaClient
+from yaaf.components.data_types import Messages
+from yaaf.components.sources.sqlite_source import SqliteSource
 
 _path = os.path.dirname(os.path.abspath(__file__))
 

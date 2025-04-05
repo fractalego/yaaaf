@@ -1,7 +1,7 @@
-from src.components.client import BaseClient
-from src.components.data_types import Messages, PromptTemplate
-from src.components.extractors.base_extractor import BaseExtractor
-from src.components.extractors.prompts import goal_extractor_prompt
+from yaaf.components.client import BaseClient
+from yaaf.components.data_types import Messages, PromptTemplate
+from yaaf.components.extractors.base_extractor import BaseExtractor
+from yaaf.components.extractors.prompts import goal_extractor_prompt
 
 
 class GoalExtractor(BaseExtractor):

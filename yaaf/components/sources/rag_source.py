@@ -1,8 +1,8 @@
 import hashlib
 from typing import List, Dict
 
-from src.components.retrievers.local_vector_db import BM25LocalDB
-from src.components.sources.base_source import BaseSource
+from yaaf.components.retrievers.local_vector_db import BM25LocalDB
+from yaaf.components.sources.base_source import BaseSource
 
 
 class RAGSource(BaseSource):

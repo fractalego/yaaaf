@@ -1,9 +1,9 @@
 import unittest
 from typing import List
 
-from src.components.client import OllamaClient
-from src.components.data_types import Messages
-from src.components.agents.visualization_agent import VisualizationAgent
+from yaaf.components.client import OllamaClient
+from yaaf.components.data_types import Messages
+from yaaf.components.agents.visualization_agent import VisualizationAgent
 
 
 class TestVisualizationAgent(unittest.TestCase):

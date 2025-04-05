@@ -3,11 +3,11 @@ import re
 import pandas as pd
 
 from typing import Optional, List, Dict
-from src.components.agents.base_agent import BaseAgent
-from src.components.client import BaseClient
-from src.components.data_types import Messages, PromptTemplate
-from src.components.agents.prompts import rag_agent_prompt_template
-from src.components.sources.rag_source import RAGSource
+from yaaf.components.agents.base_agent import BaseAgent
+from yaaf.components.client import BaseClient
+from yaaf.components.data_types import Messages, PromptTemplate
+from yaaf.components.agents.prompts import rag_agent_prompt_template
+from yaaf.components.sources.rag_source import RAGSource
 
 
 class RAGAgent(BaseAgent):

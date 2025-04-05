@@ -2,11 +2,11 @@ import os
 import re
 
 from typing import Optional, List, Callable
-from src.components.agents.base_agent import BaseAgent
-from src.components.client import BaseClient
-from src.components.data_types import Messages, PromptTemplate
-from src.components.agents.prompts import sql_agent_prompt_template
-from src.components.sources.sqlite_source import SqliteSource
+from yaaf.components.agents.base_agent import BaseAgent
+from yaaf.components.client import BaseClient
+from yaaf.components.data_types import Messages, PromptTemplate
+from yaaf.components.agents.prompts import sql_agent_prompt_template
+from yaaf.components.sources.sqlite_source import SqliteSource
 
 _path = os.path.dirname(os.path.abspath(__file__))
 

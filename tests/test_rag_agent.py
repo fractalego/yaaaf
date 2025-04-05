@@ -3,10 +3,10 @@ import unittest
 
 from typing import List
 
-from src.components.agents.rag_agent import RAGAgent
-from src.components.client import OllamaClient
-from src.components.data_types import Messages
-from src.components.sources.rag_source import RAGSource
+from yaaf.components.agents.rag_agent import RAGAgent
+from yaaf.components.client import OllamaClient
+from yaaf.components.data_types import Messages
+from yaaf.components.sources.rag_source import RAGSource
 
 _path = os.path.dirname(os.path.abspath(__file__))
 _source = RAGSource("A wiki page about archaeology")

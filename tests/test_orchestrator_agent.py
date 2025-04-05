@@ -1,12 +1,12 @@
 import unittest
 from pprint import pprint
 
-from src.components.agents.orchestrator_agent import OrchestratorAgent
-from src.components.agents.sql_agent import SqlAgent
-from src.components.agents.visualization_agent import VisualizationAgent
-from src.components.client import OllamaClient
-from src.components.data_types import Messages
-from src.components.agents.reflection_agent import ReflectionAgent
+from yaaf.components.agents.orchestrator_agent import OrchestratorAgent
+from yaaf.components.agents.sql_agent import SqlAgent
+from yaaf.components.agents.visualization_agent import VisualizationAgent
+from yaaf.components.client import OllamaClient
+from yaaf.components.data_types import Messages
+from yaaf.components.agents.reflection_agent import ReflectionAgent
 from tests.test_sql_agent import sqlite_source
 
 text_client = OllamaClient(

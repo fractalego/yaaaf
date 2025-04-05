@@ -1,4 +1,4 @@
-from src.components.data_types import PromptTemplate
+from yaaf.components.data_types import PromptTemplate
 
 goal_extractor_prompt = PromptTemplate(
     prompt="""

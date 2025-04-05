@@ -26,7 +26,9 @@ class ReflectionAgent(BaseAgent):
             answer = self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            if (self._output_tag not in answer and self.is_complete(answer)) or answer.strip() == "":
+            if (
+                self._output_tag not in answer and self.is_complete(answer)
+            ) or answer.strip() == "":
                 break
 
             messages = messages.add_user_utterance(

@@ -59,7 +59,11 @@ class VisualizationAgent(BaseAgent):
                     print(e)
                     code_result = f"Error while executing the code above.\nThis exception is raised {str(e)}"
 
-            if self.is_complete(answer) or answer.strip() == "" or code_result.strip() == "":
+            if (
+                self.is_complete(answer)
+                or answer.strip() == ""
+                or code_result.strip() == ""
+            ):
                 break
 
             messages.add_assistant_utterance(

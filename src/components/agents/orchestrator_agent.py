@@ -3,34 +3,30 @@ from typing import List, Tuple, Optional
 
 from src.components.agents.base_agent import BaseAgent
 from src.components.client import BaseClient
-from src.components.data_types import Messages
+from src.components.data_types import Messages, PromptTemplate
 from src.components.agents.prompts import orchestrator_prompt_template
 from src.components.extractors.goal_extractor import GoalExtractor
 
 
 class OrchestratorAgent(BaseAgent):
-    _system_prompt: str = orchestrator_prompt_template
     _completing_tags: List[str] = ["<task-completed/>"]
     _agents_map: {str: BaseAgent} = {}
     _stop_sequences = []
     _max_steps = 10
-    _goal_extractor = GoalExtractor()
 
     def __init__(self, client: BaseClient):
         self._client = client
         self._agents_map = {
             key: agent(client) for key, agent in self._agents_map.items()
         }
+        self._goal_extractor = GoalExtractor(client)
 
     def query(
         self, messages: Messages, message_queue: Optional[List[str]] = None
     ) -> str:
-        goal = self._goal_extractor.extract_goal(messages)
-        self._system_prompt = self._system_prompt.complete(
-            goal=goal,
+        messages = messages.add_system_prompt(
+            self._get_system_prompt(self._goal_extractor.extract(messages))
         )
-        messages = messages.add_system_prompt(self._system_prompt)
-
         answer: str = ""
         for step_index in range(self._max_steps):
             answer = self._client.predict(messages, stop_sequences=self._stop_sequences)
@@ -68,20 +64,6 @@ class OrchestratorAgent(BaseAgent):
             )
         self._agents_map[agent.get_opening_tag()] = agent
         self._stop_sequences.append(agent.get_closing_tag())
-        self._system_prompt = orchestrator_prompt_template.complete(
-            agents_list="\n".join(
-                [
-                    "* " + agent.get_description().strip() + "\n"
-                    for agent in self._agents_map.values()
-                ]
-            ),
-            all_tags_list="\n".join(
-                [
-                    agent.get_opening_tag().strip() + agent.get_closing_tag().strip()
-                    for agent in self._agents_map.values()
-                ]
-            ),
-        )
 
     def map_answer_to_agent(self, answer: str) -> Tuple[BaseAgent | None, str]:
         for tag, agent in self._agents_map.items():
@@ -104,3 +86,20 @@ Orchestrator agent: This agent orchestrates the agents.
 
     def get_closing_tag(self) -> str:
         return "</orchestrator-agent>"
+
+    def _get_system_prompt(self, goal: str) -> str:
+        return orchestrator_prompt_template.complete(
+            agents_list="\n".join(
+                [
+                    "* " + agent.get_description().strip() + "\n"
+                    for agent in self._agents_map.values()
+                ]
+            ),
+            all_tags_list="\n".join(
+                [
+                    agent.get_opening_tag().strip() + agent.get_closing_tag().strip()
+                    for agent in self._agents_map.values()
+                ]
+            ),
+            goal=goal,
+        )

@@ -58,6 +58,7 @@ class VisualizationAgent(BaseAgent):
                 except Exception as e:
                     print(e)
                     code_result = f"Error while executing the code above.\nThis exception is raised {str(e)}"
+                    answer = str(code_result)
 
             if (
                 self.is_complete(answer)

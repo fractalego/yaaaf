@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 
 from yaaf.components.client import OllamaClient
@@ -13,8 +14,11 @@ class TestSelfReflectionAgent(unittest.TestCase):
             max_tokens=100,
         )
         messages = Messages().add_user_utterance("What is the capital of France?")
-        answer = ReflectionAgent(client).query(
-            messages=messages,
+        agent = ReflectionAgent(client)
+        answer = asyncio.run(
+            agent.query(
+                messages=messages,
+            )
         )
         expected = "Paris"
         self.assertIn(expected, answer)

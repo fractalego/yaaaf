@@ -21,15 +21,15 @@ class OrchestratorAgent(BaseAgent):
         }
         self._goal_extractor = GoalExtractor(client)
 
-    def query(
+    async def query(
         self, messages: Messages, message_queue: Optional[List[str]] = None
     ) -> str:
         messages = messages.add_system_prompt(
-            self._get_system_prompt(self._goal_extractor.extract(messages))
+            self._get_system_prompt(await self._goal_extractor.extract(messages))
         )
         answer: str = ""
         for step_index in range(self._max_steps):
-            answer = self._client.predict(messages, stop_sequences=self._stop_sequences)
+            answer = await self._client.predict(messages, stop_sequences=self._stop_sequences)
             if message_queue is not None:
                 message_queue.append(answer)
             if self.is_complete(answer) or answer.strip() == "":
@@ -39,7 +39,7 @@ class OrchestratorAgent(BaseAgent):
                 messages = messages.add_assistant_utterance(
                     f"Calling {agent_to_call.get_name()} with instruction:\n\n{instruction}\n\n"
                 )
-                answer = agent_to_call.query(
+                answer = await agent_to_call.query(
                     Messages().add_user_utterance(instruction),
                     message_queue=message_queue,
                 )

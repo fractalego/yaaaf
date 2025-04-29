@@ -55,8 +55,6 @@ The code needs to be written in python between the tags ```python ... ```
 The goal of the code is generating and image in matplotlib that explains the data.
 This image must be saved in a file named {filename}.
 Just save the file, don't show() it.
-
-If the code runs without errors, just write <task-completed/> at the beginning of your answer.
 """
 )
 

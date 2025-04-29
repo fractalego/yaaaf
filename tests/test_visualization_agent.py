@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from typing import List
 
@@ -14,13 +15,15 @@ class TestVisualizationAgent(unittest.TestCase):
             max_tokens=1000,
         )
         messages = Messages().add_user_utterance(
-            "Create a plot of the first 100 prime numbers"
+            "Create a plot of the first 100 prime numbers through a visualization."
         )
         message_queue: List[str] = []
         agent = VisualizationAgent(client)
-        answer = agent.query(
-            messages=messages,
-            message_queue=message_queue,
+        answer = asyncio.run(
+            agent.query(
+                messages=messages,
+                message_queue=message_queue,
+            )
         )
         print(agent.clean_answer(answer))
         expected = "![Image]("

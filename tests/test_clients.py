@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 
 from yaaf.components.client import OllamaClient
@@ -16,6 +17,8 @@ class TestClients(unittest.TestCase):
             .add_system_prompt("You only say hello.")
             .add_user_utterance("Hello, how are you?")
         )
-        answer = client.predict(messages=messages, stop_sequences=["<task-completed/>"])
+        answer = asyncio.run(
+            client.predict(messages=messages, stop_sequences=["<task-completed/>"])
+        )
         expected = "hello"
         self.assertIn(expected, answer.lower())

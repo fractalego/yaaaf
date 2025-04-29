@@ -1,9 +1,8 @@
+import asyncio
 import unittest
-from typing import List
 
 from yaaf.components.client import OllamaClient
 from yaaf.components.data_types import Messages
-from yaaf.components.agents.visualization_agent import VisualizationAgent
 from yaaf.components.extractors.goal_extractor import GoalExtractor
 
 
@@ -16,6 +15,6 @@ class TestGoalExtractor(unittest.TestCase):
         )
         messages = Messages().add_user_utterance("I will need to know the time")
         goal_extractor = GoalExtractor(client=client)
-        goal: str = goal_extractor.extract(messages)
+        goal: str = asyncio.run(goal_extractor.extract(messages))
         expected: str = "time"
         self.assertIn(expected, goal)

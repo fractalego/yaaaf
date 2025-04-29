@@ -5,7 +5,7 @@ from typing import Optional, List
 
 
 class BaseClient:
-    def predict(
+    async def predict(
         self, messages: "Messages", stop_sequences: Optional[List[str]] = None
     ) -> str:
         """
@@ -33,7 +33,7 @@ class OllamaClient(BaseClient):
         self.max_tokens = max_tokens
         self.host = host
 
-    def predict(
+    async def predict(
         self, messages: "Messages", stop_sequences: Optional[List[str]] = None
     ) -> str:
         headers = {"Content-Type": "application/json"}

@@ -17,13 +17,13 @@ class ReflectionAgent(BaseAgent):
     def __init__(self, client: BaseClient) -> None:
         self._client = client
 
-    def query(
+    async def query(
         self, messages: Messages, message_queue: Optional[List[str]] = None
     ) -> str:
         messages = messages.add_system_prompt(self._system_prompt.complete())
         current_output: str = "No output"
         for _ in range(self._max_steps):
-            answer = self._client.predict(
+            answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
             if (

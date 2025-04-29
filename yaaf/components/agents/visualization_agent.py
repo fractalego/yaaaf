@@ -27,7 +27,7 @@ class VisualizationAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         self._client = client
 
-    def query(
+    async def query(
         self, messages: Messages, message_queue: Optional[List[str]] = None
     ) -> str:
         image_name: str = str(hash(str(messages))).replace("-", "") + ".png"
@@ -35,7 +35,7 @@ class VisualizationAgent(BaseAgent):
             self._system_prompt.complete(filename=image_name)
         )
         for _ in range(self._max_steps):
-            answer = self._client.predict(
+            answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
             messages.add_assistant_utterance(answer)

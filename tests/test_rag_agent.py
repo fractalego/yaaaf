@@ -1,3 +1,4 @@
+import asyncio
 import os
 import unittest
 
@@ -32,9 +33,11 @@ class TestSqlAgent(unittest.TestCase):
         )
         message_queue: List[str] = []
         agent = RAGAgent(client, sources=[_source])
-        answer = agent.query(
-            messages=messages,
-            message_queue=message_queue,
+        answer = asyncio.run(
+            agent.query(
+                messages=messages,
+                message_queue=message_queue,
+            )
         )
         expected = "excavation"
         self.assertIn(expected, answer)

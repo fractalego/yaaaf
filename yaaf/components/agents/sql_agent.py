@@ -23,7 +23,7 @@ class SqlAgent(BaseAgent):
         self._client = client
         self._source = source
 
-    def query(
+    async def query(
         self, messages: Messages, message_queue: Optional[List[str]] = None
     ) -> str:
         messages = messages.add_system_prompt(
@@ -31,7 +31,7 @@ class SqlAgent(BaseAgent):
         )
         current_output: str = "No output"
         for _ in range(self._max_steps):
-            answer = self._client.predict(
+            answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
             if self.is_complete(answer) or answer.strip() == "":

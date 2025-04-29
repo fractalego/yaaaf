@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from pprint import pprint
 
@@ -31,10 +32,10 @@ class TestOrchestratorAgent(unittest.TestCase):
         messages = Messages().add_user_utterance(
             "How many archaeological findings are there in the dataset?"
         )
-        answer = agent.query(
+        answer = asyncio.run(agent.query(
             messages=messages,
             message_queue=message_queue,
-        )
+        ))
         pprint(message_queue)
         expected = "1015"
         self.assertIn(expected, "\n".join(message_queue))
@@ -44,9 +45,11 @@ class TestOrchestratorAgent(unittest.TestCase):
         messages = Messages().add_user_utterance(
             "What is the most common description of archeological finding? visualize the top5 and give me the answer in a single sentence."
         )
-        answer = agent.query(
-            messages=messages,
-            message_queue=message_queue,
+        answer = asyncio.run(
+            agent.query(
+                messages=messages,
+                message_queue=message_queue,
+            )
         )
         pprint(message_queue)
         print(answer)

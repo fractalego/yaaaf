@@ -14,5 +14,7 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "requests>=2.32.3",
     "ruff>=0.11.2",
+    "scikit-learn>=1.6.1",
+    "singleton-decorator>=1.0.0",
     "tabulate>=0.9.0",
 ]

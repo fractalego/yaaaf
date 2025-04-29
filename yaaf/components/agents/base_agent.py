@@ -2,7 +2,7 @@ from typing import Optional, List
 
 
 class BaseAgent:
-    def query(
+    async def query(
         self, messages: "Messages", message_queue: Optional[List[str]] = None
     ) -> str:
         pass

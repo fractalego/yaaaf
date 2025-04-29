@@ -1,3 +1,4 @@
+import asyncio
 import os
 import unittest
 import pandas as pd
@@ -32,9 +33,11 @@ class TestSqlAgent(unittest.TestCase):
         )
         message_queue: List[str] = []
         agent = SqlAgent(client, source=sqlite_source)
-        answer = agent.query(
-            messages=messages,
-            message_queue=message_queue,
+        answer = asyncio.run(
+            agent.query(
+                messages=messages,
+                message_queue=message_queue,
+            )
         )
         expected = "Archaeological Priority Area - Tier II"
         self.assertIn(expected, answer)

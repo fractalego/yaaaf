@@ -7,11 +7,12 @@ class MCPConnector:
 
 
 async def run():
-    async with MCPServerHTTP(url='http://localhost:8080/sse') as server:
+    async with MCPServerHTTP(url="http://localhost:8080/sse") as server:
         tools = await server.list_tools()
         print(tools)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import asyncio
+
     asyncio.run(run())

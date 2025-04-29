@@ -16,12 +16,12 @@ class GoalExtractor(BaseExtractor):
         super().__init__()
         self._client = client
 
-    def extract(self, messages: Messages) -> str:
+    async def extract(self, messages: Messages) -> str:
         instructions = Messages().add_system_prompt(
             self._goal_extractor_prompt.complete(messages=str(messages))
         )
         instructions = instructions.add_user_utterance(
             "Write below the goal in a single sentence"
         )
-        answer = self._client.predict(instructions)
+        answer = await self._client.predict(instructions)
         return answer

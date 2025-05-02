@@ -1,0 +1,150 @@
+import base64
+import os
+import pandas as pd
+import sklearn
+import sys
+import re
+from io import StringIO
+from typing import List, Optional, Tuple
+
+from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
+from yaaf.components.agents.base_agent import BaseAgent
+from yaaf.components.agents.prompts import reviewer_agent_prompt_template_without_model, reviewer_agent_prompt_template_with_model
+from yaaf.components.client import BaseClient
+from yaaf.components.data_types import PromptTemplate, Messages, Utterance
+
+
+class ReviewerAgent(BaseAgent):
+    _completing_tags: List[str] = ["<task-completed/>"]
+    _output_tag = "```python"
+    _stop_sequences = _completing_tags
+    _max_steps = 5
+    _storage = ArtefactStorage()
+
+    def __init__(self, client: BaseClient):
+        self._client = client
+
+    async def query(
+        self, messages: Messages, message_queue: Optional[List[str]] = None
+    ) -> str:
+        last_utterance = messages.utterances[-1]
+        artefact_list = List[Artefact] = self._get_artefacts(last_utterance)
+        if not artefact_list:
+            return "No artefacts was given"
+
+        messages = messages.add_system_prompt(
+            self._create_prompt_from_artefacts(artefact_list)
+        )
+        df, model = self._get_table_and_model_from_artefacts(artefact_list)
+        answer = "No information found"
+        for _ in range(self._max_steps):
+            answer = await self._client.predict(
+                messages=messages, stop_sequences=self._stop_sequences
+            )
+            messages.add_assistant_utterance(answer)
+            matches = re.findall(
+                rf"{self._output_tag}(.+)```",
+                answer,
+                re.DOTALL | re.MULTILINE,
+            )
+            code_result = "No code found"
+            if matches:
+                code = matches[0]
+                try:
+                    old_stdout = sys.stdout
+                    redirected_output = sys.stdout = StringIO()
+                    exec(code)
+                    sys.stdout = old_stdout
+                    code_result = redirected_output.getvalue()
+                    if code_result.strip() == "":
+                        code_result = ""
+                except Exception as e:
+                    print(e)
+                    code_result = f"Error while executing the code above.\nThis exception is raised {str(e)}"
+                    answer = str(code_result)
+
+            if (
+                self.is_complete(answer)
+                or answer.strip() == ""
+                or code_result.strip() == ""
+            ):
+                break
+
+            messages.add_assistant_utterance(
+                f"The result is: {code_result}. If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
+            )
+
+        return answer
+
+    def clean_answer(self, answer: str) -> str:
+        replaced_answer = str(answer)
+        for filename, base64_image in self._hash_to_images_dict.items():
+            replaced_answer = replaced_answer.replace(filename, base64_image)
+        return replaced_answer
+
+    def get_description(self) -> str:
+        return f"""
+Reviewer agent: This agent is given the relevant artifact table and searcehs for a specific piece of information.
+To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEFACTS THAT DESCRIBE WHAT TO RETRIEVE FROM THE DATA {self.get_closing_tag()}
+This agent is called when you need to check if the output of the sql agent answers the oevarching goal.
+The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artifact> ... </artifact> that describe were found by the other agents above.
+Do *not* use images in the arguments of this agent.
+        """
+
+    def get_opening_tag(self) -> str:
+        return "<revieweragent>"
+
+    def get_closing_tag(self) -> str:
+        return "</revieweragent>"
+
+    def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
+        artifact_matches = re.findall(rf"<artifact>(.+?)</artifact>", last_utterance.content, re.MULTILINE|re.DOTALL)
+        if not artifact_matches:
+            return []
+
+        artefacts: List[Artefact] = []
+        for match in artifact_matches:
+            artefact_id: str = match
+            try:
+                artefacts.append(self._storage.retrieve_from_id(artefact_id))
+            except RuntimeError:
+                raise ValueError(f"Artefact with id {artefact_id} not found.")
+
+        return artefacts
+
+    def _create_prompt_from_artefacts(self, artefact_list: List[Artefact]) -> str:
+        table_artefacts = [
+            item for item in artefact_list if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
+        ]
+        models_artefacts = [
+            item for item in artefact_list if item.type == Artefact.Types.MODEL
+        ]
+        if not table_artefacts and not models_artefacts:
+            raise ValueError("No artefacts found in the message.")
+        if not table_artefacts:
+            table_artefacts = [pd.DataFrame()]
+
+        if not models_artefacts:
+            return reviewer_agent_prompt_template_without_model.complete(
+                data_source_name="dataframe",
+                data_source_type=str(type(table_artefacts[0].data)),
+                schema=table_artefacts[0].description
+            )
+
+        return reviewer_agent_prompt_template_with_model.complete(
+            data_source_name="dataframe",
+            data_source_type=str(type(table_artefacts[0].data)),
+            schema=table_artefacts[0].description,
+            model_name="sklearn_model",
+            sklearn_model=models_artefacts[0].model,
+            training_code=models_artefacts[0].code,
+        )
+
+    def _get_table_and_model_from_artefacts(self, artefact_list: List[Artefact]) -> Tuple[pd.DataFrame, sklearn.base.BaseEstimator]:
+        table_artefacts = [
+            item for item in artefact_list if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
+        ]
+        models_artefacts = [
+            item for item in artefact_list if item.type == Artefact.Types.MODEL
+        ]
+        return table_artefacts[0].data if table_artefacts else None, models_artefacts[0].model if models_artefacts else None

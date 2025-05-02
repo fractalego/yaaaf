@@ -74,3 +74,52 @@ This output *must* be between the markdown tags ```retrieved ... ```
 The table must have the following columns: folder_index | query
     """
 )
+
+
+reviewer_agent_prompt_template_without_model = PromptTemplate(
+    prompt="""
+Your task is to create a python code that extract the information specified in the instructions. 
+The code needs to be writte in Python between the tags <code>...</code>
+The goal of this code is to see if some specific piece of information is in the provided dataframe.
+
+This agent is given the input information into an already-defined global variable called "{data_source_name}".
+This dataframe is of type "{data_source_type}".
+The schema of this dataframe is:
+<dataframe_schema>
+{schema}
+</dataframe_schema>
+Do not create a new dataframe. Use only the one specified above.
+
+Additionally, the model is given a pre-trained sklearn model into an already-defined global variable called "{model_name}".
+<sklearn_model>
+{sklearn_model}
+</sklearn_model>
+
+This model has been trained using the code
+<training_code>
+{training_code}
+</training_code>
+
+Follow your instructions using the dataframe and the sklearn model to extract the relevant information.
+When you are done output the tag <task-completed/>.
+    """
+)
+
+reviewer_agent_prompt_template_with_model = PromptTemplate(
+    prompt="""
+Your task is to create a python code that extract the information specified in the instructions. 
+The code needs to be writte in Python between the tags <code>...</code>
+The goal of this code is to see if some specific piece of information is in the provided dataframe.
+
+This agent is given the input information into an already-defined global variable called "{data_source_name}".
+This dataframe is of type "{data_source_type}".
+The schema of this dataframe is:
+<dataframe_schema>
+{schema}
+</dataframe_schema>
+Do not create a new dataframe. Use only the one specified above.
+
+Follow your instructions using the dataframe and the sklearn model to extract the relevant information.
+When you are done output the tag <task-completed/>.
+    """
+)

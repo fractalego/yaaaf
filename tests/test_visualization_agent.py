@@ -15,7 +15,7 @@ class TestVisualizationAgent(unittest.TestCase):
             max_tokens=1000,
         )
         messages = Messages().add_user_utterance(
-            "Create a plot of the first 100 prime numbers through a visualization."
+            "Create a plot of the first 100 prime numbers through a visualization. A dummy artefact is <artefact>IDID</artefact>."
         )
         message_queue: List[str] = []
         agent = VisualizationAgent(client)
@@ -26,5 +26,5 @@ class TestVisualizationAgent(unittest.TestCase):
             )
         )
         print(agent.clean_answer(answer))
-        expected = "![Image]("
+        expected = "<artefact type='image'>"
         self.assertIn(expected, answer)

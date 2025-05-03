@@ -1,7 +1,15 @@
+import hashlib
 import os
 import re
+from io import StringIO
+from tabnanny import verbose
+from tokenize import String
 
 from typing import Optional, List, Callable
+
+import pandas as pd
+
+from yaaf.components.agents.artefacts import ArtefactStorage, Artefact
 from yaaf.components.agents.base_agent import BaseAgent
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import Messages, PromptTemplate
@@ -17,6 +25,7 @@ class SqlAgent(BaseAgent):
     _output_tag = "```sql"
     _stop_sequences = ["<task-completed/>"]
     _max_steps = 5
+    _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient, source: SqliteSource):
         self._schema = source.get_description()
@@ -29,7 +38,8 @@ class SqlAgent(BaseAgent):
         messages = messages.add_system_prompt(
             self._system_prompt.complete(schema=self._schema)
         )
-        current_output: str = "No output"
+        current_output: str | pd.DataFrame = "No output"
+        sql_query = "No SQL query"
         for _ in range(self._max_steps):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
@@ -57,7 +67,19 @@ class SqlAgent(BaseAgent):
                     f"The answer is {answer} but there is no SQL call. Try again. If there are errors correct the SQL query accordingly."
                 )
 
-        return current_output
+        df_info_output = StringIO()
+        table_id = hashlib.md5(current_output.to_markdown().encode()).hexdigest()
+        current_output.info(verbose=True, buf=df_info_output)
+        self._storage.store_artefact(
+            table_id,
+            Artefact(
+                type=Artefact.Types.TABLE,
+                data=current_output,
+                description=df_info_output.getvalue(),
+                code=sql_query,
+            )
+        )
+        return f"The result is in this artiface <artefact type='table'>{table_id}</artefact>."
 
     def get_description(self) -> str:
         return f"""

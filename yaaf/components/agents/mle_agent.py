@@ -1,29 +1,25 @@
 import base64
 import logging
 import os
-
 import sys
-import matplotlib
 import re
+import sklearn
 import numpy as np
+import pandas as pd
 
 from io import StringIO
 from typing import List, Dict, Optional, Tuple
-
-import pandas as pd
-import sklearn
 
 from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.agents.base_agent import BaseAgent
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import Messages, Utterance
-from yaaf.components.agents.prompts import visualization_agent_prompt_template_without_model, visualization_agent_prompt_template_with_model
+from yaaf.components.agents.prompts import mle_agent_prompt_template_without_model
 
 _logger = logging.getLogger(__name__)
-matplotlib.use("Agg")
 
 
-class VisualizationAgent(BaseAgent):
+class MleAgent(BaseAgent):
     _completing_tags: List[str] = ["<task-completed/>"]
     _output_tag = "```python"
     _stop_sequences = _completing_tags
@@ -38,10 +34,17 @@ class VisualizationAgent(BaseAgent):
     ) -> str:
         last_utterance = messages.utterances[-1]
         artefact_list: List[Artefact] = self._get_artefacts(last_utterance)
-        image_id: str = str(hash(str(messages))).replace("-", "")
-        image_name: str = image_id + ".png"
+        if not artefact_list:
+            return "No artefacts was given"
+
         messages = messages.add_system_prompt(
-            self._create_prompt_from_artefacts(artefact_list, image_name)
+            self._create_prompt_from_artefacts(artefact_list)
+        )
+        df, model = self._get_table_and_model_from_artefacts(artefact_list)
+        hash_string: str = str(hash(str(messages))).replace("-", "")
+        model_name: str = hash_string + ".png"
+        messages = messages.add_system_prompt(
+            self._create_prompt_from_artefacts(artefact_list, model_name)
         )
         df, model = self._get_table_and_model_from_artefacts(artefact_list)
         code = ""
@@ -84,21 +87,19 @@ class VisualizationAgent(BaseAgent):
                 f"The result is: {code_result}. If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
             )
 
-        with open(image_name, "rb") as file:
-            base64_image: str = base64.b64encode(file.read()).decode("ascii")
+        if os.path.exists(model_name):
             self._storage.store_artefact(
-                image_id,
+                hash_string,
                 Artefact(
-                    type=Artefact.Types.IMAGE,
-                    image=base64_image,
+                    type=Artefact.Types.MODEL,
                     description=str(messages),
                     code=code,
                     data=df,
-                    id=image_id,
+                    id=hash_string,
                 ),
             )
-            os.remove(image_name)
-        return f"The result is in this artefact <artefact type='image'>{image_id}</artefact>"
+            os.remove(model_name)
+        return f"The result is in this artefact <artefact type='model'>{hash_string}</artefact>"
 
 
     def get_description(self) -> str:
@@ -129,7 +130,7 @@ The information about what to plot will be then used by the agent.
 
         return artefacts
 
-    def _create_prompt_from_artefacts(self, artefact_list: List[Artefact], image_name: str) -> str:
+    def _create_prompt_from_artefacts(self, artefact_list: List[Artefact], filename: str) -> str:
         table_artefacts = [
             item for item in artefact_list if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
         ]
@@ -146,21 +147,21 @@ The information about what to plot will be then used by the agent.
             ]
 
         if not models_artefacts:
-            return visualization_agent_prompt_template_without_model.complete(
+            return mle_agent_prompt_template_without_model.complete(
                 data_source_name="dataframe",
                 data_source_type=str(type(table_artefacts[0].data)),
                 schema=table_artefacts[0].description,
-                filename=image_name,
+                filename=filename,
             )
 
-        return visualization_agent_prompt_template_with_model.complete(
+        return mle_agent_prompt_template_without_model.complete(
             data_source_name="dataframe",
             data_source_type=str(type(table_artefacts[0].data)),
             schema=table_artefacts[0].description,
             model_name="sklearn_model",
             sklearn_model=models_artefacts[0].model,
             training_code=models_artefacts[0].code,
-            filename=image_name,
+            filename=filename,
         )
 
     def _get_table_and_model_from_artefacts(self, artefact_list: List[Artefact]) -> Tuple[pd.DataFrame, sklearn.base.BaseEstimator]:

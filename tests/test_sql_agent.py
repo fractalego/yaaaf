@@ -4,6 +4,8 @@ import unittest
 import pandas as pd
 
 from typing import List
+
+from yaaf.components.agents.artefacts import ArtefactStorage
 from yaaf.components.agents.sql_agent import SqlAgent
 from yaaf.components.client import OllamaClient
 from yaaf.components.data_types import Messages
@@ -39,5 +41,8 @@ class TestSqlAgent(unittest.TestCase):
                 message_queue=message_queue,
             )
         )
+        storage = ArtefactStorage()
+        artefact = storage.retrieve_from_utterance_string(answer)
         expected = "Archaeological Priority Area - Tier II"
-        self.assertIn(expected, answer)
+        print(artefact.data.to_markdown())
+        self.assertIn(expected, artefact.data.to_markdown(index=False))

@@ -1,11 +1,15 @@
+import logging
 import re
 from typing import List, Tuple, Optional
 
+from yaaf.components.agents.artefacts import Artefact
 from yaaf.components.agents.base_agent import BaseAgent
 from yaaf.components.client import BaseClient
-from yaaf.components.data_types import Messages, PromptTemplate
+from yaaf.components.data_types import Messages, PromptTemplate, Utterance
 from yaaf.components.agents.prompts import orchestrator_prompt_template
 from yaaf.components.extractors.goal_extractor import GoalExtractor
+
+_logger = logging.getLogger(__name__)
 
 
 class OrchestratorAgent(BaseAgent):
@@ -43,6 +47,9 @@ class OrchestratorAgent(BaseAgent):
                     Messages().add_user_utterance(instruction),
                     message_queue=message_queue,
                 )
+                if "<artefact type='image'>" in answer:
+                    image_artefact: Artefact = self._get_artefacts(answer)
+                    answer = f"<imageoutput>{image_artefact.id}</imageoutput>" + "\n" + answer
                 if message_queue is not None:
                     message_queue.append(agent_to_call.clean_answer(answer))
                 messages = messages.add_user_utterance(
@@ -103,3 +110,19 @@ Orchestrator agent: This agent orchestrates the agents.
             ),
             goal=goal,
         )
+
+    def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
+        artefact_matches = re.findall(rf"<artefact>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
+        if not artefact_matches:
+            return []
+
+        artefacts: List[Artefact] = []
+        for match in artefact_matches:
+            artefact_id: str = match
+            try:
+                artefacts.append(self._storage.retrieve_from_id(artefact_id))
+            except ValueError:
+                _logger.warning(f"Artefact with id {artefact_id} not found.")
+                pass
+
+        return artefacts

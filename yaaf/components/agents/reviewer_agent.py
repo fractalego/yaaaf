@@ -1,4 +1,5 @@
 import base64
+import logging
 import os
 import pandas as pd
 import sklearn
@@ -12,6 +13,8 @@ from yaaf.components.agents.base_agent import BaseAgent
 from yaaf.components.agents.prompts import reviewer_agent_prompt_template_without_model, reviewer_agent_prompt_template_with_model
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import PromptTemplate, Messages, Utterance
+
+_logger = logging.getLogger(__name__)
 
 
 class ReviewerAgent(BaseAgent):
@@ -28,7 +31,7 @@ class ReviewerAgent(BaseAgent):
         self, messages: Messages, message_queue: Optional[List[str]] = None
     ) -> str:
         last_utterance = messages.utterances[-1]
-        artefact_list = List[Artefact] = self._get_artefacts(last_utterance)
+        artefact_list: List[Artefact] = self._get_artefacts(last_utterance)
         if not artefact_list:
             return "No artefacts was given"
 
@@ -53,6 +56,8 @@ class ReviewerAgent(BaseAgent):
                 try:
                     old_stdout = sys.stdout
                     redirected_output = sys.stdout = StringIO()
+                    global_variables = globals().copy()
+                    global_variables.update({"dataframe": df, "sklearn_model": model})
                     exec(code)
                     sys.stdout = old_stdout
                     code_result = redirected_output.getvalue()
@@ -84,10 +89,10 @@ class ReviewerAgent(BaseAgent):
 
     def get_description(self) -> str:
         return f"""
-Reviewer agent: This agent is given the relevant artifact table and searcehs for a specific piece of information.
+Reviewer agent: This agent is given the relevant artefact table and searcehs for a specific piece of information.
 To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEFACTS THAT DESCRIBE WHAT TO RETRIEVE FROM THE DATA {self.get_closing_tag()}
 This agent is called when you need to check if the output of the sql agent answers the oevarching goal.
-The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artifact> ... </artifact> that describe were found by the other agents above.
+The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above.
 Do *not* use images in the arguments of this agent.
         """
 
@@ -98,17 +103,18 @@ Do *not* use images in the arguments of this agent.
         return "</revieweragent>"
 
     def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
-        artifact_matches = re.findall(rf"<artifact>(.+?)</artifact>", last_utterance.content, re.MULTILINE|re.DOTALL)
-        if not artifact_matches:
+        artefact_matches = re.findall(rf"<artefact>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
+        if not artefact_matches:
             return []
 
         artefacts: List[Artefact] = []
-        for match in artifact_matches:
+        for match in artefact_matches:
             artefact_id: str = match
             try:
                 artefacts.append(self._storage.retrieve_from_id(artefact_id))
-            except RuntimeError:
-                raise ValueError(f"Artefact with id {artefact_id} not found.")
+            except ValueError:
+                _logger.warning(f"Artefact with id {artefact_id} not found.")
+                pass
 
         return artefacts
 

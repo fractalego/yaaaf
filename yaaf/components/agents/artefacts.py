@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Optional, Dict
 
 import pandas as pd
@@ -37,8 +38,15 @@ class ArtefactStorage:
     def store_artefact(self, hash_key: str, artefact: Artefact):
         self.hash_to_artefact_dict[hash_key] = artefact
 
-    def retrieve_artefact(self, hash_key: str) -> Optional[Artefact]:
+    def retrieve_from_id(self, hash_key: str) -> Optional[Artefact]:
         if hash_key not in self.hash_to_artefact_dict:
             _logger.warning(f"Artefact with hash {hash_key} not found.")
             raise ValueError(f"Artefact with hash {hash_key} not found.")
         return self.hash_to_artefact_dict.get(hash_key)
+
+    def retrieve_from_utterance_string(self, utterance: str) -> Optional[Artefact]:
+        artefact_matches = re.findall(rf"<artefact.*>(.+?)</artefact>", utterance, re.MULTILINE | re.DOTALL)
+        if not artefact_matches:
+            return None
+
+        return self.retrieve_from_id(artefact_matches[0])

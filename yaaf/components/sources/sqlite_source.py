@@ -9,13 +9,12 @@ class SqliteSource(BaseSource):
         super().__init__(name)
         self.db_path = db_path
 
-    def get_data(self, query: str) -> str:
+    def get_data(self, query: str) -> pd.DataFrame:
         conn = sqlite3.connect(self.db_path)
         try:
-            table = pd.read_sql_query(query, conn)
-            return table.to_markdown()
+            return pd.read_sql_query(query, conn)
         except pd.errors.DatabaseError as e:
-            return f"Error: {e}"
+            raise RuntimeError(f"Error: {e}")
 
     def get_description(self) -> str:
         conn = sqlite3.connect(self.db_path)

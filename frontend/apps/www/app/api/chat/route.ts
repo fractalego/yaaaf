@@ -1,88 +1,92 @@
-import { createGroq } from "@ai-sdk/groq"
-import { convertToCoreMessages, streamText, tool } from "ai"
-import { z } from "zod"
-
-import { delay } from "@/lib/delay"
-import { getWeather } from "@/lib/weather"
-
-export const maxDuration = 30
-
-const LLAMA_MODEL = "llama-3.3-70b-versatile"
-const DEEPSEEK_MODEL = "deepseek-r1-distill-llama-70b"
-
-const groq = createGroq({
-  fetch: async (url, options) => {
-    if (options?.body) {
-      const body = JSON.parse(options.body as string)
-      if (body?.model === DEEPSEEK_MODEL) {
-        body.reasoning_format = "parsed"
-        options.body = JSON.stringify(body)
-      }
-    }
-
-    return fetch(url, options)
-  },
-})
+import { createDataStreamResponse } from "ai";
+import {complete_tag, create_stream_url, get_utterances_url} from "@/app/api/chat/settings";
 
 export async function POST(req: Request) {
-  const { messages, model = LLAMA_MODEL } = await req.json()
+  const { messages, session_id } = await req.json();
+  const stream_id = session_id;
+  messages.forEach(
+    (item: string) => {
+      delete(item["parts"]);
+    }
+  )
+  await createStream(stream_id, messages);
+  const result = createDataStreamResponse({
+    async execute(dataStream) {
+      dataStream.write('0:"Thinking... <br/><br/>"\n');
 
-  const result = streamText({
-    model: groq(model),
-    messages: [
-      {
-        role: "system",
-        content: SYSTEM_PROMPT,
-      },
-      ...convertToCoreMessages(messages),
-    ],
-    maxSteps: 3,
-    tools: {
-      weather: tool({
-        description: "Look up the weather in a given location",
-        parameters: z.object({
-          location: z.string().describe("The location to get the weather for"),
-        }),
-        execute: async ({ location }) => {
-          return await getWeather(location)
-        },
-      }),
-      delay: tool({
-        description: "Pauses the chatbot for a given duration",
-        parameters: z.object({
-          duration: z
-            .number()
-            .positive()
-            .describe("The duration to pause in seconds"),
-        }),
-        execute: async ({ duration }) => {
-          return await delay(duration)
-        },
-      }),
-    },
+      let stopIterations: boolean = false;
+      let current_index = 0;
+      const max_time_in_chat = 360000; // seconds, see timeout below
+      for(let i=0; i < max_time_in_chat; i++) {
+        const utterances: Array<string> = await getUtterances(stream_id);
+        const new_utterances = utterances.slice(current_index);
+        current_index += new_utterances.length;
+        new_utterances.forEach(
+          (utterance: string) => {
+            if(utterance.indexOf(complete_tag) !== -1) {
+              stopIterations = true;
+            }
+            utterance = utterance.replaceAll("\n", "<br/>");
+            utterance = utterance.replaceAll("\"", "&quot;");
+            utterance = utterance.replaceAll("\t", "&nbsp;&nbsp;&nbsp;&nbsp;");
+            dataStream.write(`0:"${utterance}<br/><br/>"\n`);
+          }
+        );
+        if(stopIterations) {
+          break;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
   })
-
-  return result.toDataStreamResponse({
-    sendReasoning: true,
-  })
+  return result;
 }
 
-const SYSTEM_PROMPT = `You are a helpful AI assistant demonstrating the shadcn-chatbot-kit component library. You aim to be helpful and knowledgeable while showing off the UI capabilities of the chat interface.
+async function createStream(stream_id: string, messages: Array<Map<string, string>>): Promise<string> {
+  const url = create_stream_url;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify({
+        stream_id,
+        messages,
+      }),
+    });
+    if (response.ok) {
+      return await response.json();
+    } else {
+      throw new Error(`Error: ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error("Error fetching data:", error);
+  }
+  return "Error in creating stream";
+}
 
-Important guidelines:
-1. Only use tools when they are specifically needed to complete a task or explicitly requested. Never call tools automatically or in response to random input.
-
-2. If you receive unclear input or random text (e.g., "asdfgh"), respond politely asking for clarification instead of making assumptions or calling tools.
-
-3. Keep responses concise and focused to demonstrate good chat UI practices. Use appropriate formatting when helpful (bold, italic, lists).
-
-4. Refuse any requests for harmful content, generation of malicious code, or private information. Explain why such requests cannot be fulfilled.
-
-5. You can engage in casual conversation, answer questions, help with tasks, and provide information about the component library itself when asked.
-
-Sample appropriate responses:
-- For "hi": "Hello! How can I help you today?"
-- For "asdfgh": "I didn't quite understand that. Could you please rephrase or clarify what you're looking for?"
-- For "what's the weather like?": "I can check the weather for you. Which city would you like to know about?"
-
-Remember: You're here to be helpful while demonstrating good chatbot UI/UX practices. Keep responses natural but professional.`
+async function getUtterances(stream_id: string): Promise<string> {
+  const url = get_utterances_url;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify({
+        stream_id,
+      }),
+    });
+    if (response.ok) {
+      return await response.json();
+    } else {
+      throw new Error(`Error: ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error("Error fetching data:", error);
+  }
+  return "Error in getting utterances";
+}

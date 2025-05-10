@@ -17,7 +17,7 @@ The only html tags they understand are these ones: {all_tags_list}. Use these ta
 The goal to reach is the following:
 {goal}
 
-When you think you have reached this goal, write out the final answer and then <task-completed/>
+When you think you have reached this goal, write out the final answer and then {task_completed_tag}
     """
 )
 
@@ -63,7 +63,7 @@ The schema of this dataframe is:
 Do not create a new dataframe. Use only the one specified above.
 
 Just save the file, don't show() it.
-When you are done output the tag <task-completed/>.
+When you are done output the tag {task_completed_tag}.
 """
 )
 
@@ -94,7 +94,7 @@ This model has been trained using the code
 Follow your instructions using the dataframe and the sklearn model to extract the relevant information.
 
 Just save the file, don't show() it.
-When you are done output the tag <task-completed/>.
+When you are done output the tag {task_completed_tag}.
 """
 )
 
@@ -142,7 +142,7 @@ This model has been trained using the code
 </training_code>
 
 Follow your instructions using the dataframe and the sklearn model to extract the relevant information.
-When you are done output the tag <task-completed/>.
+When you are done output the tag {task_completed_tag}.
     """
 )
 
@@ -161,7 +161,7 @@ The schema of this dataframe is:
 Do not create a new dataframe. Use only the one specified above.
 
 Follow your instructions using the dataframe and the sklearn model to extract the relevant information.
-When you are done output the tag <task-completed/>.
+When you are done output the tag {task_completed_tag}.
     """
 )
 
@@ -179,6 +179,6 @@ The schema of this dataframe is:
 {schema}
 </dataframe_schema>
 Do not create a new dataframe. Use only the one specified above.
-When you are done output the tag <task-completed/>.
+When you are done output the tag {task_completed_tag}.
 """
 )

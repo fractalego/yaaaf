@@ -1,6 +1,8 @@
 from typing import List
 from pydantic import BaseModel, Field
 
+from yaaf.components.agents.settings import task_completed_tag
+
 
 class Utterance(BaseModel):
     role: str = Field(
@@ -14,7 +16,7 @@ class PromptTemplate(BaseModel):
     prompt: str = Field(..., description="The prompt template string")
 
     def complete(self, **kwargs) -> str:
-        return self.prompt.format(**kwargs)
+        return self.prompt.replace("{task_completed_tag}", task_completed_tag).format(**kwargs)
 
 
 class Messages(BaseModel):

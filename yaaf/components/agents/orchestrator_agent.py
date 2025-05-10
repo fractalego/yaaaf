@@ -4,6 +4,7 @@ from typing import List, Tuple, Optional
 
 from yaaf.components.agents.artefacts import Artefact
 from yaaf.components.agents.base_agent import BaseAgent
+from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import Messages, PromptTemplate, Utterance
 from yaaf.components.agents.prompts import orchestrator_prompt_template
@@ -13,7 +14,7 @@ _logger = logging.getLogger(__name__)
 
 
 class OrchestratorAgent(BaseAgent):
-    _completing_tags: List[str] = ["<task-completed/>"]
+    _completing_tags: List[str] = [task_completed_tag]
     _agents_map: {str: BaseAgent} = {}
     _stop_sequences = []
     _max_steps = 10
@@ -40,6 +41,8 @@ class OrchestratorAgent(BaseAgent):
                 break
             agent_to_call, instruction = self.map_answer_to_agent(answer)
             if agent_to_call is not None:
+                if message_queue is not None:
+                    message_queue.append(agent_to_call.get_closing_tag())
                 messages = messages.add_assistant_utterance(
                     f"Calling {agent_to_call.get_name()} with instruction:\n\n{instruction}\n\n"
                 )

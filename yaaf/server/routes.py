@@ -1,4 +1,4 @@
-import os
+import asyncio
 import threading
 
 from typing import List
@@ -44,11 +44,11 @@ class ImageArguments(BaseModel):
 def create_stream(arguments: CreateStreamArguments):
     stream_id = arguments.stream_id
     messages = Messages(utterances=arguments.messages)
-    t= threading.Thread(target=do_compute, args=[stream_id, messages])
+    t= threading.Thread(target=asyncio.run, args=(do_compute(stream_id, messages),))
     t.start()
 
 
-def new_utterance(arguments: NewUtteranceArguments) -> List[str]:
+def get_all_utterances(arguments: NewUtteranceArguments) -> List[str]:
     return get_utterances(arguments.stream_id)
 
 

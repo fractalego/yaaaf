@@ -1,4 +1,3 @@
-import base64
 import logging
 import os
 import sys
@@ -12,6 +11,7 @@ from typing import List, Dict, Optional, Tuple
 
 from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.agents.base_agent import BaseAgent
+from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import Messages, Utterance
 from yaaf.components.agents.prompts import mle_agent_prompt_template_without_model
@@ -20,7 +20,7 @@ _logger = logging.getLogger(__name__)
 
 
 class MleAgent(BaseAgent):
-    _completing_tags: List[str] = ["<task-completed/>"]
+    _completing_tags: List[str] = [task_completed_tag]
     _output_tag = "```python"
     _stop_sequences = _completing_tags
     _max_steps = 5

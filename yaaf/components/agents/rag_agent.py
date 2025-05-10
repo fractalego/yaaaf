@@ -4,6 +4,7 @@ import pandas as pd
 
 from typing import Optional, List, Dict
 from yaaf.components.agents.base_agent import BaseAgent
+from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import Messages, PromptTemplate
 from yaaf.components.agents.prompts import rag_agent_prompt_template
@@ -12,9 +13,9 @@ from yaaf.components.sources.rag_source import RAGSource
 
 class RAGAgent(BaseAgent):
     _system_prompt: PromptTemplate = rag_agent_prompt_template
-    _completing_tags: List[str] = ["<task-completed/>"]
+    _completing_tags: List[str] = [task_completed_tag]
     _output_tag = "```retrieved"
-    _stop_sequences = ["<task-completed/>"]
+    _stop_sequences = [task_completed_tag]
     _max_steps = 5
 
     def __init__(self, client: BaseClient, sources: List[RAGSource]):

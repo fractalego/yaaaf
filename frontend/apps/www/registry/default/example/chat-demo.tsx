@@ -44,7 +44,7 @@ export default function ChatDemo(props: ChatDemoProps) {
   })
 
   return (
-    <div className={cn("flex", "flex-col", "h-[500px]", "w-full")}>
+    <div className={cn("flex", "flex-col", "h-full m-10", "w-full")}>
       <div className={cn("flex", "justify-end", "mb-2")}>
         <Select value={selectedModel} onValueChange={setSelectedModel}>
           <SelectTrigger className="w-[180px]">

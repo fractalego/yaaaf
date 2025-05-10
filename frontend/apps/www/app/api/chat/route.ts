@@ -29,6 +29,7 @@ export async function POST(req: Request) {
             utterance = utterance.replaceAll("\n", "<br/>");
             utterance = utterance.replaceAll("\"", "&quot;");
             utterance = utterance.replaceAll("\t", "&nbsp;&nbsp;&nbsp;&nbsp;");
+            console.log(utterance)
             dataStream.write(`0:"${utterance}<br/><br/>"\n`);
           }
         );

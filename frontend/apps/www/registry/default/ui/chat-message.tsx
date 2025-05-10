@@ -13,7 +13,7 @@ import {
 } from "@/registry/default/ui/collapsible"
 import { FilePreview } from "@/registry/default/ui/file-preview"
 import { MarkdownRenderer } from "@/registry/default/ui/markdown-renderer"
-import {complete_tag} from "@/app/api/chat/settings";
+import {complete_tag} from "@/app/settings";
 
 const chatBubbleVariants = cva(
   "group/message relative break-words rounded-lg p-3 text-sm sm:max-w-[70%]",

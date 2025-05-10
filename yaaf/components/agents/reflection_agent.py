@@ -54,7 +54,7 @@ To call this agent write {self.get_opening_tag()} THINGS TO THINK ABOUT {self.ge
         """
 
     def get_opening_tag(self) -> str:
-        return "<self-reflection-agent>"
+        return "<selfreflectionagent>"
 
     def get_closing_tag(self) -> str:
-        return "</self-reflection-agent>"
+        return "</selfreflectionagent>"

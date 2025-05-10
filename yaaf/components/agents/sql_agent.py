@@ -90,7 +90,7 @@ Limit all the SQL calls to 20 rows.
         """
 
     def get_opening_tag(self) -> str:
-        return "<sql-agent>"
+        return "<sqlagent>"
 
     def get_closing_tag(self) -> str:
-        return "</sql-agent>"
+        return "</sqlagent>"

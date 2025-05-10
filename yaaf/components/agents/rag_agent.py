@@ -85,7 +85,7 @@ These documents provide the information needed to answer the user's question.
         """
 
     def get_opening_tag(self) -> str:
-        return "<sql-agent>"
+        return "<ragagent>"
 
     def get_closing_tag(self) -> str:
-        return "</sql-agent>"
+        return "</ragagent>"

@@ -110,10 +110,10 @@ The information about what to plot will be then used by the agent.
         """
 
     def get_opening_tag(self) -> str:
-        return "<visualization-agent>"
+        return "<visualizationagent>"
 
     def get_closing_tag(self) -> str:
-        return "</visualization-agent>"
+        return "</visualizationagent>"
 
     def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
         artefact_matches = re.findall(rf"<artefact>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)

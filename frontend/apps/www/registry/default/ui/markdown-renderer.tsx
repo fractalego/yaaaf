@@ -1,6 +1,7 @@
 import React, { Suspense } from "react"
 import Markdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import rehypeRaw from "rehype-raw"
 
 import { cn } from "@/lib/utils"
 import { CopyButton } from "@/registry/default/ui/copy-button"
@@ -12,7 +13,12 @@ interface MarkdownRendererProps {
 export function MarkdownRenderer({ children }: MarkdownRendererProps) {
   return (
     <div className="space-y-3">
-      <Markdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
+      <Markdown remarkPlugins={[remarkGfm]}
+                rehypePlugins={rehypeRaw}
+                components={COMPONENTS}
+                urlTransform={(value: string) => value}
+                className="space-y-3"
+      >
         {children}
       </Markdown>
     </div>
@@ -138,6 +144,28 @@ function childrenTakeAllStringContents(element: any): string {
 }
 
 const COMPONENTS = {
+  sqlagent: ({ children, ...props }: any) => {
+    return <SqlAgent text={children}></SqlAgent>
+  },
+  visualizationagent: ({ children, ...props }: any) => {
+    return <VisualizationAgent text={children}></VisualizationAgent>
+  },
+  mleagent: ({ children, ...props }: any) => {
+    return <MLAgent text={children}></MLAgent>
+  },
+  revieweragent: ({ children, ...props }: any) => {
+    return <ReviewerAgent text={children}></ReviewerAgent>
+  },
+  artefact: ({ children, ...props }: any) => {
+    return <Artefact text={children}></Artefact>
+  },
+  imageoutput: ({ children, ...props }: any) => {
+    return <ImageOutput text={children}></ImageOutput>
+  },
+  taskcompleted: ({ children, ...props }: any) => {
+    return <Complete/>
+  },
+
   h1: withClass("h1", "text-2xl font-semibold"),
   h2: withClass("h2", "font-semibold text-xl"),
   h3: withClass("h3", "font-semibold text-lg"),

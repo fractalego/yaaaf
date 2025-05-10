@@ -1,5 +1,5 @@
 import { createDataStreamResponse } from "ai";
-import {complete_tag, create_stream_url, get_utterances_url} from "@/app/api/chat/settings";
+import {complete_tag, create_stream_url, get_utterances_url} from "@/app/settings";
 
 export async function POST(req: Request) {
   const { messages, session_id } = await req.json();

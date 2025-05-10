@@ -1,0 +1,121 @@
+---
+title: Chat Message
+description: A customizable message bubble component for chat interfaces with support for user and AI messages.
+component: true
+---
+
+<ComponentPreview
+  name="chat-message-demo"
+  title="ChatMessage"
+  description="A message bubble with support for markdown content and animations."
+/>
+
+The ChatMessage component provides a styled message bubble with support for markdown content, timestamps, animations, and contextual actions.
+
+## Installation
+
+<Tabs defaultValue="cli">
+
+<TabsList>
+  <TabsTrigger value="cli">CLI</TabsTrigger>
+  <TabsTrigger value="manual">Manual</TabsTrigger>
+</TabsList>
+
+<TabsContent value="cli">
+
+```bash
+npx shadcn@latest add https://shadcn-chatbot-kit.vercel.app/r/chat-message.json
+```
+
+</TabsContent>
+
+<TabsContent value="manual">
+
+<Steps>
+
+<Step>Add the following components to your project.</Step>
+
+The `ChatMessage` component uses the `CopyButton` and `MarkdownRenderer` components. Make sure you have them installed in your project, following the installation instructions in the respective docs page for each component.
+
+<Step>Copy and paste the following code into your project.</Step>
+
+<ComponentSource name="chat-message" />
+
+<Step>Update the import paths to match your project setup.</Step>
+
+</Steps>
+
+</TabsContent>
+
+</Tabs>
+
+## Usage
+
+```tsx
+import { ChatMessage } from "@/components/ui/chat-message"
+
+export function ChatDemo() {
+  return (
+    <div className="space-y-4">
+      <ChatMessage
+        role="user"
+        content="Hello, how are you?"
+        createdAt={new Date()}
+        showTimeStamp
+      />
+      <ChatMessage
+        role="assistant"
+        content="I'm doing well, thank you for asking!"
+        createdAt={new Date()}
+        showTimeStamp
+      />
+    </div>
+  )
+}
+```
+
+## Props
+
+| Prop            | Type                                     | Default   | Description                               |
+| --------------- | ---------------------------------------- | --------- | ----------------------------------------- |
+| `role`          | `"user" \| "assistant" \| string`        | Required  | The role of the message sender            |
+| `content`       | `string`                                 | Required  | The message content (supports markdown)   |
+| `createdAt`     | `Date`                                   | -         | Timestamp for the message                 |
+| `showTimeStamp` | `boolean`                                | `false`   | Whether to show the timestamp             |
+| `animation`     | `"none" \| "slide" \| "scale" \| "fade"` | `"scale"` | Animation style for the message bubble    |
+| `actions`       | `ReactNode`                              | -         | Actions to show on hover (assistant only) |
+| `id`            | `string`                                 | Required  | Unique identifier for the message         |
+| `attachments`   | `File[]`                                 | -         | Array of attached files                   |
+
+## Examples
+
+### Different Animation Styles
+
+<ComponentPreview
+  name="chat-message-animations-demo"
+  title="ChatMessage Animations"
+  description="Different animation styles for chat messages."
+/>
+
+### With Actions
+
+<ComponentPreview
+  name="chat-message-actions-demo"
+  title="ChatMessage Actions"
+  description="Chat message with interactive actions."
+/>
+
+### With Timestamp
+
+<ComponentPreview
+  name="chat-message-timestamp-demo"
+  title="ChatMessage Timestamp"
+  description="Chat message with timestamp."
+/>
+
+## Accessibility
+
+- Messages are properly structured for screen readers
+- Timestamps use semantic HTML
+- Actions are keyboard accessible
+- Color contrast meets WCAG guidelines

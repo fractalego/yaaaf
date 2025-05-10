@@ -1,0 +1,200 @@
+[
+  {
+    "name": "chat",
+    "type": "registry:ui",
+    "registryDependencies": [
+      "button",
+      "https://shadcn-chatbot-kit.vercel.app/r/use-auto-scroll.json",
+      "https://shadcn-chatbot-kit.vercel.app/r/chat-message.json",
+      "https://shadcn-chatbot-kit.vercel.app/r/message-input.json",
+      "https://shadcn-chatbot-kit.vercel.app/r/message-list.json",
+      "https://shadcn-chatbot-kit.vercel.app/r/prompt-suggestions.json"
+    ],
+    "files": [
+      {
+        "path": "ui/chat.tsx",
+        "type": "registry:ui"
+      }
+    ]
+  },
+  {
+    "name": "chat-message",
+    "type": "registry:ui",
+    "dependencies": [
+      "framer-motion@11"
+    ],
+    "registryDependencies": [
+      "button",
+      "collapsible",
+      "https://shadcn-chatbot-kit.vercel.app/r/copy-button.json",
+      "https://shadcn-chatbot-kit.vercel.app/r/markdown-renderer.json"
+    ],
+    "files": [
+      {
+        "path": "ui/chat-message.tsx",
+        "type": "registry:ui"
+      }
+    ]
+  },
+  {
+    "name": "copy-button",
+    "type": "registry:ui",
+    "registryDependencies": [
+      "button",
+      "https://shadcn-chatbot-kit.vercel.app/r/use-copy-to-clipboard.json"
+    ],
+    "files": [
+      {
+        "path": "ui/copy-button.tsx",
+        "type": "registry:ui"
+      }
+    ]
+  },
+  {
+    "name": "markdown-renderer",
+    "type": "registry:ui",
+    "dependencies": [
+      "react-markdown@10",
+      "remark-gfm@4",
+      "shiki@1"
+    ],
+    "registryDependencies": [
+      "https://shadcn-chatbot-kit.vercel.app/r/copy-button.json"
+    ],
+    "files": [
+      {
+        "path": "ui/markdown-renderer.tsx",
+        "type": "registry:ui"
+      }
+    ],
+    "tailwind": {
+      "config": {
+        "theme": {
+          "extend": {
+            "colors": {
+              "shiki": {
+                "light": "var(--shiki-light)",
+                "light-bg": "var(--shiki-light-bg)",
+                "dark": "var(--shiki-dark)",
+                "dark-bg": "var(--shiki-dark-bg)"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "message-input",
+    "type": "registry:ui",
+    "dependencies": [
+      "framer-motion@11",
+      "remeda@2"
+    ],
+    "registryDependencies": [
+      "button",
+      "https://shadcn-chatbot-kit.vercel.app/r/use-autosize-textarea.json",
+      "https://shadcn-chatbot-kit.vercel.app/r/file-preview.json",
+      "https://shadcn-chatbot-kit.vercel.app/r/audio-visualizer.json",
+      "https://shadcn-chatbot-kit.vercel.app/r/interrupt-prompt.json",
+      "https://shadcn-chatbot-kit.vercel.app/r/use-audio-recording.json"
+    ],
+    "files": [
+      {
+        "path": "ui/message-input.tsx",
+        "type": "registry:ui"
+      }
+    ]
+  },
+  {
+    "name": "message-list",
+    "type": "registry:ui",
+    "registryDependencies": [
+      "https://shadcn-chatbot-kit.vercel.app/r/chat-message.json",
+      "https://shadcn-chatbot-kit.vercel.app/r/typing-indicator.json"
+    ],
+    "files": [
+      {
+        "path": "ui/message-list.tsx",
+        "type": "registry:ui"
+      }
+    ]
+  },
+  {
+    "name": "typing-indicator",
+    "type": "registry:ui",
+    "files": [
+      {
+        "path": "ui/typing-indicator.tsx",
+        "type": "registry:ui"
+      }
+    ],
+    "tailwind": {
+      "config": {
+        "theme": {
+          "extend": {
+            "keyframes": {
+              "typing-dot-bounce": {
+                "0%,40%": {
+                  "transform": "translateY(0)"
+                },
+                "20%": {
+                  "transform": "translateY(-0.25rem)"
+                }
+              }
+            },
+            "animation": {
+              "typing-dot-bounce": "typing-dot-bounce 1.25s ease-out infinite"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "prompt-suggestions",
+    "type": "registry:ui",
+    "files": [
+      {
+        "path": "ui/prompt-suggestions.tsx",
+        "type": "registry:ui"
+      }
+    ]
+  },
+  {
+    "name": "file-preview",
+    "type": "registry:ui",
+    "dependencies": [
+      "framer-motion@11"
+    ],
+    "files": [
+      {
+        "path": "ui/file-preview.tsx",
+        "type": "registry:ui"
+      }
+    ]
+  },
+  {
+    "name": "audio-visualizer",
+    "type": "registry:ui",
+    "files": [
+      {
+        "path": "ui/audio-visualizer.tsx",
+        "type": "registry:ui"
+      }
+    ]
+  },
+  {
+    "name": "interrupt-prompt",
+    "type": "registry:ui",
+    "dependencies": [
+      "framer-motion@11"
+    ],
+    "files": [
+      {
+        "path": "ui/interrupt-prompt.tsx",
+        "type": "registry:ui"
+      }
+    ]
+  }
+]

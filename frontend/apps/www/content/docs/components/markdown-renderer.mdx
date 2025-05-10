@@ -1,0 +1,115 @@
+---
+title: Markdown Renderer
+description: A customizable component for rendering Markdown content with consistent styling.
+component: true
+---
+
+<ComponentPreview
+  name="markdown-renderer-demo"
+  title="Markdown"
+  description="A styled markdown renderer."
+/>
+
+The MarkdownRenderer component provides a consistent way to render Markdown content with custom styling, powered by react-markdown and remark-gfm.
+
+## Features
+
+- GitHub Flavored Markdown support
+- Consistent typography and spacing
+- Styled tables, lists, and code blocks
+- Responsive design
+- Theme-aware styling
+
+## Installation
+
+<Tabs defaultValue="cli">
+
+<TabsList>
+  <TabsTrigger value="cli">CLI</TabsTrigger>
+  <TabsTrigger value="manual">Manual</TabsTrigger>
+</TabsList>
+
+<TabsContent value="cli">
+
+```bash
+npx shadcn@latest add https://shadcn-chatbot-kit.vercel.app/r/markdown-renderer.json
+```
+
+</TabsContent>
+
+<TabsContent value="manual">
+
+<Steps>
+
+<Step>Install the required dependencies</Step>
+
+```bash
+npm install react-markdown remark-gfm shiki
+```
+
+<Step>Add the `CopyButton` component to your project.</Step>
+
+The `MarkdownRenderer` component uses the `CopyButton` component. Make sure you have it installed in your project.
+
+<Step>Copy and paste the following code into your project.</Step>
+
+<ComponentSource name="markdown-renderer" />
+
+<Step>Add the following options into `tailwind.config.js`</Step>
+
+Add the following in the `theme.extend.colors` section of your `tailwind.config.js` file
+
+```javascript title="tailwind.config.js"
+// ...
+shiki: {
+  light: "var(--shiki-light)",
+  "light-bg": "var(--shiki-light-bg)",
+  dark: "var(--shiki-dark)",
+  "dark-bg": "var(--shiki-dark-bg)",
+},
+// ...
+```
+
+<Step>Update the import paths to match your project setup.</Step>
+
+</Steps>
+
+</TabsContent>
+
+</Tabs>
+
+## Usage
+
+```tsx
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer"
+```
+
+```tsx
+<MarkdownRenderer>
+  {`# Hello World
+
+This is a paragraph with **bold** and *italic* text.
+
+## Lists
+- Item 1
+- Item 2
+  - Nested item
+
+## Code
+\`\`\`tsx
+console.log("Hello World")
+\`\`\`
+
+## Tables
+| Header 1 | Header 2 |
+|----------|----------|
+| Cell 1   | Cell 2   |
+`}
+</MarkdownRenderer>
+```
+
+## Props
+
+| Prop       | Type     | Description                    |
+| ---------- | -------- | ------------------------------ |
+| `children` | `string` | The markdown content to render |

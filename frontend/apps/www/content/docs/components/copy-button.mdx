@@ -1,0 +1,104 @@
+---
+title: Copy Button
+description: A button component that copies content to clipboard with visual feedback.
+component: true
+---
+
+<ComponentPreview
+  name="copy-button-demo"
+  title="Copy Button"
+  description="A button that copies text to clipboard with a success indicator."
+/>
+
+The CopyButton component provides a simple way to copy text to the clipboard with visual feedback using a check mark animation when successful.
+
+## Installation
+
+<Tabs defaultValue="cli">
+
+<TabsList>
+  <TabsTrigger value="cli">CLI</TabsTrigger>
+  <TabsTrigger value="manual">Manual</TabsTrigger>
+</TabsList>
+
+<TabsContent value="cli">
+
+```bash
+npx shadcn@latest add https://shadcn-chatbot-kit.vercel.app/r/copy-button.json
+```
+
+</TabsContent>
+
+<TabsContent value="manual">
+
+<Steps>
+
+<Step>Add the `Button` component to your project.</Step>
+
+The `CopyButton` component uses the `Button` component. Make sure you have it installed in your project.
+
+<Step>Copy and paste the following code into your project.</Step>
+
+`components/ui/copy-button.tsx`
+
+<ComponentSource name="copy-button" />
+
+`hooks/use-copy-to-clipboard.ts`
+
+<ComponentSource name="use-copy-to-clipboard" />
+
+<Step>Update the import paths to match your project setup.</Step>
+
+</Steps>
+
+</TabsContent>
+
+</Tabs>
+
+## Usage
+
+```tsx
+import { CopyButton } from "@/components/ui/copy-button"
+
+export function Demo() {
+  return (
+    <CopyButton
+      content="Text to be copied"
+      copyMessage="Copied to clipboard!"
+    />
+  )
+}
+```
+
+## Props
+
+| Prop           | Type     | Description                                            |
+| -------------- | -------- | ------------------------------------------------------ |
+| `content`      | `string` | The text content to be copied to clipboard             |
+| `copyMessage?` | `string` | Optional custom message to show when content is copied |
+
+## Examples
+
+### Basic Usage
+
+<ComponentPreview
+  name="copy-button-demo"
+  title="Copy Button"
+  description="A basic copy button that copies text to clipboard."
+/>
+
+### With Custom Success Message
+
+<ComponentPreview
+  name="copy-button-custom-message-demo"
+  title="Custom Message"
+  description="A copy button with a custom success message."
+/>
+
+### Within a Code Block
+
+<ComponentPreview
+  name="copy-button-code-block-demo"
+  title="In Code Block"
+  description="A copy button positioned within a code block."
+/>

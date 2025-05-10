@@ -1,0 +1,78 @@
+---
+title: Prompt Suggestions
+description: A component that displays clickable prompt suggestions for empty chat states.
+component: true
+---
+
+<ComponentPreview
+  name="prompt-suggestions-demo"
+  title="PromptSuggestions"
+  description="A grid of clickable prompt suggestions."
+/>
+
+The PromptSuggestions component displays a grid of predefined prompts that users can click to quickly start a conversation.
+
+## Installation
+
+<Tabs defaultValue="cli">
+
+<TabsList>
+  <TabsTrigger value="cli">CLI</TabsTrigger>
+  <TabsTrigger value="manual">Manual</TabsTrigger>
+</TabsList>
+
+<TabsContent value="cli">
+
+```bash
+npx shadcn@latest add https://shadcn-chatbot-kit.vercel.app/r/prompt-suggestions.json
+```
+
+</TabsContent>
+
+<TabsContent value="manual">
+
+<Steps>
+
+<Step>Copy and paste the following code into your project.</Step>
+
+<ComponentSource name="prompt-suggestions" />
+
+<Step>Update the import paths to match your project setup.</Step>
+
+</Steps>
+
+</TabsContent>
+
+</Tabs>
+
+## Usage
+
+```tsx
+import { PromptSuggestions } from "@/components/ui/prompt-suggestions"
+
+export function PromptSuggestionsDemo() {
+  const append = (message: { role: "user"; content: string }) => {
+    // Handle appending message
+  }
+
+  return (
+    <PromptSuggestions
+      label="Get started with some examples"
+      append={append}
+      suggestions={[
+        "Tell me a joke",
+        "What's the weather like today?",
+        "Write a poem about cats",
+      ]}
+    />
+  )
+}
+```
+
+## Props
+
+| Prop          | Type                                                   | Description                                       |
+| ------------- | ------------------------------------------------------ | ------------------------------------------------- |
+| `label`       | `string`                                               | The heading text displayed above the suggestions  |
+| `append`      | `(message: { role: "user"; content: string }) => void` | Function called when a suggestion is clicked      |
+| `suggestions` | `string[]`                                             | Array of suggestion strings to display as buttons |

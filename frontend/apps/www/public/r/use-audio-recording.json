@@ -1,0 +1,15 @@
+{
+  "name": "use-audio-recording",
+  "type": "registry:hook",
+  "registryDependencies": [
+    "https://shadcn-chatbot-kit.vercel.app/r/audio-utils.json"
+  ],
+  "files": [
+    {
+      "path": "hooks/use-audio-recording.ts",
+      "content": "import { useEffect, useRef, useState } from \"react\"\n\nimport { recordAudio } from \"@/registry/default/lib/audio-utils\"\n\ninterface UseAudioRecordingOptions {\n  transcribeAudio?: (blob: Blob) => Promise<string>\n  onTranscriptionComplete?: (text: string) => void\n}\n\nexport function useAudioRecording({\n  transcribeAudio,\n  onTranscriptionComplete,\n}: UseAudioRecordingOptions) {\n  const [isListening, setIsListening] = useState(false)\n  const [isSpeechSupported, setIsSpeechSupported] = useState(!!transcribeAudio)\n  const [isRecording, setIsRecording] = useState(false)\n  const [isTranscribing, setIsTranscribing] = useState(false)\n  const [audioStream, setAudioStream] = useState<MediaStream | null>(null)\n  const activeRecordingRef = useRef<any>(null)\n\n  useEffect(() => {\n    const checkSpeechSupport = async () => {\n      const hasMediaDevices = !!(\n        navigator.mediaDevices && navigator.mediaDevices.getUserMedia\n      )\n      setIsSpeechSupported(hasMediaDevices && !!transcribeAudio)\n    }\n\n    checkSpeechSupport()\n  }, [transcribeAudio])\n\n  const stopRecording = async () => {\n    setIsRecording(false)\n    setIsTranscribing(true)\n    try {\n      // First stop the recording to get the final blob\n      recordAudio.stop()\n      // Wait for the recording promise to resolve with the final blob\n      const recording = await activeRecordingRef.current\n      if (transcribeAudio) {\n        const text = await transcribeAudio(recording)\n        onTranscriptionComplete?.(text)\n      }\n    } catch (error) {\n      console.error(\"Error transcribing audio:\", error)\n    } finally {\n      setIsTranscribing(false)\n      setIsListening(false)\n      if (audioStream) {\n        audioStream.getTracks().forEach((track) => track.stop())\n        setAudioStream(null)\n      }\n      activeRecordingRef.current = null\n    }\n  }\n\n  const toggleListening = async () => {\n    if (!isListening) {\n      try {\n        setIsListening(true)\n        setIsRecording(true)\n        // Get audio stream first\n        const stream = await navigator.mediaDevices.getUserMedia({\n          audio: true,\n        })\n        setAudioStream(stream)\n\n        // Start recording with the stream\n        activeRecordingRef.current = recordAudio(stream)\n      } catch (error) {\n        console.error(\"Error recording audio:\", error)\n        setIsListening(false)\n        setIsRecording(false)\n        if (audioStream) {\n          audioStream.getTracks().forEach((track) => track.stop())\n          setAudioStream(null)\n        }\n      }\n    } else {\n      await stopRecording()\n    }\n  }\n\n  return {\n    isListening,\n    isSpeechSupported,\n    isRecording,\n    isTranscribing,\n    audioStream,\n    toggleListening,\n    stopRecording,\n  }\n}\n",
+      "type": "registry:hook",
+      "target": ""
+    }
+  ]
+}

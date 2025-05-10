@@ -1,0 +1,129 @@
+---
+title: Message List
+description: A component for rendering a list of chat messages with a typing indicator.
+component: true
+---
+
+<ComponentPreview
+  name="message-list-demo"
+  title="MessageList"
+  description="A list of chat messages with typing indicator."
+/>
+
+The MessageList component renders a vertical list of chat messages with optional typing indicators and timestamps.
+
+## Installation
+
+<Tabs defaultValue="cli">
+
+<TabsList>
+  <TabsTrigger value="cli">CLI</TabsTrigger>
+  <TabsTrigger value="manual">Manual</TabsTrigger>
+</TabsList>
+
+<TabsContent value="cli">
+
+```bash
+npx shadcn@latest add https://shadcn-chatbot-kit.vercel.app/r/message-list.json
+```
+
+</TabsContent>
+
+<TabsContent value="manual">
+
+<Steps>
+
+<Step>Add the following components to your project.</Step>
+
+The `MessageList` component uses the `ChatMessage` and `TypingIndicator` components. Make sure you have them installed in your project, following the installation instructions in the respective docs page for each component.
+
+<Step>Copy and paste the following code into your project.</Step>
+
+<ComponentSource name="message-list" />
+
+<Step>Update the import paths to match your project setup.</Step>
+
+</Steps>
+
+</TabsContent>
+
+</Tabs>
+
+## Usage
+
+```tsx
+import { MessageList } from "@/components/ui/message-list"
+
+export function ChatDemo() {
+  const messages = [
+    {
+      id: "1",
+      role: "user",
+      content: "Hello, how are you?",
+    },
+    {
+      id: "2",
+      role: "assistant",
+      content: "I'm doing well, thank you for asking!",
+    },
+  ]
+
+  return <MessageList messages={messages} isTyping={false} />
+}
+```
+
+### With Custom Message Options
+
+```tsx
+import { MessageList } from "@/components/ui/message-list"
+
+export function ChatWithCustomOptions() {
+  return (
+    <MessageList
+      messages={messages}
+      messageOptions={{
+        className: "custom-message-class",
+      }}
+    />
+  )
+}
+```
+
+### With Dynamic Message Options
+
+```tsx
+import { MessageList } from "@/components/ui/message-list"
+
+export function ChatWithDynamicOptions() {
+  return (
+    <MessageList
+      messages={messages}
+      messageOptions={(message) => ({
+        className:
+          message.role === "user" ? "user-message" : "assistant-message",
+      })}
+    />
+  )
+}
+```
+
+## Props
+
+| Prop             | Type                                                                           | Default  | Description                                              |
+| ---------------- | ------------------------------------------------------------------------------ | -------- | -------------------------------------------------------- |
+| `messages`       | `Message[]`                                                                    | Required | Array of messages to display                             |
+| `showTimeStamps` | `boolean`                                                                      | `true`   | Whether to show timestamps on messages                   |
+| `isTyping`       | `boolean`                                                                      | `false`  | Whether to show the typing indicator                     |
+| `messageOptions` | `AdditionalMessageOptions \| ((message: Message) => AdditionalMessageOptions)` | -        | Additional options to pass to each ChatMessage component |
+
+### Message Type
+
+```tsx
+interface Message {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  createdAt?: Date
+  attachments?: File[]
+}
+```

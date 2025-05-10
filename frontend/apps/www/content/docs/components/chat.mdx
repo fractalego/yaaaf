@@ -1,0 +1,259 @@
+---
+title: Chat
+description: A composable and customizable chat interface component.
+component: true
+---
+
+<ComponentPreview
+  name="chat-demo"
+  title="Chat"
+  description="A chat interface with message history and input."
+/>
+
+The Chat component provides a complete chat interface with message history, typing indicators, file attachments support, and auto-scrolling behavior.
+
+## Features
+
+- Message history display
+- Real-time typing indicators
+- File attachment support
+- Auto-scrolling with manual override
+- Prompt suggestions for empty states
+- Stop generation capability
+- Fully customizable styling
+
+## Installation
+
+<Tabs defaultValue="cli">
+
+<TabsList>
+  <TabsTrigger value="cli">CLI</TabsTrigger>
+  <TabsTrigger value="manual">Manual</TabsTrigger>
+</TabsList>
+
+<TabsContent value="cli">
+
+```bash
+npx shadcn@latest add https://shadcn-chatbot-kit.vercel.app/r/chat.json
+```
+
+</TabsContent>
+
+<TabsContent value="manual">
+
+<Steps>
+
+<Step>Add the following components to your project.</Step>
+
+The `Chat` component uses the `PromptSuggestions`, `MessageInput`, `MessageList` and `ChatMessage` components. Make sure you have them installed in your project, following the installation instructions in the respective docs page for each component.
+
+<Step>Copy and paste the following code into your project.</Step>
+
+`components/ui/chat.tsx`
+
+<ComponentSource name="chat" />
+
+`hooks/use-auto-scroll.ts`
+
+<ComponentSource name="use-auto-scroll" />
+
+<Step>Update the import paths to match your project setup.</Step>
+
+</Steps>
+
+</TabsContent>
+
+</Tabs>
+
+## Usage
+
+### Basic Usage
+
+```tsx
+"use client"
+
+import { useChat } from "ai/react"
+
+import { Chat } from "@/components/ui/chat"
+
+export function ChatDemo() {
+  const { messages, input, handleInputChange, handleSubmit, isLoading, stop } =
+    useChat()
+
+  return (
+    <Chat
+      messages={messages}
+      input={input}
+      handleInputChange={handleInputChange}
+      handleSubmit={handleSubmit}
+      isGenerating={isLoading}
+      stop={stop}
+    />
+  )
+}
+```
+
+### With Prompt Suggestions
+
+```tsx
+"use client"
+
+import { useChat } from "ai/react"
+
+import { Chat } from "@/components/ui/chat"
+
+export function ChatWithSuggestions() {
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    append,
+    isLoading,
+    stop,
+  } = useChat()
+
+  return (
+    <Chat
+      messages={messages}
+      input={input}
+      handleInputChange={handleInputChange}
+      handleSubmit={handleSubmit}
+      isGenerating={isLoading}
+      stop={stop}
+      append={append}
+      suggestions={[
+        "Generate a tasty vegan lasagna recipe for 3 people.",
+        "Generate a list of 5 questions for a frontend job interview.",
+        "Who won the 2022 FIFA World Cup?",
+      ]}
+    />
+  )
+}
+```
+
+### Custom Implementation
+
+You can also use the individual components to build your own chat interface:
+
+```tsx
+"use client"
+
+import { useChat } from "ai/react"
+
+import { ChatContainer, ChatForm, ChatMessages, PromptSuggestions } from "@/components/ui/chat"
+import { MessageInput } from "@/components/ui/message-input"
+import { MessageList } from "@/components/ui/message-list"
+import { PromptSuggestions } from "@/components/ui/prompt-suggestions"
+
+export function CustomChat() {
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    append,
+    isLoading,
+    stop,
+  } = useChat()
+
+  const lastMessage = messages.at(-1)
+  const isEmpty = messages.length === 0
+  const isTyping = lastMessage?.role === "user"
+
+  return (
+    <ChatContainer>
+      {isEmpty ? (
+        <PromptSuggestions
+          append={append}
+          suggestions={["What is the capital of France?", "Tell me a joke"]}
+        />
+      ) : null}
+
+      {!isEmpty ? (
+        <ChatMessages>
+          <MessageList messages={messages} isTyping={isTyping} />
+        </ChatMessages>
+      ) : null}
+
+      <ChatForm
+        className="mt-auto"
+        isPending={isLoading || isTyping}
+        handleSubmit={handleSubmit}
+      >
+        {({ files, setFiles }) => (
+          <MessageInput
+            value={input}
+            onChange={handleInputChange}
+            allowAttachments
+            files={files}
+            setFiles={setFiles}
+            stop={stop}
+            isGenerating={isLoading}
+          />
+        )}
+      </ChatForm>
+    </ChatContainer>
+  )
+}
+```
+
+## Chat
+
+A prebuilt Chat component that provides a complete chat interface with message history, typing indicators, file attachments support, and auto-scrolling behavior.
+
+### Props
+
+| Prop                | Type                                                                | Description                                                                                              |
+| ------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `messages`          | `Message[]`                                                         | Array of chat messages to display                                                                        |
+| `input`             | `string`                                                            | Current input value                                                                                      |
+| `handleInputChange` | `(e: React.ChangeEvent<HTMLTextAreaElement>) => void`               | Input change handler                                                                                     |
+| `handleSubmit`      | `(event?, options?) => void`                                        | Form submission handler                                                                                  |
+| `isGenerating`      | `boolean`                                                           | Whether AI is currently generating a response                                                            |
+| `stop`              | `() => void`                                                        | Function to stop AI generation                                                                           |
+| `setMessages`       | `(messages: Message[]) => void`                                     | Optional function to update messages state. When provided, enables enhanced tool cancellation handling   |
+| `append?`           | `(message: Message) => void`                                        | Function to append a new message (required for suggestions)                                              |
+| `suggestions?`      | `string[]`                                                          | Array of prompt suggestions to show when chat is empty                                                   |
+| `onRateResponse?`   | `(messageId: string, rating: "thumbs-up" \| "thumbs-down") => void` | Callback to handle user rating of AI responses, if not provided the rating buttons will not be displayed |
+| `className?`        | `string`                                                            | Additional CSS classes for ChatContainer                                                                 |
+| `transcribeAudio`   | `(blob: Blob) => Promise<string>`                                   | Function to transcribe audio (required for voice input, see message input docs for more info)            |
+
+## ChatContainer
+
+A container component that wraps the whole chat interface. Used to build your own chat if not using the default Chat component.
+
+### Props
+
+| Prop        | Type        | Description                     |
+| ----------- | ----------- | ------------------------------- |
+| `children`  | `ReactNode` | Child components to render      |
+| `className` | `string`    | Additional CSS classes for Chat |
+
+## ChatMessages Component
+
+Provides a message list with auto-scrolling behavior, and typing indicators. Used to build your own chat if not using the default Chat component.
+
+### Props
+
+| Prop       | Type        | Description                      |
+| ---------- | ----------- | -------------------------------- |
+| `messages` | `Message[]` | Array of messages to display     |
+| `isTyping` | `boolean`   | Whether to show typing indicator |
+
+## ChatForm Component
+
+A form component that wraps the message input and submit button, handles the state management for file uploads internally and uses a render function to pass them down to your input component. Used to build your own chat if not using the default Chat component.
+
+### Props
+
+| Prop           | Type                                                                     | Description                        |
+| -------------- | ------------------------------------------------------------------------ | ---------------------------------- |
+| `isPending`    | `boolean`                                                                | Whether form submission is pending |
+| `handleSubmit` | `(event?, options?) => void`                                             | Form submission handler            |
+| `className?`   | `string`                                                                 | Additional CSS classes             |
+| `children`     | `(props: { files: File[] \| null, setFiles: Function }) => ReactElement` | Render function for form content   |
+
+## Theming
+
+The Chat component is using theme colors and fully themable with CSS variables.

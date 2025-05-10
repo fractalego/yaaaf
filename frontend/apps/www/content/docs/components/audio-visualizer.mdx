@@ -1,0 +1,96 @@
+---
+title: Audio Visualizer
+description: A real-time audio visualization component that provides visual feedback during voice recording.
+component: true
+---
+
+<ComponentPreview
+  name="audio-visualizer-demo"
+  title="AudioVisualizer"
+  description="A real-time audio visualization component."
+/>
+
+The AudioVisualizer component provides visual feedback during voice recording by creating an animated frequency spectrum display that responds to audio input in real-time.
+
+## Installation
+
+<Tabs defaultValue="cli">
+
+<TabsList>
+  <TabsTrigger value="cli">CLI</TabsTrigger>
+  <TabsTrigger value="manual">Manual</TabsTrigger>
+</TabsList>
+
+<TabsContent value="cli">
+
+```bash
+npx shadcn@latest add https://shadcn-chatbot-kit.vercel.app/r/audio-visualizer.json
+```
+
+</TabsContent>
+
+<TabsContent value="manual">
+
+<Steps>
+
+<Step>Copy and paste the following code into your project.</Step>
+
+<ComponentSource name="audio-visualizer" />
+
+<Step>Update the import paths to match your project setup.</Step>
+
+</Steps>
+
+</TabsContent>
+
+</Tabs>
+
+## Usage
+
+```tsx
+import { AudioVisualizer } from "@/components/ui/audio-visualizer"
+
+export function VoiceRecorder() {
+  return (
+    <AudioVisualizer
+      stream={audioStream}
+      isRecording={isRecording}
+      onClick={stopRecording}
+    />
+  )
+}
+```
+
+## Props
+
+| Prop          | Type          | Description                                                | Default  |
+| ------------- | ------------- | ---------------------------------------------------------- | -------- |
+| `stream`      | `MediaStream` | The audio stream to visualize                              | Required |
+| `isRecording` | `boolean`     | Whether the component should be actively visualizing audio | Required |
+| `onClick`     | `() => void`  | Callback function when the visualizer is clicked           | Required |
+
+## Implementation Details
+
+The AudioVisualizer uses the Web Audio API to analyze the audio stream and create the visualization. Key configuration parameters include:
+
+```tsx
+const AUDIO_CONFIG = {
+  FFT_SIZE: 512,
+  SMOOTHING: 0.8,
+  MIN_BAR_HEIGHT: 2,
+  MIN_BAR_WIDTH: 2,
+  BAR_SPACING: 1,
+  COLOR: {
+    MIN_INTENSITY: 100,
+    MAX_INTENSITY: 255,
+    INTENSITY_RANGE: 155,
+  },
+}
+```
+
+These parameters control:
+
+- Frequency analysis resolution (`FFT_SIZE`)
+- Animation smoothness (`SMOOTHING`)
+- Visual bar dimensions and spacing
+- Color intensity range for the visualization

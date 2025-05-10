@@ -1,0 +1,77 @@
+---
+title: Introduction
+description: A comprehensive chatbot component kit built on top of shadcn/ui ecosystem.
+---
+
+If you're not familiar with [shadcn/ui](https://ui.shadcn.com/), we encourage you to take a look at its docs to learn more about it.
+
+This collection of components is heavily inspired by `shadcn/ui` and uses its CLI to aid with automatically installing components.
+
+## FAQ
+
+<Accordion type="multiple">
+
+<AccordionItem value="faq-1">
+  <AccordionTrigger>Is this an official shadcn project?</AccordionTrigger>
+  <AccordionContent>
+    No, this is not an official shadcn/ui project. This is a component kit built
+    by <Icons.blazity className="mx-1 mb-1 inline-block h-4 w-4" />
+    <span className="text-blazity">Blazity</span>, that follows shadcn/ui's design
+    philosophy and methodology. We've built it to be fully compatible with the shadcn/ui
+    ecosystem, allowing you to seamlessly integrate it with existing shadcn/ui components
+    while maintaining the same level of customization and control over your code.
+  </AccordionContent>
+</AccordionItem>
+
+<AccordionItem value="faq-2">
+  <AccordionTrigger>
+    How does the AI integration work?
+  </AccordionTrigger>
+  <AccordionContent>
+    The kit is designed to work seamlessly with the Vercel AI SDK out of the box, making it easy to integrate with popular AI providers. Simply use the `useChat` hook from the Vercel AI SDK, and pass the returned properties to our Chat component.
+
+    However, you're not limited to the Vercel AI SDK. The components are built to be provider-agnostic, allowing you to implement your own custom AI integration.
+
+  </AccordionContent>
+</AccordionItem>
+
+<AccordionItem value="faq-3">
+<AccordionTrigger>
+What features are included out of the box?
+</AccordionTrigger>
+<AccordionContent>
+The kit includes several key features:
+- Auto-scroll message area with smart scrolling behavior
+- Auto-resize message input with file upload support
+- Built-in prompt suggestions
+- Message actions (copy, rate response, etc.)
+- Elegant loading states and transitions
+- Markdown support in messages
+- File attachments and image preview
+- Dark mode support
+- TypeScript support
+
+All components can be used as-is or customized to match your specific requirements.
+
+</AccordionContent>
+</AccordionItem>
+
+<AccordionItem value="faq-4">
+	<AccordionTrigger>
+	How do I get started?
+	</AccordionTrigger>
+	<AccordionContent>
+Getting started is straightforward:
+
+1. First, set up shadcn/ui in your project following their installation guide
+2. Use the modern `shadcn` CLI to install our components
+3. If you're using Vercel AI SDK, import the `useChat` hook and pass it to our Chat component
+4. If you're using a custom implementation, follow our interface guide to integrate your AI service
+
+The components are tree-shakeable and work with any framework that supports React 18 or higher, including Next.js, Remix, Astro, and Gatsby.
+
+</AccordionContent>
+
+</AccordionItem>
+
+</Accordion>

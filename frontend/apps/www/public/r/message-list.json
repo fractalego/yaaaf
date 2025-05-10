@@ -1,0 +1,16 @@
+{
+  "name": "message-list",
+  "type": "registry:ui",
+  "registryDependencies": [
+    "https://shadcn-chatbot-kit.vercel.app/r/chat-message.json",
+    "https://shadcn-chatbot-kit.vercel.app/r/typing-indicator.json"
+  ],
+  "files": [
+    {
+      "path": "ui/message-list.tsx",
+      "content": "import {\n  ChatMessage,\n  type ChatMessageProps,\n  type Message,\n} from \"@/registry/default/ui/chat-message\"\nimport { TypingIndicator } from \"@/registry/default/ui/typing-indicator\"\n\ntype AdditionalMessageOptions = Omit<ChatMessageProps, keyof Message>\n\ninterface MessageListProps {\n  messages: Message[]\n  showTimeStamps?: boolean\n  isTyping?: boolean\n  messageOptions?:\n    | AdditionalMessageOptions\n    | ((message: Message) => AdditionalMessageOptions)\n}\n\nexport function MessageList({\n  messages,\n  showTimeStamps = true,\n  isTyping = false,\n  messageOptions,\n}: MessageListProps) {\n  return (\n    <div className=\"space-y-4 overflow-visible\">\n      {messages.map((message, index) => {\n        const additionalOptions =\n          typeof messageOptions === \"function\"\n            ? messageOptions(message)\n            : messageOptions\n\n        return (\n          <ChatMessage\n            key={index}\n            showTimeStamp={showTimeStamps}\n            {...message}\n            {...additionalOptions}\n          />\n        )\n      })}\n      {isTyping && <TypingIndicator />}\n    </div>\n  )\n}\n",
+      "type": "registry:ui",
+      "target": ""
+    }
+  ]
+}

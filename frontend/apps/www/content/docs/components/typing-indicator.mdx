@@ -1,0 +1,82 @@
+---
+title: Typing Indicator
+description: A simple animated typing indicator component.
+component: true
+---
+
+<ComponentPreview
+  name="typing-indicator-demo"
+  title="TypingIndicator"
+  description="An animated typing indicator with bouncing dots."
+/>
+
+A minimal and elegant typing indicator component that shows three animated dots to indicate ongoing activity, commonly used in chat interfaces to show when someone is typing.
+
+## Installation
+
+<Tabs defaultValue="cli">
+
+<TabsList>
+  <TabsTrigger value="cli">CLI</TabsTrigger>
+  <TabsTrigger value="manual">Manual</TabsTrigger>
+</TabsList>
+
+<TabsContent value="cli">
+
+```bash
+npx shadcn@latest add https://shadcn-chatbot-kit.vercel.app/r/typing-indicator.json
+```
+
+</TabsContent>
+
+<TabsContent value="manual">
+
+<Steps>
+
+<Step>Copy and paste the following code into your project.</Step>
+
+<ComponentSource name="typing-indicator" />
+
+<Step>Add the following options into `tailwind.config.js`</Step>
+
+Add the following object in the `theme.extend.keyframes` section of your `tailwind.config.js` file
+
+```javascript title="tailwind.config.js"
+// ...
+"typing-dot-bounce": {
+  "0%,40%": { transform: "translateY(0)" },
+  "20%": { transform: "translateY(-0.25rem)" },
+},
+// ...
+```
+
+Add the following property in the `theme.extend.animation` section of your `tailwind.config.js` file
+
+```javascript title="tailwind.config.js"
+// ...
+"typing-dot-bounce": "typing-dot-bounce 1.25s ease-out infinite",
+// ...
+```
+
+</Steps>
+
+</TabsContent>
+
+</Tabs>
+
+## Usage
+
+```tsx
+import { TypingIndicator } from "@/components/ui/typing-indicator"
+
+type MessageProps = {
+  isPending: boolean
+  content: string
+}
+
+export function Message({ isPending, content }: MessageProps) {
+  // ...
+
+  return isPending ? <TypingIndicator /> : <p>{content}</p>
+}
+```

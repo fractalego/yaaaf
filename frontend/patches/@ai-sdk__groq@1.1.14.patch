@@ -1,0 +1,50 @@
+diff --git a/dist/index.js b/dist/index.js
+index b7f9db25763efa16a976b261efd17e00fde0e08d..43c4f52e76f60b5ba414ef78c2bb3beb65708d36 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -468,6 +468,12 @@ var GroqChatLanguageModel = class {
+                 textDelta: delta.content
+               });
+             }
++            if (delta.reasoning != null) {
++              controller.enqueue({
++                type: "reasoning",
++                textDelta: delta.reasoning
++              });
++            }
+             if (delta.tool_calls != null) {
+               for (const toolCallDelta of delta.tool_calls) {
+                 const index = toolCallDelta.index;
+@@ -610,6 +616,7 @@ var groqChatChunkSchema = import_zod2.z.union([
+         delta: import_zod2.z.object({
+           role: import_zod2.z.enum(["assistant"]).nullish(),
+           content: import_zod2.z.string().nullish(),
++          reasoning: import_zod2.z.string().nullish(),
+           tool_calls: import_zod2.z.array(
+             import_zod2.z.object({
+               index: import_zod2.z.number(),
+diff --git a/dist/index.mjs b/dist/index.mjs
+index a17ca758f75089f645e5a9e3a3492373bf68724e..0545f57fb07996ecae298c5ccfc0767780f5ee2a 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -459,6 +459,12 @@ var GroqChatLanguageModel = class {
+                 textDelta: delta.content
+               });
+             }
++            if (delta.reasoning != null) {
++              controller.enqueue({
++                type: "reasoning",
++                textDelta: delta.reasoning
++              });
++            }
+             if (delta.tool_calls != null) {
+               for (const toolCallDelta of delta.tool_calls) {
+                 const index = toolCallDelta.index;
+@@ -601,6 +607,7 @@ var groqChatChunkSchema = z2.union([
+         delta: z2.object({
+           role: z2.enum(["assistant"]).nullish(),
+           content: z2.string().nullish(),
++          reasoning: z2.string().nullish(),
+           tool_calls: z2.array(
+             z2.object({
+               index: z2.number(),

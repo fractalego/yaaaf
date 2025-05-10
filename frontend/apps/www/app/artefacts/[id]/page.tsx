@@ -1,4 +1,5 @@
 import {get_artefact} from "@/app/artefacts/actions";
+import {ArtefactPage} from "@/registry/custom/artefact-page";
 
 export default async function Page({params}) {
   const parameters = await params;

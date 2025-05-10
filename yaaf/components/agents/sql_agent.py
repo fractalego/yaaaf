@@ -78,7 +78,7 @@ class SqlAgent(BaseAgent):
                 code=sql_query,
             )
         )
-        return f"The result is in this artiface <artefact type='table'>{table_id}</artefact>."
+        return f"The result is in this artifact <artefact type='table'>{table_id}</artefact>."
 
     def get_description(self) -> str:
         return f"""

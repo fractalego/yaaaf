@@ -206,7 +206,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                   {actions}
                 </div>
               ) : null}
-              {role == "assistant" && addSpinner ? (<Loader2 className="h-5 w-5 animate-spin" />) : null}
+              {role == "assistant" && addSpinner ? (<Loader2 className="mt-5 h-5 w-5 animate-spin" />) : null}
             </div>
 
             {showTimeStamp && createdAt ? (

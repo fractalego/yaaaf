@@ -1,6 +1,7 @@
 from typing import Dict, List
 from yaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaf.components.agents.reflection_agent import ReflectionAgent
+from yaaf.components.agents.reviewer_agent import ReviewerAgent
 from yaaf.components.agents.sql_agent import SqlAgent
 from yaaf.components.agents.visualization_agent import VisualizationAgent
 from yaaf.components.client import OllamaClient
@@ -20,6 +21,7 @@ _orchestrator = OrchestratorAgent(_client)
 _orchestrator.subscribe_agent(ReflectionAgent(client=_client))
 _orchestrator.subscribe_agent(VisualizationAgent(client=_client))
 _orchestrator.subscribe_agent(SqlAgent(client=_client, source=_sqlite_source))
+_orchestrator.subscribe_agent(ReviewerAgent(client=_client))
 
 
 async def do_compute(stream_id, messages):

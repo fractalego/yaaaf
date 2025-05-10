@@ -117,7 +117,7 @@ The table must have the following columns: folder_index | query
 )
 
 
-reviewer_agent_prompt_template_without_model = PromptTemplate(
+reviewer_agent_prompt_template_with_model = PromptTemplate(
     prompt="""
 Your task is to create a python code that extract the information specified in the instructions. 
 The code needs to be writte in Python between the tags <code>...</code>
@@ -146,7 +146,7 @@ When you are done output the tag {task_completed_tag}.
     """
 )
 
-reviewer_agent_prompt_template_with_model = PromptTemplate(
+reviewer_agent_prompt_template_without_model = PromptTemplate(
     prompt="""
 Your task is to create a python code that extract the information specified in the instructions. 
 The code needs to be writte in Python between the tags <code>...</code>

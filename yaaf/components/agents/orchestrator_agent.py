@@ -54,7 +54,7 @@ class OrchestratorAgent(BaseAgent):
                     image_artefact: Artefact = self._get_artefacts(answer)
                     answer = f"<imageoutput>{image_artefact.id}</imageoutput>" + "\n" + answer
                 if message_queue is not None:
-                    message_queue.append(agent_to_call.clean_answer(answer))
+                    message_queue.append(answer)
                 messages = messages.add_user_utterance(
                     f"The answer from the agent is:\n\n{answer}\n\nWhen you are 100% sure about the answer and the task is done, write the tag {self._completing_tags[0]}."
                 )
@@ -115,7 +115,7 @@ Orchestrator agent: This agent orchestrates the agents.
         )
 
     def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
-        artefact_matches = re.findall(rf"<artefact>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
+        artefact_matches = re.findall(rf"<artefact.*?>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
         if not artefact_matches:
             return []
 

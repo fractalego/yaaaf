@@ -85,6 +85,9 @@ class VisualizationAgent(BaseAgent):
                 f"The result is: {code_result}. If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
             )
 
+        if not os.path.exists(image_name):
+            return "No image was generated. Please try again."
+
         with open(image_name, "rb") as file:
             base64_image: str = base64.b64encode(file.read()).decode("ascii")
             self._storage.store_artefact(
@@ -116,7 +119,7 @@ The information about what to plot will be then used by the agent.
         return "</visualizationagent>"
 
     def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
-        artefact_matches = re.findall(rf"<artefact>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
+        artefact_matches = re.findall(rf"<artefact.*?>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
         if not artefact_matches:
             return []
 

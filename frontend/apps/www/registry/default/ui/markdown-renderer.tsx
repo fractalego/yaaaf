@@ -5,6 +5,14 @@ import rehypeRaw from "rehype-raw"
 
 import { cn } from "@/lib/utils"
 import { CopyButton } from "@/registry/default/ui/copy-button"
+import {SqlAgent} from "@/registry/custom/sql-agent";
+import {VisualizationAgent} from "@/registry/custom/visualization-agent";
+import {ReviewerAgent} from "@/registry/custom/reviewer-agent";
+import {Artefact} from "@/registry/custom/artefact";
+import {ImageOutput} from "@/registry/custom/image-output";
+import {Complete} from "@/registry/custom/complete";
+import {MleAgent} from "@/registry/custom/mle-agent";
+import {SelfReflectionAgent} from "@/registry/custom/self-reflection-agent";
 
 interface MarkdownRendererProps {
   children: string
@@ -14,10 +22,9 @@ export function MarkdownRenderer({ children }: MarkdownRendererProps) {
   return (
     <div className="space-y-3">
       <Markdown remarkPlugins={[remarkGfm]}
-                rehypePlugins={rehypeRaw}
+                rehypePlugins={[rehypeRaw]}
                 components={COMPONENTS}
                 urlTransform={(value: string) => value}
-                className="space-y-3"
       >
         {children}
       </Markdown>
@@ -144,25 +151,28 @@ function childrenTakeAllStringContents(element: any): string {
 }
 
 const COMPONENTS = {
-  sqlagent: ({ children, ...props }: any) => {
+  sqlagent: ({ children }: any) => {
     return <SqlAgent text={children}></SqlAgent>
   },
-  visualizationagent: ({ children, ...props }: any) => {
+  visualizationagent: ({ children }: any) => {
     return <VisualizationAgent text={children}></VisualizationAgent>
   },
-  mleagent: ({ children, ...props }: any) => {
-    return <MLAgent text={children}></MLAgent>
+  mleagent: ({ children }: any) => {
+    return <MleAgent text={children}></MleAgent>
   },
-  revieweragent: ({ children, ...props }: any) => {
+  revieweragent: ({ children }: any) => {
     return <ReviewerAgent text={children}></ReviewerAgent>
   },
-  artefact: ({ children, ...props }: any) => {
-    return <Artefact text={children}></Artefact>
+  artefact: ({ children }: any) => {
+    return <Artefact id={children}></Artefact>
   },
-  imageoutput: ({ children, ...props }: any) => {
-    return <ImageOutput text={children}></ImageOutput>
+  imageoutput: ({ children }: any) => {
+    return <ImageOutput id={children}></ImageOutput>
   },
-  taskcompleted: ({ children, ...props }: any) => {
+  selfreflectionagent: ({ children }: any) => {
+    return <SelfReflectionAgent text={children}></SelfReflectionAgent>
+  },
+  taskcompleted: ({ children }: any) => {
     return <Complete/>
   },
 

@@ -31,9 +31,9 @@ class ArtefactOutput(BaseModel):
     @staticmethod
     def create_from_artefact(artefact: Artefact) -> "ArtefactOutput":
         return ArtefactOutput(
-            data=artefact.data.to_html(index=False) if artefact.data else "",
-            code=artefact.code if artefact.code else "",
-            image=artefact.image if artefact.image else "",
+            data=artefact.data.to_html(index=False) if artefact.data is not None else "",
+            code=artefact.code if artefact.code is not None else "",
+            image=artefact.image if artefact.image is not None else "",
         )
 
 

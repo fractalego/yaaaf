@@ -82,12 +82,6 @@ class ReviewerAgent(BaseAgent):
 
         return answer
 
-    def clean_answer(self, answer: str) -> str:
-        replaced_answer = str(answer)
-        for filename, base64_image in self._hash_to_images_dict.items():
-            replaced_answer = replaced_answer.replace(filename, base64_image)
-        return replaced_answer
-
     def get_description(self) -> str:
         return f"""
 Reviewer agent: This agent is given the relevant artefact table and searcehs for a specific piece of information.
@@ -104,7 +98,7 @@ Do *not* use images in the arguments of this agent.
         return "</revieweragent>"
 
     def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
-        artefact_matches = re.findall(rf"<artefact>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
+        artefact_matches = re.findall(rf"<artefact.*?>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
         if not artefact_matches:
             return []
 

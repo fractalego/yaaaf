@@ -99,7 +99,8 @@ class MleAgent(BaseAgent):
                 ),
             )
             os.remove(model_name)
-        return f"The result is in this artefact <artefact type='model'>{hash_string}</artefact>"
+        return f"The result is in this artefact <artefact type='model'>{hash_string}</artefact>"\
+               f"Additionally, the model returned the output {code_result}.\n"
 
 
     def get_description(self) -> str:
@@ -116,7 +117,7 @@ The information about what to plot will be then used by the agent.
         return "</mleagent>"
 
     def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
-        artefact_matches = re.findall(rf"<artefact>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
+        artefact_matches = re.findall(rf"<artefact.*?>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
         if not artefact_matches:
             return []
 

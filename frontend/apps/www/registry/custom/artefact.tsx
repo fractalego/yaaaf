@@ -3,7 +3,7 @@ import {createHash} from "crypto"
 import * as React from "react"
 
 function Artefact(element: {id: string}) {
-  const url: string = "/artefact/" + element.id
+  const url: string = "/artefacts/" + element.id
   const colors: Array<string> = [
     "text-red-500",
     "text-yellow-500",

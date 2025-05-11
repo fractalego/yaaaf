@@ -10,15 +10,6 @@ export function SiteFooter() {
           <Icons.blazity className="mx-1 inline-block h-4 w-4" />
           <span>
             <a
-              href={siteConfig.links.twitter}
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium text-blazity underline underline-offset-4"
-            >
-              Blazity
-            </a>
-            , based on a project by{" "}
-            <a
               href="https://x.com/shadcn"
               target="_blank"
               rel="noreferrer"

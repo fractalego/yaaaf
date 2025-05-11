@@ -6,11 +6,8 @@ import {transcribeAudio} from "@/lib/utils/audio"
 import {Chat} from "@/registry/default/ui/chat"
 import {getSessionId} from "./session"
 
-type ChatDemoProps = {
-  initialMessages?: UseChatOptions["initialMessages"]
-}
 
-export default function ChatDemo(props: ChatDemoProps) {
+export default function ChatDemo() {
 
   const {
     messages,
@@ -22,7 +19,6 @@ export default function ChatDemo(props: ChatDemoProps) {
     isLoading,
     setMessages,
   } = useChat({
-    ...props,
     api: "/api/chat",
     body: {
       session_id: getSessionId()
@@ -34,6 +30,7 @@ export default function ChatDemo(props: ChatDemoProps) {
       <div className={cn("flex", "flex-col", "h-[80vh]", "w-full", 'overflow-none')}>
         <Chat
           className="grow"
+           // @ts-expect-error @ts-ignore
           messages={messages}
           handleSubmit={handleSubmit}
           input={input}

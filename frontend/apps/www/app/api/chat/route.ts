@@ -6,6 +6,7 @@ export async function POST(req: Request) {
   const stream_id = session_id;
   messages.forEach(
     (item: string) => {
+      // @ts-ignore
       delete(item["parts"]);
     }
   )
@@ -68,7 +69,7 @@ async function createStream(stream_id: string, messages: Array<Map<string, strin
   return "Error in creating stream";
 }
 
-async function getUtterances(stream_id: string): Promise<string> {
+async function getUtterances(stream_id: string): Promise<Array<string>> {
   const url = get_utterances_url;
   try {
     const response = await fetch(url, {
@@ -89,5 +90,5 @@ async function getUtterances(stream_id: string): Promise<string> {
   } catch (error) {
     console.error("Error fetching data:", error);
   }
-  return "Error in getting utterances";
+  return ["Error in getting utterances"];
 }

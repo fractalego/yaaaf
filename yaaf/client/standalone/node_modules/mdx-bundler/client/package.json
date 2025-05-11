@@ -1,0 +1,15 @@
+{
+  "type": "commonjs",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    "react": {
+      "types": "./react.d.ts",
+      "default": "./react.js"
+    },
+    "jsx": {
+      "types": "./jsx.d.ts",
+      "default": "./jsx.js"
+    }
+  }
+}

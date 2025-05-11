@@ -13,7 +13,7 @@ import {
 } from "@/registry/default/ui/collapsible"
 import { FilePreview } from "@/registry/default/ui/file-preview"
 import { MarkdownRenderer } from "@/registry/default/ui/markdown-renderer"
-import {complete_tag} from "@/app/settings";
+import { complete_tag } from "@/app/settings"
 
 const chatBubbleVariants = cva(
   "group/message relative break-words rounded-lg p-3 text-sm sm:max-w-[70%]",
@@ -133,8 +133,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   toolInvocations,
   parts,
 }) => {
-  console.log(content);
-  const addSpinner: boolean = content.indexOf(complete_tag) == -1;
+  console.log(content)
+  const addSpinner: boolean = content.indexOf(complete_tag) == -1
 
   const files = useMemo(() => {
     return experimental_attachments?.map((attachment) => {
@@ -184,13 +184,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   }
 
   if (parts && parts.length > 0) {
-
     return parts.map((part, index) => {
       if (part.type === "text") {
-        let text = part.text;
-        text = text.replaceAll("<br/>", "\n");
-        text = text.replaceAll("&quot;", "\"");
-        text = text.replaceAll("&nbsp;&nbsp;&nbsp;&nbsp;", "\t");
+        let text = part.text
+        text = text.replaceAll("<br/>", "\n")
+        text = text.replaceAll("&quot;", '"')
+        text = text.replaceAll("&nbsp;&nbsp;&nbsp;&nbsp;", "\t")
         return (
           <div
             className={cn(
@@ -206,7 +205,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                   {actions}
                 </div>
               ) : null}
-              {role == "assistant" && addSpinner ? (<Loader2 className="mt-5 h-5 w-5 animate-spin" />) : null}
+              {role == "assistant" && addSpinner ? (
+                <Loader2 className="mt-5 h-5 w-5 animate-spin" />
+              ) : null}
             </div>
 
             {showTimeStamp && createdAt ? (

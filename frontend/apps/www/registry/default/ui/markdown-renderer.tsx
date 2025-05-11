@@ -1,18 +1,18 @@
 import React, { Suspense } from "react"
 import Markdown from "react-markdown"
-import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
+import remarkGfm from "remark-gfm"
 
 import { cn } from "@/lib/utils"
+import { Artefact } from "@/registry/custom/artefact"
+import { Complete } from "@/registry/custom/complete"
+import { ImageOutput } from "@/registry/custom/image-output"
+import { MleAgent } from "@/registry/custom/mle-agent"
+import { ReviewerAgent } from "@/registry/custom/reviewer-agent"
+import { SelfReflectionAgent } from "@/registry/custom/self-reflection-agent"
+import { SqlAgent } from "@/registry/custom/sql-agent"
+import { VisualizationAgent } from "@/registry/custom/visualization-agent"
 import { CopyButton } from "@/registry/default/ui/copy-button"
-import {SqlAgent} from "@/registry/custom/sql-agent";
-import {VisualizationAgent} from "@/registry/custom/visualization-agent";
-import {ReviewerAgent} from "@/registry/custom/reviewer-agent";
-import {Artefact} from "@/registry/custom/artefact";
-import {ImageOutput} from "@/registry/custom/image-output";
-import {Complete} from "@/registry/custom/complete";
-import {MleAgent} from "@/registry/custom/mle-agent";
-import {SelfReflectionAgent} from "@/registry/custom/self-reflection-agent";
 
 interface MarkdownRendererProps {
   children: string
@@ -21,10 +21,11 @@ interface MarkdownRendererProps {
 export function MarkdownRenderer({ children }: MarkdownRendererProps) {
   return (
     <div className="space-y-3">
-      <Markdown remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw]}
-                components={COMPONENTS}
-                urlTransform={(value: string) => value}
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw]}
+        components={COMPONENTS}
+        urlTransform={(value: string) => value}
       >
         {children}
       </Markdown>
@@ -173,7 +174,7 @@ const COMPONENTS = {
     return <SelfReflectionAgent text={children}></SelfReflectionAgent>
   },
   taskcompleted: ({ children }: any) => {
-    return <Complete/>
+    return <Complete />
   },
 
   h1: withClass("h1", "text-2xl font-semibold"),

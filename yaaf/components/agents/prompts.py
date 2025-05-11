@@ -120,7 +120,7 @@ The table must have the following columns: folder_index | query
 reviewer_agent_prompt_template_with_model = PromptTemplate(
     prompt="""
 Your task is to create a python code that extract the information specified in the instructions. 
-The code needs to be writte in Python between the tags <code>...</code>
+The code needs to be written in python between the tags ```python ... ```
 The goal of this code is to see if some specific piece of information is in the provided dataframe.
 
 This agent is given the input information into an already-defined global variable called "{data_source_name}".
@@ -149,7 +149,7 @@ When you are done output the tag {task_completed_tag}.
 reviewer_agent_prompt_template_without_model = PromptTemplate(
     prompt="""
 Your task is to create a python code that extract the information specified in the instructions. 
-The code needs to be writte in Python between the tags <code>...</code>
+The code needs to be written in python between the tags ```python ... ```
 The goal of this code is to see if some specific piece of information is in the provided dataframe.
 
 This agent is given the input information into an already-defined global variable called "{data_source_name}".

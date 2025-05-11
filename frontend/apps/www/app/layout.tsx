@@ -20,19 +20,17 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   description: siteConfig.description,
   keywords: [
-    "Next.js",
-    "React",
-    "Tailwind CSS",
-    "Server Components",
-    "Radix UI",
+    "Agents",
+    "Python",
+    "LLM",
   ],
   authors: [
     {
-      name: "Blazity",
-      url: "https://blazity.com",
+      name: "Fractalego",
+      url: "https://fractalego.io",
     },
   ],
-  creator: "shadcn",
+  creator: "Fractalego",
   openGraph: {
     type: "website",
     locale: "en_US",
@@ -54,7 +52,7 @@ export const metadata: Metadata = {
     title: siteConfig.name,
     description: siteConfig.description,
     images: [siteConfig.ogImage],
-    creator: "@shadcn",
+    creator: "@fractalego",
   },
   icons: {
     icon: "/favicon.ico",

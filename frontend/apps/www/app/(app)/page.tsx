@@ -30,8 +30,8 @@ export default function ChatDemo(props: ChatDemoProps) {
   })
 
   return (
-    <div className="mx-auto grid h-screen w-full max-w-4xl place-items-center bg-background">
-      <div className={cn("flex", "flex-col", "h-3/4 p-50", "w-full")}>
+    <div className="mx-auto grid min-h-screen w-full max-w-4xl place-items-center bg-background">
+      <div className={cn("flex", "flex-col", "h-2/3", "w-full")}>
         <Chat
           className="grow"
           messages={messages}
@@ -45,8 +45,7 @@ export default function ChatDemo(props: ChatDemoProps) {
           transcribeAudio={transcribeAudio}
           suggestions={[
             "what are the most common types of finds in the dataset?",
-            "Explain step-by-step how to solve this math problem: If x² + 6x + 9 = 25, what is x?",
-            "Design a simple algorithm to find the longest palindrome in a string.",
+            "Plot the distribution of finds by type",
           ]}
         />
       </div>

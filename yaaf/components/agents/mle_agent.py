@@ -54,19 +54,19 @@ class MleAgent(BaseAgent):
             )
             messages.add_assistant_utterance(answer)
             matches = re.findall(
-                rf"{self._output_tag}(.+)```",
+                rf"{self._output_tag}(.+)(```)?",
                 answer,
                 re.DOTALL | re.MULTILINE,
             )
             code_result = "No code found"
             if matches:
-                code = matches[0]
+                code = matches[0][0]
                 try:
                     old_stdout = sys.stdout
                     redirected_output = sys.stdout = StringIO()
                     global_variables = globals().copy()
                     global_variables.update({"dataframe": df, "sklearn_model": model})
-                    exec(code)
+                    exec(code, global_variables)
                     sys.stdout = old_stdout
                     code_result = redirected_output.getvalue()
                     if code_result.strip() == "":
@@ -105,8 +105,10 @@ class MleAgent(BaseAgent):
 
     def get_description(self) -> str:
         return f"""
-Visualization agent: This agent creates the relevant visualization in the format of a graph plot using a markdown table.
-To call this agent write {self.get_opening_tag()} MARKDOWN TABLE ABOUT WHAT TO PLOT {self.get_closing_tag()}
+Visualization agent: This agent is given the relevant table, quickly trains a small sklearn model and saves it in a joblib file.
+You can use linear interpolation, polynomial regression, SVM, logistic regression, decision trees, random forests.
+To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEFACTS THAT DESCRIBE WHAT TO APPLY THE SKLEARN MODEL TO {self.get_closing_tag()}
+The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).
 The information about what to plot will be then used by the agent.
         """
 

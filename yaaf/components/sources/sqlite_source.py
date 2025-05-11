@@ -13,8 +13,8 @@ class SqliteSource(BaseSource):
         conn = sqlite3.connect(self.db_path)
         try:
             return pd.read_sql_query(query, conn)
-        except pd.errors.DatabaseError as e:
-            return pd.DataFrame({"Errors":"Error in executing SQL query: {e}", "Results": "There are no results"})
+        except (ValueError, pd.errors.DatabaseError) as e:
+            return pd.DataFrame({"Errors":f"Error in executing SQL query: {e}", "Results": "There are no results"})
 
     def get_description(self) -> str:
         conn = sqlite3.connect(self.db_path)

@@ -1,12 +1,11 @@
 export const siteConfig = {
-  name: "shadcn-chatbot-kit",
-  url: "https://shadcn-chatbot-kit.vercel.app",
-  ogImage: "https://shadcn-chatbot-kit.vercel.app/og.jpg",
+  name: "YAAF",
+  url: "https://github.com/fractalego/yaaf",
+  ogImage: "",
   description:
-    "Beautifully designed chatbot components based on shadcn/ui. Fully customizable and owned by you.",
+    "YAAF - Yet Another Agents Framework. A simple and extensible framework for building chatbots with LLMs.",
   links: {
-    twitter: "https://twitter.com/blazity",
-    github: "https://github.com/Blazity/shadcn-chatbot-kit",
+    github: "https://github.com/fractalego/yaaf",
   },
 }
 

@@ -2,7 +2,7 @@ import logging
 import re
 from typing import List, Tuple, Optional
 
-from yaaf.components.agents.artefacts import Artefact
+from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.agents.base_agent import BaseAgent
 from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.client import BaseClient
@@ -18,6 +18,7 @@ class OrchestratorAgent(BaseAgent):
     _agents_map: {str: BaseAgent} = {}
     _stop_sequences = []
     _max_steps = 10
+    _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):
         self._client = client
@@ -51,7 +52,7 @@ class OrchestratorAgent(BaseAgent):
                     message_queue=message_queue,
                 )
                 if "<artefact type='image'>" in answer:
-                    image_artefact: Artefact = self._get_artefacts(answer)
+                    image_artefact: Artefact = self._get_artefacts(answer)[0]
                     answer = f"<imageoutput>{image_artefact.id}</imageoutput>" + "\n" + answer
                 if message_queue is not None:
                     message_queue.append(answer)
@@ -114,8 +115,10 @@ Orchestrator agent: This agent orchestrates the agents.
             goal=goal,
         )
 
-    def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
-        artefact_matches = re.findall(rf"<artefact.*?>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
+    def _get_artefacts(self, last_utterance: Utterance|str) -> List[Artefact]:
+        if isinstance(last_utterance, Utterance):
+            last_utterance = last_utterance.content
+        artefact_matches = re.findall(rf"<artefact.*?>(.+?)</artefact>", last_utterance, re.MULTILINE|re.DOTALL)
         if not artefact_matches:
             return []
 

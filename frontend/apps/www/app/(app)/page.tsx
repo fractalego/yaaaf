@@ -30,8 +30,8 @@ export default function ChatDemo(props: ChatDemoProps) {
   })
 
   return (
-    <div className="mx-auto grid min-h-screen w-full max-w-4xl place-items-center bg-background">
-      <div className={cn("flex", "flex-col", "h-2/3", "w-full")}>
+    <div className="mx-auto grid h-[90vh] w-full max-w-4xl place-items-center bg-background">
+      <div className={cn("flex", "flex-col", "h-[80vh]", "w-full", 'overflow-none')}>
         <Chat
           className="grow"
           messages={messages}

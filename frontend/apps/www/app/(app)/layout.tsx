@@ -7,9 +7,9 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
-    <>
+    <div className="overscroll-none ">
       <SiteHeader />
       <main className="flex-1">{children}</main>
-    </>
+    </div>
   )
 }

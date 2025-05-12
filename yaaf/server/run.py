@@ -12,5 +12,12 @@ app.add_api_route("/get_artefact", endpoint=get_artifact, methods=["POST"])
 app.add_api_route("/get_image", endpoint=get_image, methods=["POST"])
 
 
+def run_server(host: str, port: int):
+    """
+    Run the FastAPI server with the specified host and port.
+    """
+    uvicorn.run(app, host=host, port=port)
+
+
 if __name__ == '__main__':
-    uvicorn.run(app, host=settings.host, port=settings.port)
+    run_server(host=settings.host, port=settings.port)

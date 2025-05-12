@@ -1,3 +1,5 @@
+corepack enable pnpm
 node run build
-cp app/www/public/ app/www/.next/standalone/apps/www/ -r
-cp app/www/.next/static/ -r .next/standalone/apps/www/.next
+cp apps/www/public/ apps/www/.next/standalone/apps/www/ -r
+cp apps/www/.next/static/ apps/www/.next/standalone/apps/www/.next -r
+cp apps/www/.next/standalone ../yaaf/client/ -r

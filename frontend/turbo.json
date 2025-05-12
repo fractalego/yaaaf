@@ -15,7 +15,8 @@
         "V0_URL",
         "V0_EDIT_SECRET",
         "DEPLOYMENT_PROTECTION_BYPASS",
-        "GROQ_API_KEY"
+        "GROQ_API_KEY",
+        "YAAF_API_PORT"
       ],
       "outputs": ["dist/**", ".next/**"]
     },

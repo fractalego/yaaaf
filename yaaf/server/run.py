@@ -1,3 +1,5 @@
+import os
+
 import uvicorn
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
@@ -13,9 +15,7 @@ app.add_api_route("/get_image", endpoint=get_image, methods=["POST"])
 
 
 def run_server(host: str, port: int):
-    """
-    Run the FastAPI server with the specified host and port.
-    """
+    os.environ["YAAF_API_PORT"] = str(port)
     uvicorn.run(app, host=host, port=port)
 
 

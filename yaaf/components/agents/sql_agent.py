@@ -76,7 +76,7 @@ class SqlAgent(BaseAgent):
                 data=current_output,
                 description=df_info_output.getvalue(),
                 code=sql_query,
-            )
+            ),
         )
         return f"The result is in this artifact <artefact type='table'>{table_id}</artefact>."
 

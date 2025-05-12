@@ -10,7 +10,10 @@ from typing import List, Optional, Tuple
 
 from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.agents.base_agent import BaseAgent
-from yaaf.components.agents.prompts import reviewer_agent_prompt_template_without_model, reviewer_agent_prompt_template_with_model
+from yaaf.components.agents.prompts import (
+    reviewer_agent_prompt_template_without_model,
+    reviewer_agent_prompt_template_with_model,
+)
 from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import PromptTemplate, Messages, Utterance
@@ -97,7 +100,11 @@ Do *not* use images in the arguments of this agent.
         return "</revieweragent>"
 
     def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
-        artefact_matches = re.findall(rf"<artefact.*?>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
+        artefact_matches = re.findall(
+            rf"<artefact.*?>(.+?)</artefact>",
+            last_utterance.content,
+            re.MULTILINE | re.DOTALL,
+        )
         if not artefact_matches:
             return []
 
@@ -114,7 +121,9 @@ Do *not* use images in the arguments of this agent.
 
     def _create_prompt_from_artefacts(self, artefact_list: List[Artefact]) -> str:
         table_artefacts = [
-            item for item in artefact_list if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
+            item
+            for item in artefact_list
+            if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
         ]
         models_artefacts = [
             item for item in artefact_list if item.type == Artefact.Types.MODEL
@@ -128,7 +137,7 @@ Do *not* use images in the arguments of this agent.
             return reviewer_agent_prompt_template_without_model.complete(
                 data_source_name="dataframe",
                 data_source_type=str(type(table_artefacts[0].data)),
-                schema=table_artefacts[0].description
+                schema=table_artefacts[0].description,
             )
 
         return reviewer_agent_prompt_template_with_model.complete(
@@ -140,11 +149,17 @@ Do *not* use images in the arguments of this agent.
             training_code=models_artefacts[0].code,
         )
 
-    def _get_table_and_model_from_artefacts(self, artefact_list: List[Artefact]) -> Tuple[pd.DataFrame, sklearn.base.BaseEstimator]:
+    def _get_table_and_model_from_artefacts(
+        self, artefact_list: List[Artefact]
+    ) -> Tuple[pd.DataFrame, sklearn.base.BaseEstimator]:
         table_artefacts = [
-            item for item in artefact_list if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
+            item
+            for item in artefact_list
+            if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
         ]
         models_artefacts = [
             item for item in artefact_list if item.type == Artefact.Types.MODEL
         ]
-        return table_artefacts[0].data if table_artefacts else None, models_artefacts[0].model if models_artefacts else None
+        return table_artefacts[0].data if table_artefacts else None, models_artefacts[
+            0
+        ].model if models_artefacts else None

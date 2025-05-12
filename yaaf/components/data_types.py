@@ -16,7 +16,9 @@ class PromptTemplate(BaseModel):
     prompt: str = Field(..., description="The prompt template string")
 
     def complete(self, **kwargs) -> str:
-        return self.prompt.replace("{task_completed_tag}", task_completed_tag).format(**kwargs)
+        return self.prompt.replace("{task_completed_tag}", task_completed_tag).format(
+            **kwargs
+        )
 
 
 class Messages(BaseModel):

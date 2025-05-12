@@ -5,7 +5,7 @@ from typing import Optional, Dict
 import pandas as pd
 import sklearn
 
-from pydantic import BaseModel#
+from pydantic import BaseModel  #
 from singleton_decorator import singleton
 
 _logger = logging.getLogger(__name__)
@@ -45,7 +45,9 @@ class ArtefactStorage:
         return self.hash_to_artefact_dict.get(hash_key)
 
     def retrieve_from_utterance_string(self, utterance: str) -> Optional[Artefact]:
-        artefact_matches = re.findall(rf"<artefact.*>(.+?)</artefact>", utterance, re.MULTILINE | re.DOTALL)
+        artefact_matches = re.findall(
+            rf"<artefact.*>(.+?)</artefact>", utterance, re.MULTILINE | re.DOTALL
+        )
         if not artefact_matches:
             return None
 

@@ -35,7 +35,9 @@ class OrchestratorAgent(BaseAgent):
         )
         answer: str = ""
         for step_index in range(self._max_steps):
-            answer = await self._client.predict(messages, stop_sequences=self._stop_sequences)
+            answer = await self._client.predict(
+                messages, stop_sequences=self._stop_sequences
+            )
             if message_queue is not None:
                 message_queue.append(answer)
             if self.is_complete(answer) or answer.strip() == "":
@@ -53,7 +55,11 @@ class OrchestratorAgent(BaseAgent):
                 )
                 if "<artefact type='image'>" in answer:
                     image_artefact: Artefact = self._get_artefacts(answer)[0]
-                    answer = f"<imageoutput>{image_artefact.id}</imageoutput>" + "\n" + answer
+                    answer = (
+                        f"<imageoutput>{image_artefact.id}</imageoutput>"
+                        + "\n"
+                        + answer
+                    )
                 if message_queue is not None:
                     message_queue.append(answer)
                 messages = messages.add_user_utterance(
@@ -115,10 +121,12 @@ Orchestrator agent: This agent orchestrates the agents.
             goal=goal,
         )
 
-    def _get_artefacts(self, last_utterance: Utterance|str) -> List[Artefact]:
+    def _get_artefacts(self, last_utterance: Utterance | str) -> List[Artefact]:
         if isinstance(last_utterance, Utterance):
             last_utterance = last_utterance.content
-        artefact_matches = re.findall(rf"<artefact.*?>(.+?)</artefact>", last_utterance, re.MULTILINE|re.DOTALL)
+        artefact_matches = re.findall(
+            rf"<artefact.*?>(.+?)</artefact>", last_utterance, re.MULTILINE | re.DOTALL
+        )
         if not artefact_matches:
             return []
 

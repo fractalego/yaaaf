@@ -27,11 +27,12 @@ class ArtefactOutput(BaseModel):
     code: str
     image: str
 
-
     @staticmethod
     def create_from_artefact(artefact: Artefact) -> "ArtefactOutput":
         return ArtefactOutput(
-            data=artefact.data.to_html(index=False) if artefact.data is not None else "",
+            data=artefact.data.to_html(index=False)
+            if artefact.data is not None
+            else "",
             code=artefact.code if artefact.code is not None else "",
             image=artefact.image if artefact.image is not None else "",
         )
@@ -44,7 +45,7 @@ class ImageArguments(BaseModel):
 def create_stream(arguments: CreateStreamArguments):
     stream_id = arguments.stream_id
     messages = Messages(utterances=arguments.messages)
-    t= threading.Thread(target=asyncio.run, args=(do_compute(stream_id, messages),))
+    t = threading.Thread(target=asyncio.run, args=(do_compute(stream_id, messages),))
     t.start()
 
 

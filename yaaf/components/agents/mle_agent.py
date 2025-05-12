@@ -99,9 +99,10 @@ class MleAgent(BaseAgent):
                 ),
             )
             os.remove(model_name)
-        return f"The result is in this artefact <artefact type='model'>{hash_string}</artefact>"\
-               f"Additionally, the model returned the output {code_result}.\n"
-
+        return (
+            f"The result is in this artefact <artefact type='model'>{hash_string}</artefact>"
+            f"Additionally, the model returned the output {code_result}.\n"
+        )
 
     def get_description(self) -> str:
         return f"""
@@ -119,7 +120,11 @@ The information about what to plot will be then used by the agent.
         return "</mleagent>"
 
     def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
-        artefact_matches = re.findall(rf"<artefact.*?>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
+        artefact_matches = re.findall(
+            rf"<artefact.*?>(.+?)</artefact>",
+            last_utterance.content,
+            re.MULTILINE | re.DOTALL,
+        )
         if not artefact_matches:
             return []
 
@@ -133,9 +138,13 @@ The information about what to plot will be then used by the agent.
 
         return artefacts
 
-    def _create_prompt_from_artefacts(self, artefact_list: List[Artefact], filename: str) -> str:
+    def _create_prompt_from_artefacts(
+        self, artefact_list: List[Artefact], filename: str
+    ) -> str:
         table_artefacts = [
-            item for item in artefact_list if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
+            item
+            for item in artefact_list
+            if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
         ]
         models_artefacts = [
             item for item in artefact_list if item.type == Artefact.Types.MODEL
@@ -167,11 +176,17 @@ The information about what to plot will be then used by the agent.
             filename=filename,
         )
 
-    def _get_table_and_model_from_artefacts(self, artefact_list: List[Artefact]) -> Tuple[pd.DataFrame, sklearn.base.BaseEstimator]:
+    def _get_table_and_model_from_artefacts(
+        self, artefact_list: List[Artefact]
+    ) -> Tuple[pd.DataFrame, sklearn.base.BaseEstimator]:
         table_artefacts = [
-            item for item in artefact_list if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
+            item
+            for item in artefact_list
+            if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
         ]
         models_artefacts = [
             item for item in artefact_list if item.type == Artefact.Types.MODEL
         ]
-        return table_artefacts[0].data if table_artefacts else None, models_artefacts[0].model if models_artefacts else None
+        return table_artefacts[0].data if table_artefacts else None, models_artefacts[
+            0
+        ].model if models_artefacts else None

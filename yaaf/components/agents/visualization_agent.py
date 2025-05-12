@@ -18,7 +18,10 @@ from yaaf.components.agents.base_agent import BaseAgent
 from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import Messages, Utterance
-from yaaf.components.agents.prompts import visualization_agent_prompt_template_without_model, visualization_agent_prompt_template_with_model
+from yaaf.components.agents.prompts import (
+    visualization_agent_prompt_template_without_model,
+    visualization_agent_prompt_template_with_model,
+)
 
 _logger = logging.getLogger(__name__)
 matplotlib.use("Agg")
@@ -104,7 +107,6 @@ class VisualizationAgent(BaseAgent):
             os.remove(image_name)
         return f"The result is in this artefact <artefact type='image'>{image_id}</artefact>"
 
-
     def get_description(self) -> str:
         return f"""
 Visualization agent: This agent is given the relevant artefact table and visualizes the results.
@@ -120,7 +122,11 @@ The information about what to plot will be then used by the agent.
         return "</visualizationagent>"
 
     def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
-        artefact_matches = re.findall(rf"<artefact.*?>(.+?)</artefact>", last_utterance.content, re.MULTILINE|re.DOTALL)
+        artefact_matches = re.findall(
+            rf"<artefact.*?>(.+?)</artefact>",
+            last_utterance.content,
+            re.MULTILINE | re.DOTALL,
+        )
         if not artefact_matches:
             return []
 
@@ -134,9 +140,13 @@ The information about what to plot will be then used by the agent.
 
         return artefacts
 
-    def _create_prompt_from_artefacts(self, artefact_list: List[Artefact], image_name: str) -> str:
+    def _create_prompt_from_artefacts(
+        self, artefact_list: List[Artefact], image_name: str
+    ) -> str:
         table_artefacts = [
-            item for item in artefact_list if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
+            item
+            for item in artefact_list
+            if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
         ]
         models_artefacts = [
             item for item in artefact_list if item.type == Artefact.Types.MODEL
@@ -168,11 +178,17 @@ The information about what to plot will be then used by the agent.
             filename=image_name,
         )
 
-    def _get_table_and_model_from_artefacts(self, artefact_list: List[Artefact]) -> Tuple[pd.DataFrame, sklearn.base.BaseEstimator]:
+    def _get_table_and_model_from_artefacts(
+        self, artefact_list: List[Artefact]
+    ) -> Tuple[pd.DataFrame, sklearn.base.BaseEstimator]:
         table_artefacts = [
-            item for item in artefact_list if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
+            item
+            for item in artefact_list
+            if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
         ]
         models_artefacts = [
             item for item in artefact_list if item.type == Artefact.Types.MODEL
         ]
-        return table_artefacts[0].data if table_artefacts else None, models_artefacts[0].model if models_artefacts else None
+        return table_artefacts[0].data if table_artefacts else None, models_artefacts[
+            0
+        ].model if models_artefacts else None

@@ -43,7 +43,7 @@ class ReflectionAgent(BaseAgent):
             if matches:
                 current_output = matches[0]
 
-        return current_output.replace(task_completed_tag,"")
+        return current_output.replace(task_completed_tag, "")
 
     def get_description(self) -> str:
         return f"""

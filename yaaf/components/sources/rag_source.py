@@ -6,10 +6,11 @@ from yaaf.components.sources.base_source import BaseSource
 
 
 class RAGSource(BaseSource):
-    def __init__(self, description: str):
+    def __init__(self, description: str, source_path: str):
         self._vector_db = BM25LocalDB()
         self._id_to_chunk: Dict[str, str] = {}
         self._description = description
+        self.source_path = source_path
 
     def add_text(self, text: str):
         node_id: str = hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -28,3 +29,4 @@ class RAGSource(BaseSource):
     def get_description(self) -> str:
         self._vector_db.build()
         return self._description
+

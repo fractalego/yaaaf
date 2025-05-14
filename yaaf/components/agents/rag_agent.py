@@ -3,6 +3,8 @@ import re
 import pandas as pd
 
 from typing import Optional, List, Dict
+
+from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.agents.base_agent import BaseAgent
 from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.client import BaseClient
@@ -17,6 +19,7 @@ class RAGAgent(BaseAgent):
     _output_tag = "```retrieved"
     _stop_sequences = [task_completed_tag]
     _max_steps = 5
+    _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient, sources: List[RAGSource]):
         self._client = client
@@ -34,7 +37,8 @@ class RAGAgent(BaseAgent):
         messages = messages.add_system_prompt(
             self._system_prompt.complete(folders=self._folders_description)
         )
-        current_output: List[str] = []
+        all_retrieved_nodes = []
+        all_sources = []
         for _ in range(self._max_steps):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
@@ -47,10 +51,10 @@ class RAGAgent(BaseAgent):
                 answer,
                 re.DOTALL | re.MULTILINE,
             )
+
             if matches:
                 df = mdpd.from_md(matches[0])
                 retrievers_and_queries_dict: Dict[str, str] = df.to_dict("list")
-                all_retrieved_nodes = []
                 answer = ""
                 for index, query in zip(
                     retrievers_and_queries_dict["folder_index"],
@@ -59,6 +63,7 @@ class RAGAgent(BaseAgent):
                     source = self._sources[int(index)]
                     retrieved_nodes = source.get_data(query)
                     all_retrieved_nodes.extend(retrieved_nodes)
+                    all_sources.extend([source.source_path] * len(retrieved_nodes))
                     answer += f"Folder index: {index} -> {retrieved_nodes}\n"
 
                 current_output = all_retrieved_nodes.copy()
@@ -74,7 +79,18 @@ class RAGAgent(BaseAgent):
                     f"Otherwise, try to understand from the answer how to modify the query and get better results.\n"
                 )
 
-        return pd.DataFrame({"retrieved text chunks": current_output}).to_markdown()
+        df = pd.DataFrame({"retrieved text chunks": all_retrieved_nodes, "source": all_sources})
+        rag_id: str = str(hash(str(messages))).replace("-", "")
+        self._storage.store_artefact(
+            rag_id,
+            Artefact(
+                type=Artefact.Types.TABLE,
+                description=str(messages),
+                data=df,
+                id=rag_id,
+            ),
+        )
+        return f"The result is in this artefact <artefact type='table'>{rag_id}</artefact>"
 
     def get_description(self) -> str:
         return f"""

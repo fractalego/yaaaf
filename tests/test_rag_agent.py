@@ -5,12 +5,13 @@ import unittest
 from typing import List
 
 from yaaf.components.agents.rag_agent import RAGAgent
+from yaaf.components.agents.storage_utils import get_artefacts_from_utterance_content
 from yaaf.components.client import OllamaClient
 from yaaf.components.data_types import Messages
 from yaaf.components.sources.rag_source import RAGSource
 
 _path = os.path.dirname(os.path.abspath(__file__))
-_source = RAGSource("A wiki page about archaeology")
+_source = RAGSource(description="A wiki page about archaeology", source_path="wiki/archaeology")
 with open(os.path.join(_path, "../data", "Archaeology - Wikipedia.html"), "r") as f:
     _text = f.read()
 _chunk_size = 1000
@@ -39,5 +40,8 @@ class TestSqlAgent(unittest.TestCase):
                 message_queue=message_queue,
             )
         )
+        artefacts = get_artefacts_from_utterance_content(answer)
+        assert len(artefacts) == 1
         expected = "excavation"
-        self.assertIn(expected, answer)
+        data = artefacts[0].data.to_markdown()
+        self.assertIn(expected, data)

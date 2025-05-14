@@ -2,6 +2,7 @@ import logging
 import re
 from typing import List, Tuple, Optional
 
+from yaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
 from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.agents.base_agent import BaseAgent
 from yaaf.components.agents.settings import task_completed_tag
@@ -54,7 +55,9 @@ class OrchestratorAgent(BaseAgent):
                     message_queue=message_queue,
                 )
                 if "<artefact type='image'>" in answer:
-                    image_artefact: Artefact = self._get_artefacts(answer)[0]
+                    image_artefact: Artefact = get_artefacts_from_utterance_content(
+                        answer
+                    )[0]
                     answer = (
                         f"<imageoutput>{image_artefact.id}</imageoutput>"
                         + "\n"
@@ -120,23 +123,3 @@ Orchestrator agent: This agent orchestrates the agents.
             ),
             goal=goal,
         )
-
-    def _get_artefacts(self, last_utterance: Utterance | str) -> List[Artefact]:
-        if isinstance(last_utterance, Utterance):
-            last_utterance = last_utterance.content
-        artefact_matches = re.findall(
-            rf"<artefact.*?>(.+?)</artefact>", last_utterance, re.MULTILINE | re.DOTALL
-        )
-        if not artefact_matches:
-            return []
-
-        artefacts: List[Artefact] = []
-        for match in artefact_matches:
-            artefact_id: str = match
-            try:
-                artefacts.append(self._storage.retrieve_from_id(artefact_id))
-            except ValueError:
-                _logger.warning(f"Artefact with id {artefact_id} not found.")
-                pass
-
-        return artefacts

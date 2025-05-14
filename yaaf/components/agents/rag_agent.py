@@ -79,7 +79,9 @@ class RAGAgent(BaseAgent):
                     f"Otherwise, try to understand from the answer how to modify the query and get better results.\n"
                 )
 
-        df = pd.DataFrame({"retrieved text chunks": all_retrieved_nodes, "source": all_sources})
+        df = pd.DataFrame(
+            {"retrieved text chunks": all_retrieved_nodes, "source": all_sources}
+        )
         rag_id: str = str(hash(str(messages))).replace("-", "")
         self._storage.store_artefact(
             rag_id,
@@ -90,7 +92,9 @@ class RAGAgent(BaseAgent):
                 id=rag_id,
             ),
         )
-        return f"The result is in this artefact <artefact type='table'>{rag_id}</artefact>"
+        return (
+            f"The result is in this artefact <artefact type='table'>{rag_id}</artefact>"
+        )
 
     def get_description(self) -> str:
         return f"""

@@ -29,4 +29,3 @@ class RAGSource(BaseSource):
     def get_description(self) -> str:
         self._vector_db.build()
         return self._description
-

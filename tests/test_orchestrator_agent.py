@@ -2,6 +2,7 @@ import asyncio
 import unittest
 from pprint import pprint
 
+from yaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
 from yaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaf.components.agents.sql_agent import SqlAgent
 from yaaf.components.agents.visualization_agent import VisualizationAgent
@@ -32,26 +33,26 @@ class TestOrchestratorAgent(unittest.TestCase):
         messages = Messages().add_user_utterance(
             "How many archaeological findings are there in the dataset?"
         )
-        answer = asyncio.run(agent.query(
+        asyncio.run(agent.query(
             messages=messages,
             message_queue=message_queue,
         ))
-        pprint(message_queue)
+        artefacts = get_artefacts_from_utterance_content("\n".join(message_queue))
+        assert len(artefacts) > 0
         expected = "1015"
-        self.assertIn(expected, "\n".join(message_queue))
+        self.assertIn(expected, artefacts[0].data.to_markdown())
 
     def test_query2(self):
         message_queue: list[str] = []
         messages = Messages().add_user_utterance(
             "What is the most common description of archeological finding? visualize the top5 and give me the answer in a single sentence."
         )
-        answer = asyncio.run(
+        asyncio.run(
             agent.query(
                 messages=messages,
                 message_queue=message_queue,
             )
         )
-        pprint(message_queue)
-        print(answer)
+        artefacts = get_artefacts_from_utterance_content("\n".join(message_queue))
         expected = "prehistoric deposits"
-        self.assertIn(expected, answer.lower())
+        self.assertIn(expected, artefacts[0].data.to_markdown().lower())

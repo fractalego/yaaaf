@@ -1,13 +1,13 @@
-import base64
 import logging
-import os
 import pandas as pd
 import sklearn
 import sys
 import re
 from io import StringIO
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
+from yaaf.components.agents.artefact_utils import get_table_and_model_from_artefacts, \
+    get_artefacts_from_utterance_content, create_prompt_from_artefacts
 from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.agents.base_agent import BaseAgent
 from yaaf.components.agents.prompts import (
@@ -16,7 +16,7 @@ from yaaf.components.agents.prompts import (
 )
 from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.client import BaseClient
-from yaaf.components.data_types import PromptTemplate, Messages, Utterance
+from yaaf.components.data_types import Messages, Utterance
 
 _logger = logging.getLogger(__name__)
 
@@ -35,15 +35,26 @@ class ReviewerAgent(BaseAgent):
         self, messages: Messages, message_queue: Optional[List[str]] = None
     ) -> str:
         last_utterance = messages.utterances[-1]
-        artefact_list: List[Artefact] = self._get_artefacts(last_utterance)
+        artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
+            last_utterance.content
+        )
         if not artefact_list:
             return "No artefacts was given"
 
         messages = messages.add_system_prompt(
+            create_prompt_from_artefacts(
+                artefact_list,
+                "dummy_filename",
+                reviewer_agent_prompt_template_with_model,
+                reviewer_agent_prompt_template_without_model,
+            )
+        )
+
+
+        messages = messages.add_system_prompt(
             self._create_prompt_from_artefacts(artefact_list)
         )
-        df, model = self._get_table_and_model_from_artefacts(artefact_list)
-        answer = "No information found"
+        df, model = get_table_and_model_from_artefacts(artefact_list)
         code_result = "no code could be executed"
         for _ in range(self._max_steps):
             answer = await self._client.predict(
@@ -99,26 +110,6 @@ Do *not* use images in the arguments of this agent.
     def get_closing_tag(self) -> str:
         return "</revieweragent>"
 
-    def _get_artefacts(self, last_utterance: Utterance) -> List[Artefact]:
-        artefact_matches = re.findall(
-            rf"<artefact.*?>(.+?)</artefact>",
-            last_utterance.content,
-            re.MULTILINE | re.DOTALL,
-        )
-        if not artefact_matches:
-            return []
-
-        artefacts: List[Artefact] = []
-        for match in artefact_matches:
-            artefact_id: str = match
-            try:
-                artefacts.append(self._storage.retrieve_from_id(artefact_id))
-            except ValueError:
-                _logger.warning(f"Artefact with id {artefact_id} not found.")
-                pass
-
-        return artefacts
-
     def _create_prompt_from_artefacts(self, artefact_list: List[Artefact]) -> str:
         table_artefacts = [
             item
@@ -148,18 +139,3 @@ Do *not* use images in the arguments of this agent.
             sklearn_model=models_artefacts[0].model,
             training_code=models_artefacts[0].code,
         )
-
-    def _get_table_and_model_from_artefacts(
-        self, artefact_list: List[Artefact]
-    ) -> Tuple[pd.DataFrame, sklearn.base.BaseEstimator]:
-        table_artefacts = [
-            item
-            for item in artefact_list
-            if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
-        ]
-        models_artefacts = [
-            item for item in artefact_list if item.type == Artefact.Types.MODEL
-        ]
-        return table_artefacts[0].data if table_artefacts else None, models_artefacts[
-            0
-        ].model if models_artefacts else None

@@ -5,7 +5,7 @@ import unittest
 from typing import List
 
 from yaaf.components.agents.rag_agent import RAGAgent
-from yaaf.components.agents.storage_utils import get_artefacts_from_utterance_content
+from yaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
 from yaaf.components.client import OllamaClient
 from yaaf.components.data_types import Messages
 from yaaf.components.sources.rag_source import RAGSource

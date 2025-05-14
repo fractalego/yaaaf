@@ -18,6 +18,7 @@ from yaaf.components.agents.artefact_utils import (
 )
 from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.agents.base_agent import BaseAgent
+from yaaf.components.agents.hash_utils import create_hash
 from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import Messages
@@ -47,7 +48,7 @@ class VisualizationAgent(BaseAgent):
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
         )
-        image_id: str = str(hash(str(messages))).replace("-", "")
+        image_id: str = create_hash(str(messages))
         image_name: str = image_id + ".png"
         messages = messages.add_system_prompt(
             create_prompt_from_artefacts(

@@ -1,9 +1,7 @@
 import re
-
-from typing import List, Tuple
-
 import pandas as pd
 
+from typing import List, Tuple
 from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.data_types import Utterance, PromptTemplate
 

@@ -15,10 +15,11 @@ from yaaf.components.agents.artefact_utils import (
 )
 from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.agents.base_agent import BaseAgent
+from yaaf.components.agents.hash_utils import create_hash
 from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import Messages
-from yaaf.components.agents.prompts import mle_agent_prompt_template_without_model
+from yaaf.components.agents.prompts import mle_agent_prompt_template_without_model, mle_agent_prompt_template_with_model
 
 _logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class MleAgent(BaseAgent):
         if not artefact_list:
             return "No artefacts was given"
 
-        hash_string: str = str(hash(str(messages))).replace("-", "")
+        hash_string: str = create_hash(str(messages))
         model_name: str = hash_string + ".png"
         messages = messages.add_system_prompt(
             create_prompt_from_artefacts(

@@ -25,6 +25,5 @@ class TestVisualizationAgent(unittest.TestCase):
                 message_queue=message_queue,
             )
         )
-        print(agent.clean_answer(answer))
         expected = "<artefact type='image'>"
         self.assertIn(expected, answer)

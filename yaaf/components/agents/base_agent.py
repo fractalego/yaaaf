@@ -24,6 +24,3 @@ class BaseAgent:
             return True
 
         return False
-
-    def clean_answer(self, answer: str) -> str:
-        return answer

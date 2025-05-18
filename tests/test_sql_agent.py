@@ -26,7 +26,7 @@ sqlite_source.ingest(
 class TestSqlAgent(unittest.TestCase):
     def test_simple_output(self):
         client = OllamaClient(
-            model="gemma3:4b",
+            model="qwen2.5:32b",
             temperature=0.4,
             max_tokens=1000,
         )

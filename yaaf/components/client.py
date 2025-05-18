@@ -3,6 +3,8 @@ import json
 
 from typing import Optional, List
 
+from yaaf.components.agents.tokens_utils import strip_thought_tokens
+
 
 class BaseClient:
     async def predict(
@@ -25,7 +27,7 @@ class OllamaClient(BaseClient):
         self,
         model: str,
         temperature: float = 0.4,
-        max_tokens: int = 1000,
+        max_tokens: int = 2048,
         host: str = "http://localhost:11434",
     ):
         self.model = model
@@ -51,7 +53,7 @@ class OllamaClient(BaseClient):
             f"{self.host}/api/chat", headers=headers, data=json.dumps(data)
         )
         if response.status_code == 200:
-            return json.loads(response.text)["message"]["content"]
+            return strip_thought_tokens(json.loads(response.text)["message"]["content"])
         else:
             raise Exception(f"Error: {response.status_code}, {response.text}")
-        return response.json().get("message", "")
+

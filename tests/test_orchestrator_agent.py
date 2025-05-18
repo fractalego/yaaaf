@@ -1,6 +1,5 @@
 import asyncio
 import unittest
-from pprint import pprint
 
 from yaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
 from yaaf.components.agents.orchestrator_agent import OrchestratorAgent
@@ -17,7 +16,7 @@ text_client = OllamaClient(
     max_tokens=100,
 )
 code_client = OllamaClient(
-    model="qwen2.5:32b",
+    model="gemma3:12b",
     temperature=0.4,
     max_tokens=1000,
 )

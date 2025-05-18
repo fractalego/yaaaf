@@ -213,3 +213,13 @@ Do not create a new dataframe. Use only the one specified above.
 When you are done output the tag {task_completed_tag}.
 """
 )
+
+duckduckgo_search_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to search the web using DuckDuckGo and find the relevant information.
+The query needs to be written in python between the tags ```text ... ```
+The goal of this query is to find the relevant information in the web.
+DO NOT OUTPUT THE ANSWER YOURSELF. DO NOT WRITE CODE TO CALL THE API.
+JUST OUTPUT THE QUERY BETWEEN THE TAGS.
+    """
+)

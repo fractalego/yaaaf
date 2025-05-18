@@ -15,6 +15,8 @@ from yaaf.components.agents.prompts import (
     reviewer_agent_prompt_template_with_model,
 )
 from yaaf.components.agents.settings import task_completed_tag
+from yaaf.components.agents.texts import no_artefact_text
+from yaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import Messages, Utterance
 
@@ -39,7 +41,7 @@ class ReviewerAgent(BaseAgent):
             last_utterance.content
         )
         if not artefact_list:
-            return "No artefacts was given"
+            return no_artefact_text
 
         messages = messages.add_system_prompt(
             create_prompt_from_artefacts(
@@ -49,7 +51,6 @@ class ReviewerAgent(BaseAgent):
                 reviewer_agent_prompt_template_without_model,
             )
         )
-
 
         messages = messages.add_system_prompt(
             self._create_prompt_from_artefacts(artefact_list)
@@ -61,13 +62,8 @@ class ReviewerAgent(BaseAgent):
                 messages=messages, stop_sequences=self._stop_sequences
             )
             messages.add_assistant_utterance(answer)
-            matches = re.findall(
-                rf"{self._output_tag}(.+)(```)?",
-                answer,
-                re.DOTALL | re.MULTILINE,
-            )
-            if matches:
-                code = matches[0][0]
+            code = get_first_text_between_tags(answer, self._output_tag, "```")
+            if code:
                 try:
                     old_stdout = sys.stdout
                     redirected_output = sys.stdout = StringIO()

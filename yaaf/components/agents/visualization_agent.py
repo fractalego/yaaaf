@@ -20,6 +20,8 @@ from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.agents.base_agent import BaseAgent
 from yaaf.components.agents.hash_utils import create_hash
 from yaaf.components.agents.settings import task_completed_tag
+from yaaf.components.agents.texts import no_artefact_text
+from yaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import Messages
 from yaaf.components.agents.prompts import (
@@ -48,6 +50,8 @@ class VisualizationAgent(BaseAgent):
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
         )
+        if not artefact_list:
+            return no_artefact_text
         image_id: str = create_hash(str(messages))
         image_name: str = image_id + ".png"
         messages = messages.add_system_prompt(
@@ -65,14 +69,9 @@ class VisualizationAgent(BaseAgent):
                 messages=messages, stop_sequences=self._stop_sequences
             )
             messages.add_assistant_utterance(answer)
-            matches = re.findall(
-                rf"{self._output_tag}(.+)(```)?",
-                answer,
-                re.DOTALL | re.MULTILINE,
-            )
+            code = get_first_text_between_tags(answer, self._output_tag, "```")
             code_result = "No code found"
-            if matches:
-                code = matches[0][0]
+            if code:
                 try:
                     old_stdout = sys.stdout
                     redirected_output = sys.stdout = StringIO()

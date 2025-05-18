@@ -18,7 +18,7 @@ _client = OllamaClient(
 )
 _sqlite_source = SqliteSource(
     name="London Archaeological Data",
-    db_path=os.path.join(_path, "../../data/london_archaeological_data.db"),
+    db_path=os.path.join(_path, "../../data/london_archaeological_data.db")
 )
 _orchestrator = OrchestratorAgent(_client)
 _orchestrator.subscribe_agent(ReflectionAgent(client=_client))

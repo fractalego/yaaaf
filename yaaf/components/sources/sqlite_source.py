@@ -16,8 +16,8 @@ class SqliteSource(BaseSource):
         except (ValueError, pd.errors.DatabaseError) as e:
             return pd.DataFrame.from_dict(
                 {
-                    "Errors": f"Error in executing SQL query: {e}",
-                    "Results": "There are no results",
+                    "Errors": [f"Error in executing SQL query: {e}"],
+                    "Results": ["There are no results"],
                 }
             )
 

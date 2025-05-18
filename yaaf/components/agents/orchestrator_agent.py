@@ -6,6 +6,7 @@ from yaaf.components.agents.artefact_utils import get_artefacts_from_utterance_c
 from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.agents.base_agent import BaseAgent
 from yaaf.components.agents.settings import task_completed_tag
+from yaaf.components.agents.tokens_utils import strip_thought_tokens
 from yaaf.components.client import BaseClient
 from yaaf.components.data_types import Messages, PromptTemplate, Utterance
 from yaaf.components.agents.prompts import orchestrator_prompt_template

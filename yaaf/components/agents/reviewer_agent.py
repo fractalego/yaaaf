@@ -51,10 +51,6 @@ class ReviewerAgent(BaseAgent):
                 reviewer_agent_prompt_template_without_model,
             )
         )
-
-        messages = messages.add_system_prompt(
-            self._create_prompt_from_artefacts(artefact_list)
-        )
         df, model = get_table_and_model_from_artefacts(artefact_list)
         code_result = "no code could be executed"
         for _ in range(self._max_steps):
@@ -95,7 +91,7 @@ class ReviewerAgent(BaseAgent):
         return f"""
 Reviewer agent: This agent is given the relevant artefact table and searches for a specific piece of information.
 To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEFACTS THAT DESCRIBE WHAT TO RETRIEVE FROM THE DATA {self.get_closing_tag()}
-This agent is called when you need to check if the output of the sql agent answers the oevarching goal.
+This agent is called when you need to check if the output of the sql agent answers the overarching goal.
 The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).
 Do *not* use images in the arguments of this agent.
         """
@@ -105,33 +101,3 @@ Do *not* use images in the arguments of this agent.
 
     def get_closing_tag(self) -> str:
         return "</revieweragent>"
-
-    def _create_prompt_from_artefacts(self, artefact_list: List[Artefact]) -> str:
-        table_artefacts = [
-            item
-            for item in artefact_list
-            if item.type == Artefact.Types.TABLE or item.type == Artefact.Types.IMAGE
-        ]
-        models_artefacts = [
-            item for item in artefact_list if item.type == Artefact.Types.MODEL
-        ]
-        if not table_artefacts and not models_artefacts:
-            raise ValueError("No artefacts found in the message.")
-        if not table_artefacts:
-            table_artefacts = [pd.DataFrame()]
-
-        if not models_artefacts:
-            return reviewer_agent_prompt_template_without_model.complete(
-                data_source_name="dataframe",
-                data_source_type=str(type(table_artefacts[0].data)),
-                schema=table_artefacts[0].description,
-            )
-
-        return reviewer_agent_prompt_template_with_model.complete(
-            data_source_name="dataframe",
-            data_source_type=str(type(table_artefacts[0].data)),
-            schema=table_artefacts[0].description,
-            model_name="sklearn_model",
-            sklearn_model=models_artefacts[0].model,
-            training_code=models_artefacts[0].code,
-        )

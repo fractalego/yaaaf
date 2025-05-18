@@ -64,6 +64,14 @@ class OrchestratorAgent(BaseAgent):
                         + "\n"
                         + answer
                     )
+                if "<artefact type='paragraphs-table'>" in answer:
+                    image_artefact: Artefact = get_artefacts_from_utterance_content(
+                        answer
+                    )[0]
+                    answer = (
+                        f"\n{image_artefact.data.to_markdown(index=False)}\n"
+                        + answer
+                    )
                 if message_queue is not None:
                     message_queue.append(answer)
                 messages = messages.add_user_utterance(

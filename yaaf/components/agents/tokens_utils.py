@@ -14,7 +14,7 @@ def get_first_text_between_tags(text: str, opening_tag: str, closing_tag: str) -
     if match:
         return match.group(1).strip()
 
-    pattern = f"{opening_tag}(.*?)"
+    pattern = f"{opening_tag}(.*)"
     match = re.search(pattern, text, re.DOTALL | re.MULTILINE)
     if match:
         return match.group(1).strip()

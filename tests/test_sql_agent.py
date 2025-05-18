@@ -42,7 +42,7 @@ class TestSqlAgent(unittest.TestCase):
             )
         )
         storage = ArtefactStorage()
-        artefact = storage.retrieve_from_utterance_string(answer)
+        artefact = storage.retrieve_first_from_utterance_string(answer)
         expected = "Archaeological Priority Area - Tier II"
         print(artefact.data.to_markdown())
         self.assertIn(expected, artefact.data.to_markdown(index=False))

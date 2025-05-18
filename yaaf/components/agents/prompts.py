@@ -184,8 +184,6 @@ When you are done output the tag {task_completed_tag}.
 )
 
 
-
-
 mle_agent_prompt_template_with_model = PromptTemplate(
     prompt="""
 Your task is to create a Python code that extracts a trend or finds a patern using sklearn.
@@ -214,6 +212,7 @@ When you are done output the tag {task_completed_tag}.
 """
 )
 
+
 duckduckgo_search_agent_prompt_template = PromptTemplate(
     prompt="""
 Your task is to search the web using DuckDuckGo and find the relevant information.
@@ -222,4 +221,21 @@ The goal of this query is to find the relevant information in the web.
 DO NOT OUTPUT THE ANSWER YOURSELF. DO NOT WRITE CODE TO CALL THE API.
 JUST OUTPUT THE QUERY BETWEEN THE TAGS.
     """
+)
+
+
+url_retriever_agent_prompt_template_without_model = PromptTemplate(
+    prompt="""
+Your task is to analise markdown table of texts and urls and answer a query given as input.
+
+This agent is given in the markdown table below
+<table>
+{table}
+</table>
+
+Answer the user's query using the table above. 
+The output must be a markdown table of paragraphs with the columns: paragraph | relevant_url.
+Each paragraph can only use one url as source.
+This output *must* be between the markdown tags ```table ... ```.
+"""
 )

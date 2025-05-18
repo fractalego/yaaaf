@@ -1,7 +1,7 @@
 import re
 import pandas as pd
 
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.data_types import Utterance, PromptTemplate
 
@@ -51,7 +51,7 @@ def get_table_and_model_from_artefacts(
 def create_prompt_from_artefacts(
     artefact_list: List[Artefact],
     filename: str,
-    prompt_with_model: PromptTemplate,
+    prompt_with_model: PromptTemplate | None,
     prompt_without_model: PromptTemplate,
 ) -> str:
     table_artefacts = [
@@ -71,7 +71,7 @@ def create_prompt_from_artefacts(
             )
         ]
 
-    if not models_artefacts:
+    if not models_artefacts or not prompt_with_model:
         return prompt_without_model.complete(
             data_source_name="dataframe",
             data_source_type=str(type(table_artefacts[0].data)),

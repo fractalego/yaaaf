@@ -20,7 +20,6 @@ class Settings(BaseSettings):
     client: ClientSettings
     sources: List[SourceSettings] = []
     agents: List[str] = []
-    query_suggestions: List[str] = []
 
 
 def _get_simple_config() -> Settings:
@@ -33,7 +32,6 @@ def _get_simple_config() -> Settings:
         client=client_settings,
         sources=[],
         agents=["reflection", "visualization", "sql", "reviewer", "websearch", "url_reviewer"],
-        query_suggestions=["What is the capital of France?", "Who is the president of the USA?"],
     )
     return config
 

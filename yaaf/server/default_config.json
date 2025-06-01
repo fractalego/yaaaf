@@ -1,26 +1,22 @@
 {
-      "client": {
-          "model": "llama3",
-          "temperature": 0.7,
-          "max_tokens": 1024
-      },
-      "agents": [
-          "reflection",
-          "visualization",
-          "sql",
-          "reviewer",
-          "websearch",
-          "url_reviewer"
-      ],
-      "sources": [
-          {
-              "name": "london_archaeological_data",
-              "type": "sqlite",
-              "path": "../../data/london_archaeological_data.db"
-          }
-      ],
-      "query_suggestions": [
-          "Find all the artifacts from the Roman period",
-          "List the excavation sites in London"
-      ]
-  }
+  "client": {
+    "model": "llama3",
+    "temperature": 0.7,
+    "max_tokens": 1024
+  },
+  "agents": [
+    "reflection",
+    "visualization",
+    "sql",
+    "reviewer",
+    "websearch",
+    "url_reviewer"
+  ],
+  "sources": [
+    {
+      "name": "london_archaeological_data",
+      "type": "sqlite",
+      "path": "../../data/london_archaeological_data.db"
+    }
+  ],
+}

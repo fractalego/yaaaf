@@ -9,7 +9,7 @@ from yaaf.server.routes import (
     get_image,
     get_all_utterances, get_query_suggestions,
 )
-from yaaf.server.settings import server_settings
+from yaaf.server.server_settings import server_settings
 
 app = FastAPI()
 app.add_middleware(

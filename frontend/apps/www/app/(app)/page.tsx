@@ -5,9 +5,9 @@ import {cn} from "@/lib/utils"
 import {transcribeAudio} from "@/lib/utils/audio"
 import {Chat} from "@/registry/default/ui/chat"
 import {getSessionId} from "./session"
+import {query_suggestions} from "@/app/settings";
 
-
-export default function ChatDemo() {
+export default  function ChatDemo() {
 
   const {
     messages,
@@ -40,10 +40,7 @@ export default function ChatDemo() {
           append={append}
           setMessages={setMessages}
           transcribeAudio={transcribeAudio}
-          suggestions={[
-            "what are the most common types of finds in the dataset?",
-            "Plot the distribution of finds by type",
-          ]}
+          suggestions={query_suggestions.split(',')}
         />
       </div>
     </div>

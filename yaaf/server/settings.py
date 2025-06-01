@@ -1,9 +1,9 @@
 from pydantic import BaseModel
 
 
-class Settings(BaseModel):
+class ServerSettings(BaseModel):
     host: str = "0.0.0.0"
     port: int = 4000
 
 
-settings = Settings()
+server_settings = ServerSettings()

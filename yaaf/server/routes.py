@@ -6,7 +6,9 @@ from pydantic import BaseModel
 
 from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaf.components.data_types import Utterance, Messages
+from yaaf.components.orchestrator_builder import OrchestratorBuilder
 from yaaf.server.accessories import do_compute, get_utterances
+from yaaf.server.config import get_config
 
 
 class CreateStreamArguments(BaseModel):
@@ -45,7 +47,8 @@ class ImageArguments(BaseModel):
 def create_stream(arguments: CreateStreamArguments):
     stream_id = arguments.stream_id
     messages = Messages(utterances=arguments.messages)
-    t = threading.Thread(target=asyncio.run, args=(do_compute(stream_id, messages),))
+    orchestrator = OrchestratorBuilder(get_config()).build()
+    t = threading.Thread(target=asyncio.run, args=(do_compute(stream_id, messages, orchestrator),))
     t.start()
 
 
@@ -68,3 +71,8 @@ def get_image(arguments: ImageArguments) -> str:
         return artefact.image
     except ValueError:
         return f"WARNING: Artefact with id {image_id} not found."
+
+
+def get_query_suggestions(query: str) -> List[str]:
+    return get_config().query_suggestions
+

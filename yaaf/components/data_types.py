@@ -1,6 +1,7 @@
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
+from yaaf.components.agents.artefacts import Artefact
 from yaaf.components.agents.settings import task_completed_tag
 
 
@@ -47,3 +48,22 @@ class Messages(BaseModel):
 
     def __str__(self):
         return self.__repr__()
+
+
+class Event(BaseModel):
+    message: str
+    artefact: Optional[Artefact]
+
+    def __repr__(self):
+        return f"Event(type={self.type}, data={self.data})"
+
+    def __str__(self):
+        return self.__repr__()
+
+    def add_artefact(self, artefact: Artefact) -> "Event":
+        self.artefact = artefact
+        return self
+
+    def add_message(self, message: str) -> "Event":
+        self.message = message
+        return self

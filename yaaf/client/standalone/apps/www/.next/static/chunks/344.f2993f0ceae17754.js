@@ -1,0 +1,6 @@
+"use strict";(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[344,3303],{50344:(e,a,s)=>{s.r(a),s.d(a,{default:()=>i});var n=s(57437),c=s(43303);function i(){return(0,n.jsx)(c.TypingIndicator,{})}},43303:(e,a,s)=>{s.r(a),s.d(a,{TypingIndicator:()=>i});var n=s(57437),c=s(47774);function i(){return(0,n.jsx)("div",{className:"justify-left flex space-x-1",children:(0,n.jsx)("div",{className:"rounded-lg bg-muted p-3",children:(0,n.jsxs)("div",{className:"flex -space-x-2.5",children:[(0,n.jsx)(c.Z,{className:"h-5 w-5 animate-typing-dot-bounce"}),(0,n.jsx)(c.Z,{className:"h-5 w-5 animate-typing-dot-bounce [animation-delay:90ms]"}),(0,n.jsx)(c.Z,{className:"h-5 w-5 animate-typing-dot-bounce [animation-delay:180ms]"})]})})})}},47774:(e,a,s)=>{s.d(a,{Z:()=>n});/**
+ * @license lucide-react v0.359.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let n=(0,s(85666).Z)("Dot",[["circle",{cx:"12.1",cy:"12.1",r:"1",key:"18d7e5"}]])}}]);

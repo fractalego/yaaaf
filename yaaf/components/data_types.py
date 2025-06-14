@@ -50,7 +50,7 @@ class Messages(BaseModel):
         return self.__repr__()
 
 
-class Event(BaseModel):
+class Note(BaseModel):
     message: str
     artefact: Optional[Artefact]
 
@@ -60,10 +60,10 @@ class Event(BaseModel):
     def __str__(self):
         return self.__repr__()
 
-    def add_artefact(self, artefact: Artefact) -> "Event":
+    def add_artefact(self, artefact: Artefact) -> "Note":
         self.artefact = artefact
         return self
 
-    def add_message(self, message: str) -> "Event":
+    def add_message(self, message: str) -> "Note":
         self.message = message
         return self

@@ -1,0 +1,12 @@
+{
+  "name": "use-auto-scroll",
+  "type": "registry:hook",
+  "files": [
+    {
+      "path": "hooks/use-auto-scroll.ts",
+      "content": "import { useEffect, useRef, useState } from \"react\"\n\n// How many pixels from the bottom of the container to enable auto-scroll\nconst ACTIVATION_THRESHOLD = 50\n// Minimum pixels of scroll-up movement required to disable auto-scroll\nconst MIN_SCROLL_UP_THRESHOLD = 10\n\nexport function useAutoScroll(dependencies: React.DependencyList) {\n  const containerRef = useRef<HTMLDivElement | null>(null)\n  const previousScrollTop = useRef<number | null>(null)\n  const [shouldAutoScroll, setShouldAutoScroll] = useState(true)\n\n  const scrollToBottom = () => {\n    if (containerRef.current) {\n      containerRef.current.scrollTop = containerRef.current.scrollHeight\n    }\n  }\n\n  const handleScroll = () => {\n    if (containerRef.current) {\n      const { scrollTop, scrollHeight, clientHeight } = containerRef.current\n\n      const distanceFromBottom = Math.abs(\n        scrollHeight - scrollTop - clientHeight\n      )\n\n      const isScrollingUp = previousScrollTop.current\n        ? scrollTop < previousScrollTop.current\n        : false\n\n      const scrollUpDistance = previousScrollTop.current\n        ? previousScrollTop.current - scrollTop\n        : 0\n\n      const isDeliberateScrollUp =\n        isScrollingUp && scrollUpDistance > MIN_SCROLL_UP_THRESHOLD\n\n      if (isDeliberateScrollUp) {\n        setShouldAutoScroll(false)\n      } else {\n        const isScrolledToBottom = distanceFromBottom < ACTIVATION_THRESHOLD\n        setShouldAutoScroll(isScrolledToBottom)\n      }\n\n      previousScrollTop.current = scrollTop\n    }\n  }\n\n  const handleTouchStart = () => {\n    setShouldAutoScroll(false)\n  }\n\n  useEffect(() => {\n    if (containerRef.current) {\n      previousScrollTop.current = containerRef.current.scrollTop\n    }\n  }, [])\n\n  useEffect(() => {\n    if (shouldAutoScroll) {\n      scrollToBottom()\n    }\n    // eslint-disable-next-line react-hooks/exhaustive-deps\n  }, dependencies)\n\n  return {\n    containerRef,\n    scrollToBottom,\n    handleScroll,\n    shouldAutoScroll,\n    handleTouchStart,\n  }\n}\n",
+      "type": "registry:hook",
+      "target": ""
+    }
+  ]
+}

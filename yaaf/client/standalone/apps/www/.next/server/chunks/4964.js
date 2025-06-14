@@ -1,0 +1,1 @@
+"use strict";exports.id=4964,exports.ids=[4964],exports.modules={4964:(e,r,s)=>{s.r(r),s.d(r,{default:()=>i});var t=s(326),d=s(7577),l=s(739);function i(){let[e,r]=(0,d.useState)("");return t.jsx("div",{className:"w-full",children:t.jsx(l.MarkdownRenderer,{children:e})})}}};

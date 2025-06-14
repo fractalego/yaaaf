@@ -13,6 +13,7 @@ dependencies = [
     "nodejs-wheel>=22.15.0",
     "pandas>=2.2.3",
     "pydantic>=2.11.1",
+    "pydantic-ai>=0.2.18",
     "pydantic-ai-slim[mcp]>=0.0.52",
     "rank-bm25>=0.2.2",
     "requests>=2.32.3",

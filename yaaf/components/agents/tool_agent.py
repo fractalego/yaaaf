@@ -114,7 +114,7 @@ class ToolAgent(BaseAgent):
                 id=tool_id,
             ),
         )
-        return f"The result is in this artefact <artefact type='table'>{tool_id}</artefact>"
+        return f"The result is in this artefact <artefact type='called-tools-table'>{tool_id}</artefact>"
 
     def get_description(self) -> str:
         return f"""

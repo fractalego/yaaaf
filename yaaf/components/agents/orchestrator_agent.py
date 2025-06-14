@@ -55,23 +55,7 @@ class OrchestratorAgent(BaseAgent):
                     Messages().add_user_utterance(instruction),
                     message_queue=message_queue,
                 )
-                if "<artefact type='image'>" in answer:
-                    image_artefact: Artefact = get_artefacts_from_utterance_content(
-                        answer
-                    )[0]
-                    answer = (
-                        f"<imageoutput>{image_artefact.id}</imageoutput>"
-                        + "\n"
-                        + answer
-                    )
-                if "<artefact type='paragraphs-table'>" in answer:
-                    image_artefact: Artefact = get_artefacts_from_utterance_content(
-                        answer
-                    )[0]
-                    answer = (
-                        f"\n{image_artefact.data.to_markdown(index=False)}\n"
-                        + answer
-                    )
+                answer = self._add_relevant_information(answer)
                 if message_queue is not None:
                     message_queue.append(answer)
                 messages = messages.add_user_utterance(
@@ -132,3 +116,31 @@ Orchestrator agent: This agent orchestrates the agents.
             ),
             goal=goal,
         )
+
+    def _add_relevant_information(self, answer: str) -> str:
+        if "<artefact type='image'>" in answer:
+            image_artefact: Artefact = get_artefacts_from_utterance_content(
+                answer
+            )[0]
+            answer = (
+                    f"<imageoutput>{image_artefact.id}</imageoutput>"
+                    + "\n"
+                    + answer
+            )
+        if "<artefact type='paragraphs-table'>" in answer:
+            artefact: Artefact = get_artefacts_from_utterance_content(
+                answer
+            )[0]
+            answer = (
+                    f"\n{artefact.data.to_markdown(index=False)}\n"
+                    + answer
+            )
+        if "<artefact type='called-tools-table'>" in answer:
+            artefact: Artefact = get_artefacts_from_utterance_content(
+                answer
+            )[0]
+            answer = (
+                    f"\n{artefact.data.to_markdown(index=False)}\n"
+                    + answer
+            )
+        return answer

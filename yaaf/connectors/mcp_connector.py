@@ -28,7 +28,7 @@ class MCPTools(BaseModel):
     def get_tools_descriptions(self) -> str:
         """Get a string representation of available tool descriptions"""
         return "\n".join(
-            f"{i}: {tool.name} - {tool.description.strip()}" for i, tool in enumerate(self.tools)
+            f"{i}) Name: {tool.name}, Description: {tool.description.strip()}, Input schema: {str(tool.inputSchema).strip()}" for i, tool in enumerate(self.tools)
         )
 
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:

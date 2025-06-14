@@ -16,7 +16,7 @@ text_client = OllamaClient(
     max_tokens=100,
 )
 code_client = OllamaClient(
-    model="gemma3:12b",
+    model="qwen2.5:32b",
     temperature=0.4,
     max_tokens=1000,
 )

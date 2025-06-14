@@ -239,3 +239,28 @@ Each paragraph can only use one url as source.
 This output *must* be between the markdown tags ```table ... ```.
 """
 )
+
+
+
+tool_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to use available MCP tools to help answer the user's question.
+The tools available to you are:
+<tools>
+{tools_descriptions}
+</tools>
+
+Each tool can be called with specific arguments based on its input schema.
+In the end, you need to output a markdown table with the tool_index and the arguments (as JSON) to call each tool.
+You can think step-by-step on the actions to take.
+However the final output needs to be a markdown table.
+This output *must* be between the markdown tags ```tools ... ```
+
+The table must have the following columns in markdown format:
+| group_index | tool_index | arguments |
+| ----------- | ----------- | ----------- |
+| ....| ..... | .... |
+
+The arguments column should contain valid JSON that matches the tool's input schema.
+    """
+)

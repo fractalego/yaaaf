@@ -32,22 +32,35 @@ class OrchestratorAgent(BaseAgent):
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
-        messages = messages.add_system_prompt(
-            self._get_system_prompt(await self._goal_extractor.extract(messages))
-        )
+        try:
+            messages = messages.add_system_prompt(
+                self._get_system_prompt(await self._goal_extractor.extract(messages))
+            )
+        except Exception as e:
+            _logger.error(f"OrchestratorAgent: Failed to extract goal or add system prompt: {e}")
+            raise
+        
         answer: str = ""
         for step_index in range(self._max_steps):
-            answer = await self._client.predict(
-                messages, stop_sequences=self._stop_sequences
-            )
-            if notes is not None:
-                artefacts = get_artefacts_from_utterance_content(answer)
-                note = Note(
-                    message=answer,
-                    artefact_id=artefacts[0].id if artefacts else None,
-                    agent_name="OrchestratorAgent"
+            try:
+                answer = await self._client.predict(
+                    messages, stop_sequences=self._stop_sequences
                 )
-                notes.append(note)
+            except Exception as e:
+                _logger.error(f"OrchestratorAgent: Client prediction failed at step {step_index}: {e}")
+                raise
+            if notes is not None:
+                try:
+                    artefacts = get_artefacts_from_utterance_content(answer)
+                    note = Note(
+                        message=answer,
+                        artefact_id=artefacts[0].id if artefacts else None,
+                        agent_name="OrchestratorAgent"
+                    )
+                    notes.append(note)
+                except Exception as e:
+                    _logger.error(f"OrchestratorAgent: Failed to create or append note at step {step_index}: {e}")
+                    # Continue execution even if note creation fails
             if self.is_complete(answer) or answer.strip() == "":
                 break
             agent_to_call, instruction = self.map_answer_to_agent(answer)
@@ -56,19 +69,31 @@ class OrchestratorAgent(BaseAgent):
                     messages = messages.add_assistant_utterance(
                         f"Calling {agent_to_call.get_name()} with instruction:\n\n{instruction}\n\n"
                     )
-                answer = await agent_to_call.query(
-                    Messages().add_user_utterance(instruction),
-                    notes=notes,
-                )
-                answer = self._add_relevant_information(answer)
-                if notes is not None:
-                    artefacts = get_artefacts_from_utterance_content(answer)
-                    note = Note(
-                        message=answer,
-                        artefact_id=artefacts[0].id if artefacts else None,
-                        agent_name=agent_to_call.get_name()
+                try:
+                    answer = await agent_to_call.query(
+                        Messages().add_user_utterance(instruction),
+                        notes=notes,
                     )
-                    notes.append(note)
+                except Exception as e:
+                    _logger.error(f"OrchestratorAgent: Agent {agent_to_call.get_name()} query failed at step {step_index}: {e}")
+                    answer = f"Error occurred while calling {agent_to_call.get_name()}: {e}"
+                try:
+                    answer = self._add_relevant_information(answer)
+                except Exception as e:
+                    _logger.error(f"OrchestratorAgent: Failed to add relevant information at step {step_index}: {e}")
+                    # Continue with original answer
+                if notes is not None:
+                    try:
+                        artefacts = get_artefacts_from_utterance_content(answer)
+                        note = Note(
+                            message=answer,
+                            artefact_id=artefacts[0].id if artefacts else None,
+                            agent_name=agent_to_call.get_name()
+                        )
+                        notes.append(note)
+                    except Exception as e:
+                        _logger.error(f"OrchestratorAgent: Failed to create or append agent note at step {step_index}: {e}")
+                        # Continue execution even if note creation fails
                 messages = messages.add_user_utterance(
                     f"The answer from the agent is:\n\n{answer}\n\nWhen you are 100% sure about the answer and the task is done, write the tag {self._completing_tags[0]}."
                 )
@@ -79,6 +104,12 @@ class OrchestratorAgent(BaseAgent):
                 )
         if not self.is_complete(answer) and step_index == self._max_steps - 1:
             answer += "\nThe Orchestrator agent has finished its maximum number of steps. <task-completed/>"
+            notes.append(
+                Note(
+                    message="The Orchestrator agent has finished its maximum number of steps. <task-completed/>",
+                    agent_name="OrchestratorAgent"
+                )
+            )
         return answer
 
     def subscribe_agent(self, agent: BaseAgent):
@@ -106,10 +137,10 @@ Orchestrator agent: This agent orchestrates the agents.
         """
 
     def get_opening_tag(self) -> str:
-        return "<orchestrator-agent>"
+        return "<orchestratoragent>"
 
     def get_closing_tag(self) -> str:
-        return "</orchestrator-agent>"
+        return "</orchestratoragent>"
 
     def _get_system_prompt(self, goal: str) -> str:
         return orchestrator_prompt_template.complete(

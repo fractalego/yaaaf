@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import os
 import re
 from io import StringIO
@@ -18,6 +19,7 @@ from yaaf.components.agents.prompts import sql_agent_prompt_template
 from yaaf.components.sources.sqlite_source import SqliteSource
 
 _path = os.path.dirname(os.path.abspath(__file__))
+_logger = logging.getLogger(__name__)
 
 
 class SqlAgent(BaseAgent):
@@ -36,28 +38,48 @@ class SqlAgent(BaseAgent):
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
-        messages = messages.add_system_prompt(
-            self._system_prompt.complete(schema=self._schema)
-        )
+        try:
+            messages = messages.add_system_prompt(
+                self._system_prompt.complete(schema=self._schema)
+            )
+        except Exception as e:
+            _logger.error(f"SqlAgent: Failed to add system prompt: {e}")
+            raise
         current_output: str | pd.DataFrame = "No output"
         sql_query = "No SQL query"
         for _ in range(self._max_steps):
-            answer = await self._client.predict(
-                messages=messages, stop_sequences=self._stop_sequences
-            )
+            try:
+                answer = await self._client.predict(
+                    messages=messages, stop_sequences=self._stop_sequences
+                )
+            except Exception as e:
+                _logger.error(f"SqlAgent: Client prediction failed in query step: {e}")
+                raise
             if self.is_complete(answer) or answer.strip() == "":
                 break
 
-            sql_query = get_first_text_between_tags(answer, self._output_tag, "```")
+            try:
+                sql_query = get_first_text_between_tags(answer, self._output_tag, "```")
+            except Exception as e:
+                _logger.error(f"SqlAgent: Failed to extract SQL query from answer: {e}")
+                sql_query = None
             if sql_query:
                 if notes is not None:
-                    note = Note(
-                        message=f"```SQL\n{sql_query}\n```",
-                        artefact_id=None,
-                        agent_name="SqlAgent"
-                    )
-                    notes.append(note)
-                current_output = self._source.get_data(sql_query)
+                    try:
+                        note = Note(
+                            message=f"```SQL\n{sql_query}\n```",
+                            artefact_id=None,
+                            agent_name="SqlAgent"
+                        )
+                        notes.append(note)
+                    except Exception as e:
+                        _logger.error(f"SqlAgent: Failed to create or append SQL note: {e}")
+                        # Continue execution even if note creation fails
+                try:
+                    current_output = self._source.get_data(sql_query)
+                except Exception as e:
+                    _logger.error(f"SqlAgent: Failed to execute SQL query '{sql_query}': {e}")
+                    current_output = f"Error executing SQL: {e}"
                 messages = messages.add_user_utterance(
                     f"The answer is {answer}.\n\nThe output of this SQL query is {current_output}.\n\n\n"
                     f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
@@ -68,18 +90,23 @@ class SqlAgent(BaseAgent):
                     f"The answer is {answer} but there is no SQL call. Try again. If there are errors correct the SQL query accordingly."
                 )
 
-        df_info_output = StringIO()
-        table_id = create_hash(current_output.to_markdown())
-        current_output.info(verbose=True, buf=df_info_output)
-        self._storage.store_artefact(
-            table_id,
-            Artefact(
-                type=Artefact.Types.TABLE,
-                data=current_output,
-                description=df_info_output.getvalue(),
-                code=sql_query,
-            ),
-        )
+        try:
+            df_info_output = StringIO()
+            table_id = create_hash(current_output.to_markdown())
+            current_output.info(verbose=True, buf=df_info_output)
+            self._storage.store_artefact(
+                table_id,
+                Artefact(
+                    type=Artefact.Types.TABLE,
+                    data=current_output,
+                    description=df_info_output.getvalue(),
+                    code=sql_query,
+                ),
+            )
+        except Exception as e:
+            _logger.error(f"SqlAgent: Failed to create or store table artefact: {e}")
+            # Return a simple message without artefact if storage fails
+            return f"Query completed but failed to store result: {e}"
         return f"The result is in this artifact <artefact type='table'>{table_id}</artefact>."
 
     def get_description(self) -> str:

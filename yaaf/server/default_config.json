@@ -1,6 +1,6 @@
 {
   "client": {
-    "model": "llama3",
+    "model": "qwen2.5:32b",
     "temperature": 0.7,
     "max_tokens": 1024
   },
@@ -18,5 +18,5 @@
       "type": "sqlite",
       "path": "../../data/london_archaeological_data.db"
     }
-  ],
+  ]
 }

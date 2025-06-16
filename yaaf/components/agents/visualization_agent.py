@@ -23,7 +23,7 @@ from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.agents.texts import no_artefact_text
 from yaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaf.components.client import BaseClient
-from yaaf.components.data_types import Messages
+from yaaf.components.data_types import Messages, Note
 from yaaf.components.agents.prompts import (
     visualization_agent_prompt_template_without_model,
     visualization_agent_prompt_template_with_model,
@@ -44,7 +44,7 @@ class VisualizationAgent(BaseAgent):
         self._client = client
 
     async def query(
-        self, messages: Messages, notes: Optional[List[str]] = None
+        self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
         last_utterance = messages.utterances[-1]
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
@@ -115,7 +115,18 @@ class VisualizationAgent(BaseAgent):
                 ),
             )
             os.remove(image_name)
-        return f"The result is in this artefact <artefact type='image'>{image_id}</artefact>"
+        
+        result = f"The result is in this artefact <artefact type='image'>{image_id}</artefact>"
+        
+        if notes is not None:
+            note = Note(
+                message=result,
+                artefact_id=image_id,
+                agent_name="VisualizationAgent"
+            )
+            notes.append(note)
+        
+        return result
 
     def get_description(self) -> str:
         return f"""

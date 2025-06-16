@@ -25,7 +25,7 @@ _overlap = 100
 class TestSqlAgent(unittest.TestCase):
     def test_single_source(self):
         client = OllamaClient(
-            model="gemma3:4b",
+            model="qwen2.5:32b",
             temperature=0.4,
             max_tokens=1000,
         )

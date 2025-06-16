@@ -112,7 +112,10 @@ In the end, you need to output a markdown table with the folder_index and the En
 You can think step-by-step on the actions to take.
 However the final output needs to be a markdown table.
 This output *must* be between the markdown tags ```retrieved ... ```
-The table must have the following columns: folder_index | query
+The markdown table must have the following columns: 
+| folder_index | query |
+| ----------- | ----------- |
+| ....| ..... | 
     """
 )
 

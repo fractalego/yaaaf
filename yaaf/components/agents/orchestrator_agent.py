@@ -44,7 +44,7 @@ class OrchestratorAgent(BaseAgent):
                 artefacts = get_artefacts_from_utterance_content(answer)
                 note = Note(
                     message=answer,
-                    artefact=artefacts[0] if artefacts else None,
+                    artefact_id=artefacts[0].id if artefacts else None,
                     agent_name="OrchestratorAgent"
                 )
                 notes.append(note)
@@ -53,9 +53,9 @@ class OrchestratorAgent(BaseAgent):
             agent_to_call, instruction = self.map_answer_to_agent(answer)
             if agent_to_call is not None:
                 if notes is not None:
-                messages = messages.add_assistant_utterance(
-                    f"Calling {agent_to_call.get_name()} with instruction:\n\n{instruction}\n\n"
-                )
+                    messages = messages.add_assistant_utterance(
+                        f"Calling {agent_to_call.get_name()} with instruction:\n\n{instruction}\n\n"
+                    )
                 answer = await agent_to_call.query(
                     Messages().add_user_utterance(instruction),
                     notes=notes,
@@ -65,7 +65,7 @@ class OrchestratorAgent(BaseAgent):
                     artefacts = get_artefacts_from_utterance_content(answer)
                     note = Note(
                         message=answer,
-                        artefact=artefacts[0] if artefacts else None,
+                        artefact_id=artefacts[0].id if artefacts else None,
                         agent_name=agent_to_call.get_name()
                     )
                     notes.append(note)

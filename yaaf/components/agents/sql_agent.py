@@ -53,7 +53,7 @@ class SqlAgent(BaseAgent):
                 if notes is not None:
                     note = Note(
                         message=f"```SQL\n{sql_query}\n```",
-                        artefact=None,
+                        artefact_id=None,
                         agent_name="SqlAgent"
                     )
                     notes.append(note)

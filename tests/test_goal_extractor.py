@@ -9,9 +9,9 @@ from yaaf.components.extractors.goal_extractor import GoalExtractor
 class TestGoalExtractor(unittest.TestCase):
     def test_simple_exchange(self):
         client = OllamaClient(
-            model="gemma3:4b",
+            model="qwen2.5:32b",
             temperature=0.7,
-            max_tokens=1000,
+            max_tokens=100,
         )
         messages = Messages().add_user_utterance("I will need to know the time")
         goal_extractor = GoalExtractor(client=client)

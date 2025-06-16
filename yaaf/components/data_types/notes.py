@@ -1,22 +1,20 @@
 from typing import Optional
 from pydantic import BaseModel
 
-from yaaf.components.agents.artefacts import Artefact
-
 
 class Note(BaseModel):
     message: str
-    artefact: Optional[Artefact]
+    artefact_id: Optional[str] = None
     agent_name: Optional[str] = None
 
     def __repr__(self):
-        return f"Event(type={self.type}, data={self.data})"
+        return f"Note(message={self.message[:50]}..., artefact_id={self.artefact_id}, agent_name={self.agent_name})"
 
     def __str__(self):
         return self.__repr__()
 
-    def add_artefact(self, artefact: Artefact) -> "Note":
-        self.artefact = artefact
+    def add_artefact_id(self, artefact_id: str) -> "Note":
+        self.artefact_id = artefact_id
         return self
 
     def add_message(self, message: str) -> "Note":

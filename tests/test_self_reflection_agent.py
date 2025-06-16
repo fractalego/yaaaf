@@ -9,7 +9,7 @@ from yaaf.components.agents.reflection_agent import ReflectionAgent
 class TestSelfReflectionAgent(unittest.TestCase):
     def test_simple_output(self):
         client = OllamaClient(
-            model="gemma3:4b",
+            model="qwen2.5:32b",
             temperature=0.7,
             max_tokens=100,
         )
@@ -20,5 +20,7 @@ class TestSelfReflectionAgent(unittest.TestCase):
                 messages=messages,
             )
         )
-        expected = "Paris"
-        self.assertIn(expected, answer)
+        expected = ["Paris", "France", "capital of France"]
+        print(answer)
+        for exp in expected:
+            self.assertIn(exp.lower(), answer.lower())

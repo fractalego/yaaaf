@@ -8,7 +8,7 @@ from yaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaf.components.agents.url_reviewer_agent import UrlReviewerAgent
 from yaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
 from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages
+from yaaf.components.data_types import Messages, Note
 
 
 class TestWebSearchAgent(unittest.TestCase):
@@ -21,12 +21,12 @@ class TestWebSearchAgent(unittest.TestCase):
         messages = Messages().add_user_utterance(
             "who is the author of the book 'The Archaeology of Knowledge'?"
         )
-        message_queue: List[str] = []
+        notes: List[Note] = []
         agent = DuckDuckGoSearchAgent(client)
         answer = asyncio.run(
             agent.query(
                 messages=messages,
-                message_queue=message_queue,
+                notes=notes,
             )
         )
         storage = ArtefactStorage()
@@ -44,19 +44,19 @@ class TestWebSearchAgent(unittest.TestCase):
         messages = Messages().add_user_utterance(
             "How many people are there in the world?"
         )
-        message_queue: List[str] = []
+        notes: List[Note] = []
         agent = OrchestratorAgent(client=client)
         agent.subscribe_agent(DuckDuckGoSearchAgent(client=client))
         agent.subscribe_agent(UrlReviewerAgent(client=client))
         asyncio.run(
             agent.query(
                 messages=messages,
-                message_queue=message_queue,
+                notes=notes,
             )
         )
 
         storage = ArtefactStorage()
-        artefact = storage.retrieve_from_utterance_string("".join(message_queue))[-1]
+        artefact = storage.retrieve_from_utterance_string("".join([note.message for note in notes]))[-1]
         expected = "population"
         print(artefact.data.to_markdown(index=False))
         self.assertIn(expected, artefact.data.to_markdown(index=False).lower())

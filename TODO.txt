@@ -1,0 +1,24 @@
+* test search and mcp from frontend
+* modify frontend so that one can add mcp servers?
+* allow mcp servers to be in the environment config
+* use notes in message queue
+
+/* MCP connector for tools
+/* ddg search agent
+/* agent that retrieves the url and answers the query
+* architect agent that creates the orchestrator agent (without hierarchical agents)
+* architect agent that creates the orchestrator agent (with hierarchical agents)
+
+
+* orchestrator agent must add the image b64hash to the messages if the artifact is an image
+* re-write the orchestrator agent to use the new artefact system
+
+* toolagent must connect to an MCP server
+   * list all tools
+   * allow for executing tools
+
+
+* Find a way to include </tag> in the answer text. If you use it as a stopword it is not included in the answer text.
+* make tests pass
+* sometimes </complete/> appears. Did you populate the answer text with it?
+* Find a better way to use words and tags. Maybe xml tags are not the best option. Perhaps markdown tags?

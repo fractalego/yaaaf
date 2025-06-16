@@ -13,7 +13,7 @@ from yaaf.components.agents.hash_utils import create_hash
 from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaf.components.client import BaseClient
-from yaaf.components.data_types import Messages, PromptTemplate
+from yaaf.components.data_types import Messages, PromptTemplate, Note
 from yaaf.components.agents.prompts import sql_agent_prompt_template
 from yaaf.components.sources.sqlite_source import SqliteSource
 
@@ -34,7 +34,7 @@ class SqlAgent(BaseAgent):
         self._source = source
 
     async def query(
-        self, messages: Messages, message_queue: Optional[List[str]] = None
+        self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
         messages = messages.add_system_prompt(
             self._system_prompt.complete(schema=self._schema)
@@ -50,8 +50,13 @@ class SqlAgent(BaseAgent):
 
             sql_query = get_first_text_between_tags(answer, self._output_tag, "```")
             if sql_query:
-                if message_queue is not None:
-                    message_queue.append(f"```SQL\n{sql_query}\n```")
+                if notes is not None:
+                    note = Note(
+                        message=f"```SQL\n{sql_query}\n```",
+                        artefact=None,
+                        agent_name="SqlAgent"
+                    )
+                    notes.append(note)
                 current_output = self._source.get_data(sql_query)
                 messages = messages.add_user_utterance(
                     f"The answer is {answer}.\n\nThe output of this SQL query is {current_output}.\n\n\n"

@@ -7,7 +7,7 @@ from typing import List
 from yaaf.components.agents.rag_agent import RAGAgent
 from yaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
 from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages
+from yaaf.components.data_types import Messages, Note
 from yaaf.components.sources.rag_source import RAGSource
 
 _path = os.path.dirname(os.path.abspath(__file__))
@@ -32,12 +32,12 @@ class TestSqlAgent(unittest.TestCase):
         messages = Messages().add_user_utterance(
             "What constitutes an excavation priority area in archaeology?"
         )
-        message_queue: List[str] = []
+        notes: List[Note] = []
         agent = RAGAgent(client, sources=[_source])
         answer = asyncio.run(
             agent.query(
                 messages=messages,
-                message_queue=message_queue,
+                notes=notes,
             )
         )
         artefacts = get_artefacts_from_utterance_content(answer)

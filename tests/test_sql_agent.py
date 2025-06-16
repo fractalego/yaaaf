@@ -8,7 +8,7 @@ from typing import List
 from yaaf.components.agents.artefacts import ArtefactStorage
 from yaaf.components.agents.sql_agent import SqlAgent
 from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages
+from yaaf.components.data_types import Messages, Note
 from yaaf.components.sources.sqlite_source import SqliteSource
 
 _path = os.path.dirname(os.path.abspath(__file__))
@@ -33,12 +33,12 @@ class TestSqlAgent(unittest.TestCase):
         messages = Messages().add_user_utterance(
             "what are the most common types of finds in the dataset?"
         )
-        message_queue: List[str] = []
+        notes: List[Note] = []
         agent = SqlAgent(client, source=sqlite_source)
         answer = asyncio.run(
             agent.query(
                 messages=messages,
-                message_queue=message_queue,
+                notes=notes,
             )
         )
         storage = ArtefactStorage()

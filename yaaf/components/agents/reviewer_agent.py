@@ -34,7 +34,7 @@ class ReviewerAgent(BaseAgent):
         self._client = client
 
     async def query(
-        self, messages: Messages, message_queue: Optional[List[str]] = None
+        self, messages: Messages, notes: Optional[List[str]] = None
     ) -> str:
         last_utterance = messages.utterances[-1]
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(

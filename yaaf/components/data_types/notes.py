@@ -7,6 +7,7 @@ from yaaf.components.agents.artefacts import Artefact
 class Note(BaseModel):
     message: str
     artefact: Optional[Artefact]
+    agent_name: Optional[str] = None
 
     def __repr__(self):
         return f"Event(type={self.type}, data={self.data})"

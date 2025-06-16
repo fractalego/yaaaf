@@ -3,7 +3,7 @@ import unittest
 from typing import List
 
 from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages
+from yaaf.components.data_types import Messages, Note
 from yaaf.components.agents.visualization_agent import VisualizationAgent
 
 
@@ -17,12 +17,12 @@ class TestVisualizationAgent(unittest.TestCase):
         messages = Messages().add_user_utterance(
             "Create a plot of the first 100 prime numbers through a visualization. A dummy artefact is <artefact>IDID</artefact>."
         )
-        message_queue: List[str] = []
+        notes: List[Note] = []
         agent = VisualizationAgent(client)
         answer = asyncio.run(
             agent.query(
                 messages=messages,
-                message_queue=message_queue,
+                notes=notes,
             )
         )
         expected = "<artefact type='image'>"

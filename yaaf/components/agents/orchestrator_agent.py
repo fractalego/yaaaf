@@ -8,7 +8,7 @@ from yaaf.components.agents.base_agent import BaseAgent
 from yaaf.components.agents.settings import task_completed_tag
 from yaaf.components.agents.tokens_utils import strip_thought_tokens
 from yaaf.components.client import BaseClient
-from yaaf.components.data_types import Messages, PromptTemplate, Utterance
+from yaaf.components.data_types import Messages, PromptTemplate, Utterance, Note
 from yaaf.components.agents.prompts import orchestrator_prompt_template
 from yaaf.components.extractors.goal_extractor import GoalExtractor
 
@@ -30,7 +30,7 @@ class OrchestratorAgent(BaseAgent):
         self._goal_extractor = GoalExtractor(client)
 
     async def query(
-        self, messages: Messages, message_queue: Optional[List[str]] = None
+        self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
         messages = messages.add_system_prompt(
             self._get_system_prompt(await self._goal_extractor.extract(messages))
@@ -40,24 +40,35 @@ class OrchestratorAgent(BaseAgent):
             answer = await self._client.predict(
                 messages, stop_sequences=self._stop_sequences
             )
-            if message_queue is not None:
-                message_queue.append(answer)
+            if notes is not None:
+                artefacts = get_artefacts_from_utterance_content(answer)
+                note = Note(
+                    message=answer,
+                    artefact=artefacts[0] if artefacts else None,
+                    agent_name="OrchestratorAgent"
+                )
+                notes.append(note)
             if self.is_complete(answer) or answer.strip() == "":
                 break
             agent_to_call, instruction = self.map_answer_to_agent(answer)
             if agent_to_call is not None:
-                if message_queue is not None:
-                    message_queue.append(agent_to_call.get_closing_tag())
+                if notes is not None:
                 messages = messages.add_assistant_utterance(
                     f"Calling {agent_to_call.get_name()} with instruction:\n\n{instruction}\n\n"
                 )
                 answer = await agent_to_call.query(
                     Messages().add_user_utterance(instruction),
-                    message_queue=message_queue,
+                    notes=notes,
                 )
                 answer = self._add_relevant_information(answer)
-                if message_queue is not None:
-                    message_queue.append(answer)
+                if notes is not None:
+                    artefacts = get_artefacts_from_utterance_content(answer)
+                    note = Note(
+                        message=answer,
+                        artefact=artefacts[0] if artefacts else None,
+                        agent_name=agent_to_call.get_name()
+                    )
+                    notes.append(note)
                 messages = messages.add_user_utterance(
                     f"The answer from the agent is:\n\n{answer}\n\nWhen you are 100% sure about the answer and the task is done, write the tag {self._completing_tags[0]}."
                 )

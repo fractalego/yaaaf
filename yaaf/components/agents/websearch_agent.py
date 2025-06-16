@@ -30,7 +30,7 @@ class DuckDuckGoSearchAgent(BaseAgent):
         self._client = client
 
     async def query(
-        self, messages: Messages, message_queue: Optional[List[str]] = None
+        self, messages: Messages, notes: Optional[List[str]] = None
     ) -> str:
         messages = messages.add_system_prompt(
             self._system_prompt

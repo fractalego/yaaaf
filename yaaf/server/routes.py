@@ -5,7 +5,7 @@ from typing import List
 from pydantic import BaseModel
 
 from yaaf.components.agents.artefacts import Artefact, ArtefactStorage
-from yaaf.components.data_types import Utterance, Messages
+from yaaf.components.data_types import Utterance, Messages, Note
 from yaaf.components.orchestrator_builder import OrchestratorBuilder
 from yaaf.server.accessories import do_compute, get_utterances
 from yaaf.server.config import get_config
@@ -52,7 +52,7 @@ def create_stream(arguments: CreateStreamArguments):
     t.start()
 
 
-def get_all_utterances(arguments: NewUtteranceArguments) -> List[str]:
+def get_all_utterances(arguments: NewUtteranceArguments) -> List[Note]:
     return get_utterances(arguments.stream_id)
 
 

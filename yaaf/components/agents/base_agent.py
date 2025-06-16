@@ -1,9 +1,11 @@
 from typing import Optional, List
 
+from yaaf.components.data_types import Note
+
 
 class BaseAgent:
     async def query(
-        self, messages: "Messages", message_queue: Optional[List[str]] = None
+        self, messages: "Messages", notes: Optional[List[Note]] = None
     ) -> str:
         pass
 

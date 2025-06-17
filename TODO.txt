@@ -1,7 +1,8 @@
 * test search and mcp from frontend
+* solve issues in the frontend
 * modify frontend so that one can add mcp servers?
 * allow mcp servers to be in the environment config
-* use notes in message queue
+/* use notes in message queue
 
 /* MCP connector for tools
 /* ddg search agent

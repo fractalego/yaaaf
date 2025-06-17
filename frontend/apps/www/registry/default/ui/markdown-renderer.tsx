@@ -9,10 +9,13 @@ import { Complete } from "@/registry/custom/complete"
 import { ImageOutput } from "@/registry/custom/image-output"
 import { MleAgent } from "@/registry/custom/mle-agent"
 import { ReviewerAgent } from "@/registry/custom/reviewer-agent"
-import { SelfReflectionAgent } from "@/registry/custom/self-reflection-agent"
 import { SqlAgent } from "@/registry/custom/sql-agent"
 import { VisualizationAgent } from "@/registry/custom/visualization-agent"
 import { CopyButton } from "@/registry/default/ui/copy-button"
+import {DuckDuckGoSearchAgent} from "@/registry/custom/duck-duck-go-search-agent";
+import { ReflectionAgent } from "@/registry/custom/reflection-agent"
+import {UrlRetrieverAgent} from "@/registry/custom/url-retriever-agent";
+import {RagAgent} from "@/registry/custom/rag-agent";
 
 interface MarkdownRendererProps {
   children: string
@@ -170,13 +173,21 @@ const COMPONENTS = {
   imageoutput: ({ children }: any) => {
     return <ImageOutput id={children}></ImageOutput>
   },
-  selfreflectionagent: ({ children }: any) => {
-    return <SelfReflectionAgent text={children}></SelfReflectionAgent>
+  reflectionagent: ({ children }: any) => {
+    return <ReflectionAgent text={children}></ReflectionAgent>
   },
   taskcompleted: ({ children }: any) => {
     return <Complete />
   },
-
+  duckduckgosearchagent: ({ children }: any) => {
+    return <DuckDuckGoSearchAgent text={children}></DuckDuckGoSearchAgent>
+  },
+  urlretrieveragent: ({ children }: any) => {
+    return <UrlRetrieverAgent text={children}></UrlRetrieverAgent>
+  },
+  ragagent: ({ children }: any) => {
+    return <RagAgent text={children}></RagAgent>
+  },
   h1: withClass("h1", "text-2xl font-semibold"),
   h2: withClass("h2", "font-semibold text-xl"),
   h3: withClass("h3", "font-semibold text-lg"),

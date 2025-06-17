@@ -49,25 +49,26 @@ class OrchestratorAgent(BaseAgent):
             except Exception as e:
                 _logger.error(f"OrchestratorAgent: Client prediction failed at step {step_index}: {e}")
                 raise
+            agent_to_call, instruction = self.map_answer_to_agent(answer)
+            agent_name = agent_to_call.get_name() if agent_to_call else "OrchestratorAgent"
             if notes is not None:
                 try:
                     artefacts = get_artefacts_from_utterance_content(answer)
                     note = Note(
                         message=answer,
                         artefact_id=artefacts[0].id if artefacts else None,
-                        agent_name="OrchestratorAgent"
+                        agent_name=agent_name
                     )
                     notes.append(note)
                 except Exception as e:
                     _logger.error(f"OrchestratorAgent: Failed to create or append note at step {step_index}: {e}")
-                    # Continue execution even if note creation fails
+
             if self.is_complete(answer) or answer.strip() == "":
                 break
-            agent_to_call, instruction = self.map_answer_to_agent(answer)
             if agent_to_call is not None:
                 if notes is not None:
                     messages = messages.add_assistant_utterance(
-                        f"Calling {agent_to_call.get_name()} with instruction:\n\n{instruction}\n\n"
+                        f"Calling {agent_name} with instruction:\n\n{instruction}\n\n"
                     )
                 try:
                     answer = await agent_to_call.query(
@@ -75,25 +76,25 @@ class OrchestratorAgent(BaseAgent):
                         notes=notes,
                     )
                 except Exception as e:
-                    _logger.error(f"OrchestratorAgent: Agent {agent_to_call.get_name()} query failed at step {step_index}: {e}")
-                    answer = f"Error occurred while calling {agent_to_call.get_name()}: {e}"
+                    _logger.error(f"OrchestratorAgent: Agent {agent_name} query failed at step {step_index}: {e}")
+                    answer = f"Error occurred while calling {agent_name}: {e}"
                 try:
                     answer = self._add_relevant_information(answer)
                 except Exception as e:
                     _logger.error(f"OrchestratorAgent: Failed to add relevant information at step {step_index}: {e}")
-                    # Continue with original answer
+
                 if notes is not None:
                     try:
                         artefacts = get_artefacts_from_utterance_content(answer)
                         note = Note(
                             message=answer,
                             artefact_id=artefacts[0].id if artefacts else None,
-                            agent_name=agent_to_call.get_name()
+                            agent_name=agent_name
                         )
                         notes.append(note)
                     except Exception as e:
                         _logger.error(f"OrchestratorAgent: Failed to create or append agent note at step {step_index}: {e}")
-                        # Continue execution even if note creation fails
+
                 messages = messages.add_user_utterance(
                     f"The answer from the agent is:\n\n{answer}\n\nWhen you are 100% sure about the answer and the task is done, write the tag {self._completing_tags[0]}."
                 )
@@ -174,7 +175,7 @@ Orchestrator agent: This agent orchestrates the agents.
                 answer
             )[0]
             answer = (
-                    f"\n{artefact.data.to_markdown(index=False)}\n"
+                    f"\n\n{artefact.data.to_markdown(index=False)}\n\n"
                     + answer
             )
         if "<artefact type='called-tools-table'>" in answer:
@@ -182,7 +183,7 @@ Orchestrator agent: This agent orchestrates the agents.
                 answer
             )[0]
             answer = (
-                    f"\n{artefact.data.to_markdown(index=False)}\n"
+                    f"\n\n{artefact.data.to_markdown(index=False)}\n\n"
                     + answer
             )
         return answer

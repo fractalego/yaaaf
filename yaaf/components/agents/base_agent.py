@@ -10,7 +10,7 @@ class BaseAgent:
         pass
 
     def get_name(self) -> str:
-        return self.__class__.__name__
+        return self.__class__.__name__.lower()
 
     def get_description(self) -> str:
         return "This is just a Base agent. All it does is to say 'Unknown agent'."

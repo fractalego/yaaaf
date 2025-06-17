@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-function SelfReflectionAgent(element: { text: string }) {
+function ReflectionAgent(element: { text: string }) {
   return (
     <div className="inline-block bg-green-100 p-3 text-xl rounded-sm">
       <div className="inline-block pr-5">
@@ -28,5 +28,5 @@ function SelfReflectionAgent(element: { text: string }) {
   )
 }
 
-SelfReflectionAgent.displayName = "SelfReflectionAgent"
-export { SelfReflectionAgent }
+ReflectionAgent.displayName = "ReflectionAgent"
+export { ReflectionAgent }

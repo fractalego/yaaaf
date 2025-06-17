@@ -87,19 +87,13 @@ async function createStream(stream_id: string, messages: Array<Map<string, strin
 // Function to format Note object to string with agent name tags and artefact info
 function formatNoteToString(note: Note): string {
   let result = "";
-  
+
   // Wrap message in agent name tags if agent name exists
   if (note.agent_name) {
     result = `<${note.agent_name}>${note.message}</${note.agent_name}>`;
   } else {
     result = note.message;
   }
-  
-  // Add artefact information if artefact_id exists
-  if (note.artefact_id) {
-    result += `\n<Artefact>${note.artefact_id}</Artefact>`;
-  }
-  
   return result;
 }
 

@@ -1,10 +1,10 @@
 import unittest
 
-from yaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
-from yaaf.components.agents.tool_agent import ToolAgent
-from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages
-from yaaf.connectors.mcp_connector import MCPConnector
+from yaaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
+from yaaaf.components.agents.tool_agent import ToolAgent
+from yaaaf.components.client import OllamaClient
+from yaaaf.components.data_types import Messages
+from yaaaf.connectors.mcp_connector import MCPConnector
 
 
 class TestToolAgent(unittest.IsolatedAsyncioTestCase):

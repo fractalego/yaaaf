@@ -1,7 +1,7 @@
 API Reference
 =============
 
-This section provides detailed API documentation for YAAF's core components.
+This section provides detailed API documentation for YAAAF's core components.
 
 Core Data Types
 ---------------
@@ -194,7 +194,7 @@ Goal Extractor
 HTTP API
 --------
 
-The YAAF backend provides a RESTful HTTP API for frontend communication.
+The YAAAF backend provides a RESTful HTTP API for frontend communication.
 
 Create Stream
 ~~~~~~~~~~~~
@@ -343,7 +343,7 @@ Configuration API
 Environment Variables
 ~~~~~~~~~~~~~~~~~~~~
 
-* ``YAAF_CONFIG``: Path to configuration JSON file
+* ``YAAAF_CONFIG``: Path to configuration JSON file
 * ``ANTHROPIC_MODEL``: Default model identifier
 
 Configuration File Format

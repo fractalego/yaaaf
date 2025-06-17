@@ -3,12 +3,12 @@ import unittest
 
 from typing import List
 
-from yaaf.components.agents.artefacts import ArtefactStorage
-from yaaf.components.agents.orchestrator_agent import OrchestratorAgent
-from yaaf.components.agents.url_reviewer_agent import UrlReviewerAgent
-from yaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
-from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages, Note
+from yaaaf.components.agents.artefacts import ArtefactStorage
+from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
+from yaaaf.components.agents.url_reviewer_agent import UrlReviewerAgent
+from yaaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
+from yaaaf.components.client import OllamaClient
+from yaaaf.components.data_types import Messages, Note
 
 
 class TestWebSearchAgent(unittest.TestCase):

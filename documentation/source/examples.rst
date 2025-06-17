@@ -1,7 +1,7 @@
 Examples
 ========
 
-This section provides practical examples of using YAAF for various tasks.
+This section provides practical examples of using YAAAF for various tasks.
 
 Basic Usage Examples
 -------------------
@@ -13,9 +13,9 @@ Simple Query Processing
 
 .. code-block:: python
 
-   from yaaf.components.orchestrator_builder import OrchestratorBuilder
-   from yaaf.components.data_types import Messages
-   from yaaf.server.config import get_config
+   from yaaaf.components.orchestrator_builder import OrchestratorBuilder
+   from yaaaf.components.data_types import Messages
+   from yaaaf.server.config import get_config
    
    # Build orchestrator with default configuration
    orchestrator = OrchestratorBuilder(get_config()).build()
@@ -46,8 +46,8 @@ Data Analysis Workflow
 .. code-block:: python
 
    import asyncio
-   from yaaf.components.orchestrator_builder import OrchestratorBuilder
-   from yaaf.components.data_types import Messages
+   from yaaaf.components.orchestrator_builder import OrchestratorBuilder
+   from yaaaf.components.data_types import Messages
    
    async def analyze_sales_data():
        orchestrator = OrchestratorBuilder().build()
@@ -103,10 +103,10 @@ SQL Agent Usage
 
 .. code-block:: python
 
-   from yaaf.components.agents.sql_agent import SqlAgent
-   from yaaf.components.sources.sqlite_source import SqliteSource
-   from yaaf.components.client import OllamaClient
-   from yaaf.components.data_types import Messages
+   from yaaaf.components.agents.sql_agent import SqlAgent
+   from yaaaf.components.sources.sqlite_source import SqliteSource
+   from yaaaf.components.client import OllamaClient
+   from yaaaf.components.data_types import Messages
    
    # Setup
    client = OllamaClient(model="qwen2.5:32b")
@@ -144,7 +144,7 @@ Visualization Agent Usage
 
 .. code-block:: python
 
-   from yaaf.components.agents.visualization_agent import VisualizationAgent
+   from yaaaf.components.agents.visualization_agent import VisualizationAgent
    
    # Setup visualization agent
    viz_agent = VisualizationAgent(client)
@@ -176,7 +176,7 @@ Web Search Agent Usage
 
 .. code-block:: python
 
-   from yaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
+   from yaaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
    
    # Setup web search agent
    search_agent = DuckDuckGoSearchAgent(client)
@@ -258,8 +258,8 @@ RAG-Based Document Analysis
 
 .. code-block:: python
 
-   from yaaf.components.agents.rag_agent import RAGAgent
-   from yaaf.components.sources.text_source import TextSource
+   from yaaaf.components.agents.rag_agent import RAGAgent
+   from yaaaf.components.sources.text_source import TextSource
    
    # Setup RAG agent with document sources
    document_sources = [
@@ -447,7 +447,7 @@ API Usage Examples
 Direct API Calls
 ~~~~~~~~~~~~~~~~
 
-**Example**: Using YAAF API directly
+**Example**: Using YAAAF API directly
 
 .. code-block:: javascript
 

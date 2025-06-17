@@ -1,7 +1,7 @@
 Frontend
 ========
 
-The YAAF frontend is a modern Next.js application that provides a real-time chat interface for interacting with the agent system.
+The YAAAF frontend is a modern Next.js application that provides a real-time chat interface for interacting with the agent system.
 
 Architecture Overview
 ---------------------
@@ -92,7 +92,7 @@ Chat API Route
 
 **Location**: ``apps/www/app/api/chat/route.ts``
 
-Handles communication with the YAAF backend:
+Handles communication with the YAAAF backend:
 
 * Stream creation
 * Real-time message polling
@@ -155,7 +155,7 @@ Configures backend endpoints:
 Component Registry
 -----------------
 
-YAAF uses a component registry system for managing UI components:
+YAAAF uses a component registry system for managing UI components:
 
 Registry Structure
 ~~~~~~~~~~~~~~~~~

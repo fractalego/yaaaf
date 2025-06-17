@@ -1,7 +1,7 @@
-Welcome to YAAF Documentation
+Welcome to YAAAF Documentation
 =============================
 
-**YAAF** (Yet Another Agentic Framework) is a modular framework for building agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, and reflection.
+**YAAAF** (Yet Another Agentic Framework) is a modular framework for building agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, and reflection.
 
 .. toctree::
    :maxdepth: 2
@@ -28,24 +28,24 @@ Key Features
 Quick Start
 -----------
 
-Install and run YAAF in just a few commands:
+Install and run YAAAF in just a few commands:
 
 .. code-block:: bash
 
    # Start the backend server (default port 4000)
-   python -m yaaf backend
+   python -m yaaaf backend
 
    # Start the frontend server (default port 3000)
-   python -m yaaf frontend
+   python -m yaaaf frontend
 
    # Or specify custom ports
-   python -m yaaf backend 8080
-   python -m yaaf frontend 3001
+   python -m yaaaf backend 8080
+   python -m yaaaf frontend 3001
 
 Architecture Overview
 ---------------------
 
-YAAF follows a clean separation between backend and frontend:
+YAAAF follows a clean separation between backend and frontend:
 
 * **Backend**: Python-based server with FastAPI and specialized agents
 * **Frontend**: Next.js application with real-time chat interface
@@ -55,7 +55,7 @@ YAAF follows a clean separation between backend and frontend:
 Agents
 ------
 
-YAAF includes several built-in agents:
+YAAAF includes several built-in agents:
 
 * **OrchestratorAgent**: Routes queries to appropriate specialized agents
 * **SqlAgent**: Executes SQL queries and returns structured data

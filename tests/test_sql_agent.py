@@ -5,11 +5,11 @@ import pandas as pd
 
 from typing import List
 
-from yaaf.components.agents.artefacts import ArtefactStorage
-from yaaf.components.agents.sql_agent import SqlAgent
-from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages, Note
-from yaaf.components.sources.sqlite_source import SqliteSource
+from yaaaf.components.agents.artefacts import ArtefactStorage
+from yaaaf.components.agents.sql_agent import SqlAgent
+from yaaaf.components.client import OllamaClient
+from yaaaf.components.data_types import Messages, Note
+from yaaaf.components.sources.sqlite_source import SqliteSource
 
 _path = os.path.dirname(os.path.abspath(__file__))
 

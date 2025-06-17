@@ -2,7 +2,7 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from yaaf.connectors.mcp_connector import MCPConnector, MCPTools, ToolDescription
+from yaaaf.connectors.mcp_connector import MCPConnector, MCPTools, ToolDescription
 
 
 class TestMCPConnector(unittest.TestCase):

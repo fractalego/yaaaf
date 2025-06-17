@@ -2,10 +2,10 @@ import asyncio
 import unittest
 from typing import List
 
-from yaaf.components.agents.artefacts import ArtefactStorage, Artefact
-from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages, Note
-from yaaf.components.agents.visualization_agent import VisualizationAgent
+from yaaaf.components.agents.artefacts import ArtefactStorage, Artefact
+from yaaaf.components.client import OllamaClient
+from yaaaf.components.data_types import Messages, Note
+from yaaaf.components.agents.visualization_agent import VisualizationAgent
 
 
 class TestVisualizationAgent(unittest.TestCase):

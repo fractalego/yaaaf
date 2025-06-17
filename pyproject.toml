@@ -3,17 +3,17 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "yaaf"
-version = "0.0.1"
-description = "YAAF (Yet Another Agentic Framework) - A modular framework for building intelligent agentic applications with Python backend and Next.js frontend"
+name = "yaaaf"
+version = "0.0.2"
+description = "YAAAF (Yet Another Amazing Agentic Framework) - A modular framework for building intelligent agentic applications with Python backend and Next.js frontend"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "YAAF Contributors"},
+    {name = "YAAAF Contributors"},
 ]
 maintainers = [
-    {name = "YAAF Contributors"},
+    {name = "YAAAF Contributors"},
 ]
 keywords = ["ai", "agents", "framework", "orchestrator", "chatbot", "sql", "visualization", "web-search"]
 classifiers = [
@@ -52,25 +52,25 @@ nlp = [
     "rank-bm25>=0.2.0",
 ]
 all = [
-    "yaaf[dev,mcp,nlp]"
+    "yaaaf[dev,mcp,nlp]"
 ]
 
 [project.urls]
-Homepage = "https://github.com/yaaf-framework/yaaf"
-Documentation = "https://yaaf.readthedocs.io"
-Repository = "https://github.com/yaaf-framework/yaaf.git"
-Issues = "https://github.com/yaaf-framework/yaaf/issues"
+Homepage = "https://github.com/yaaaf-framework/yaaaf"
+Documentation = "https://yaaaf.readthedocs.io"
+Repository = "https://github.com/yaaaf-framework/yaaaf.git"
+Issues = "https://github.com/yaaaf-framework/yaaaf/issues"
 
 [project.scripts]
-yaaf = "yaaf.command_line:main"
+yaaaf = "yaaaf.command_line:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["yaaf*"]
+include = ["yaaaf*"]
 exclude = ["tests*", "frontend*", "documentation*"]
 
 [tool.setuptools.package-data]
-yaaf = [
+yaaaf = [
     "server/default_config.json",
     "components/agents/*.py",
     "components/data_types/*.py",

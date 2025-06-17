@@ -1,6 +1,6 @@
-# YAAF - Yet Another Agentic Framework
+# YAAAF - Yet Another Amazing Agentic Framework
 
-YAAF is a modular framework for building intelligent agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, machine learning, and reflection.
+YAAAF is a modular framework for building intelligent agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, machine learning, and reflection.
 
 ## 🚀 Key Features
 
@@ -57,22 +57,22 @@ pnpm install
 cd ..
 ```
 
-### Running YAAF
+### Running YAAAF
 
 **Start the backend server** (default port 4000):
 ```bash
-python -m yaaf backend
+python -m yaaaf backend
 ```
 
 **Start the frontend server** (default port 3000):
 ```bash
-python -m yaaf frontend
+python -m yaaaf frontend
 ```
 
 **Or specify custom ports**:
 ```bash
-python -m yaaf backend 8080
-python -m yaaf frontend 3001
+python -m yaaaf backend 8080
+python -m yaaaf frontend 3001
 ```
 
 ### First Steps
@@ -103,8 +103,8 @@ python -m yaaf frontend 3001
 
 ### Simple Query
 ```python
-from yaaf.components.orchestrator_builder import OrchestratorBuilder
-from yaaf.components.data_types import Messages
+from yaaaf.components.orchestrator_builder import OrchestratorBuilder
+from yaaaf.components.data_types import Messages
 
 orchestrator = OrchestratorBuilder().build()
 messages = Messages().add_user_utterance("How many users are in the database?")
@@ -147,7 +147,7 @@ ruff format .
 ruff check .
 
 # Start with debugging
-YAAF_DEBUG=true python -m yaaf backend
+YAAAF_DEBUG=true python -m yaaaf backend
 ```
 
 ### Frontend Development
@@ -182,7 +182,7 @@ pnpm build
 ## 🔧 Configuration
 
 ### Environment Variables
-- `YAAF_CONFIG`: Path to configuration JSON file
+- `YAAAF_CONFIG`: Path to configuration JSON file
 - `ANTHROPIC_MODEL`: Default model (e.g., "qwen2.5:32b")
 
 ### Configuration File
@@ -273,4 +273,4 @@ pnpm test
 
 ---
 
-**YAAF** - Building the future of agentic applications, one intelligent agent at a time! 🚀
+**YAAAF** - Building the future of agentic applications, one intelligent agent at a time! 🚀

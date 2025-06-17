@@ -1,7 +1,7 @@
 Getting Started
 ===============
 
-This guide will help you get YAAF up and running on your system.
+This guide will help you get YAAAF up and running on your system.
 
 Installation
 ------------
@@ -33,7 +33,7 @@ Backend Setup
 
    .. code-block:: bash
 
-      export YAAF_CONFIG=path/to/your/config.json
+      export YAAAF_CONFIG=path/to/your/config.json
 
 Frontend Setup
 ~~~~~~~~~~~~~~
@@ -56,19 +56,19 @@ Frontend Setup
 
       pnpm build:registry
 
-Running YAAF
+Running YAAAF
 ------------
 
 Using the CLI
 ~~~~~~~~~~~~~
 
-The easiest way to run YAAF is using the command-line interface:
+The easiest way to run YAAAF is using the command-line interface:
 
 **Start the backend server**:
 
 .. code-block:: bash
 
-   python -m yaaf backend
+   python -m yaaaf backend
 
 This starts the backend server on the default port 4000.
 
@@ -76,7 +76,7 @@ This starts the backend server on the default port 4000.
 
 .. code-block:: bash
 
-   python -m yaaf frontend
+   python -m yaaaf frontend
 
 This starts the frontend server on the default port 3000.
 
@@ -84,8 +84,8 @@ This starts the frontend server on the default port 3000.
 
 .. code-block:: bash
 
-   python -m yaaf backend 8080    # Backend on port 8080
-   python -m yaaf frontend 3001   # Frontend on port 3001
+   python -m yaaaf backend 8080    # Backend on port 8080
+   python -m yaaaf frontend 3001   # Frontend on port 3001
 
 Manual Setup
 ~~~~~~~~~~~~
@@ -96,7 +96,7 @@ You can also run the servers manually:
 
 .. code-block:: python
 
-   from yaaf.server.run import run_server
+   from yaaaf.server.run import run_server
    run_server(host="0.0.0.0", port=4000)
 
 **Frontend**:
@@ -109,12 +109,12 @@ You can also run the servers manually:
 Configuration
 -------------
 
-YAAF can be configured through environment variables or a configuration file.
+YAAAF can be configured through environment variables or a configuration file.
 
 Environment Variables
 ~~~~~~~~~~~~~~~~~~~~~
 
-* ``YAAF_CONFIG``: Path to configuration JSON file
+* ``YAAAF_CONFIG``: Path to configuration JSON file
 * ``ANTHROPIC_MODEL``: Default model for agents (e.g., "qwen2.5:32b")
 
 Configuration File

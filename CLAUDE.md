@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-YAAF (Yet Another Agentic Framework) is a modular framework for building agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, and reflection.
+YAAAF (Yet Another Amazing Agentic Framework) is a modular framework for building agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, and reflection.
 
 ## Development Commands
 
 ### Backend (Python)
-- **Start backend server**: `python -m yaaf backend 4000`
+- **Start backend server**: `python -m yaaaf backend 4000`
 - **Run specific tests**: `python -m unittest tests.test_clients`
 - **Run all tests**: `python -m unittest discover tests/`
 - **Code formatting**: `ruff format .`
@@ -25,14 +25,14 @@ YAAF (Yet Another Agentic Framework) is a modular framework for building agentic
 - **Component registry build**: `cd frontend && pnpm build:registry`
 
 ### Running the Full System
-- Backend: `python -m yaaf backend 4000` 
-- Frontend: `python -m yaaf frontend 3000` (or `cd frontend && pnpm dev`)
+- Backend: `python -m yaaaf backend 4000` 
+- Frontend: `python -m yaaaf frontend 3000` (or `cd frontend && pnpm dev`)
 
 ## Architecture
 
 ### Core Components
 
-**Backend (`yaaf/`):**
+**Backend (`yaaaf/`):**
 - `components/agents/`: Specialized agents (SQL, visualization, web search, reflection, reviewer)
 - `components/data_types.py`: Core data structures (Messages, Utterances, PromptTemplate)
 - `components/client.py`: LLM client implementations (OllamaClient)
@@ -53,7 +53,7 @@ YAAF (Yet Another Agentic Framework) is a modular framework for building agentic
 - Real-time chat interface with streaming support
 
 ### Configuration
-- Config loaded from `YAAF_CONFIG` environment variable or default settings
+- Config loaded from `YAAAF_CONFIG` environment variable or default settings
 - Default model: `qwen2.5:32b` with Ollama client
 - Supports multiple data sources (SQLite) and configurable agent selection
 
@@ -66,9 +66,9 @@ YAAF (Yet Another Agentic Framework) is a modular framework for building agentic
 
 ## Key Files to Understand
 
-- `yaaf/components/orchestrator_builder.py`: Agent registration and orchestrator setup
-- `yaaf/components/data_types.py`: Core message/conversation structures
-- `yaaf/server/routes.py`: API endpoints for chat streaming and artifacts
+- `yaaaf/components/orchestrator_builder.py`: Agent registration and orchestrator setup
+- `yaaaf/components/data_types.py`: Core message/conversation structures
+- `yaaaf/server/routes.py`: API endpoints for chat streaming and artifacts
 - `frontend/apps/www/components/ui/chat.tsx`: Main chat interface component
 - `tests/`: Unit tests for all major components
 

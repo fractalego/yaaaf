@@ -1,9 +1,9 @@
 import asyncio
 import unittest
 
-from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages
-from yaaf.components.agents.reflection_agent import ReflectionAgent
+from yaaaf.components.client import OllamaClient
+from yaaaf.components.data_types import Messages
+from yaaaf.components.agents.reflection_agent import ReflectionAgent
 
 
 class TestSelfReflectionAgent(unittest.TestCase):

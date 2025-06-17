@@ -1,8 +1,8 @@
 import asyncio
 import unittest
 
-from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages
+from yaaaf.components.client import OllamaClient
+from yaaaf.components.data_types import Messages
 
 
 class TestClients(unittest.TestCase):

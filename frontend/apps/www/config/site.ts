@@ -1,9 +1,9 @@
 export const siteConfig = {
-  name: "YAAF",
+  name: "YAAAF",
   url: "https://github.com/fractalego/yaaf",
   ogImage: "",
   description:
-    "YAAF - Yet Another Agents Framework. A simple and extensible framework for building chatbots with LLMs.",
+    "YAAAF - Yet Another Agents Framework. A simple and extensible framework for building chatbots with LLMs.",
   links: {
     github: "https://github.com/fractalego/yaaf",
   },

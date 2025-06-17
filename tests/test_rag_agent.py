@@ -4,11 +4,11 @@ import unittest
 
 from typing import List
 
-from yaaf.components.agents.rag_agent import RAGAgent
-from yaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
-from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages, Note
-from yaaf.components.sources.rag_source import RAGSource
+from yaaaf.components.agents.rag_agent import RAGAgent
+from yaaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
+from yaaaf.components.client import OllamaClient
+from yaaaf.components.data_types import Messages, Note
+from yaaaf.components.sources.rag_source import RAGSource
 
 _path = os.path.dirname(os.path.abspath(__file__))
 _source = RAGSource(description="A wiki page about archaeology", source_path="wiki/archaeology")

@@ -1,7 +1,7 @@
 Agents
 ======
 
-YAAF includes several specialized agents, each designed to handle specific types of tasks. All agents follow a common interface while providing unique capabilities.
+YAAAF includes several specialized agents, each designed to handle specific types of tasks. All agents follow a common interface while providing unique capabilities.
 
 Agent Overview
 --------------
@@ -67,7 +67,7 @@ SqlAgent
 
 .. code-block:: python
 
-   from yaaf.components.sources.sqlite_source import SqliteSource
+   from yaaaf.components.sources.sqlite_source import SqliteSource
    
    source = SqliteSource("path/to/database.db")
    sql_agent = SqlAgent(client, source)
@@ -157,7 +157,7 @@ RAGAgent
 
 .. code-block:: python
 
-   from yaaf.components.sources.text_source import TextSource
+   from yaaaf.components.sources.text_source import TextSource
    
    sources = [TextSource("documents/")]
    rag_agent = RAGAgent(client, sources)

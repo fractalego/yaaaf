@@ -1,7 +1,7 @@
 Architecture
 ============
 
-YAAF follows a modular, agent-based architecture designed for scalability and extensibility.
+YAAAF follows a modular, agent-based architecture designed for scalability and extensibility.
 
 System Overview
 ---------------

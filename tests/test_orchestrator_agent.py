@@ -2,13 +2,13 @@ import asyncio
 import unittest
 from typing import List
 
-from yaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
-from yaaf.components.agents.orchestrator_agent import OrchestratorAgent
-from yaaf.components.agents.sql_agent import SqlAgent
-from yaaf.components.agents.visualization_agent import VisualizationAgent
-from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages, Note
-from yaaf.components.agents.reflection_agent import ReflectionAgent
+from yaaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
+from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
+from yaaaf.components.agents.sql_agent import SqlAgent
+from yaaaf.components.agents.visualization_agent import VisualizationAgent
+from yaaaf.components.client import OllamaClient
+from yaaaf.components.data_types import Messages, Note
+from yaaaf.components.agents.reflection_agent import ReflectionAgent
 from tests.test_sql_agent import sqlite_source
 
 text_client = OllamaClient(

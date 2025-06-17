@@ -1,7 +1,7 @@
 Development Guide
 =================
 
-This guide covers development practices, testing, debugging, and contributing to YAAF.
+This guide covers development practices, testing, debugging, and contributing to YAAAF.
 
 Development Environment
 -----------------------
@@ -112,8 +112,8 @@ Python Standards
       from pydantic import BaseModel
       
       # Local imports
-      from yaaf.components.agents.base_agent import BaseAgent
-      from yaaf.components.data_types import Messages
+      from yaaaf.components.agents.base_agent import BaseAgent
+      from yaaaf.components.data_types import Messages
 
 TypeScript/Frontend Standards
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -171,7 +171,7 @@ Backend Testing
    .. code-block:: python
 
       import unittest
-      from yaaf.components.agents.sql_agent import SqlAgent
+      from yaaaf.components.agents.sql_agent import SqlAgent
       
       class TestSqlAgent(unittest.TestCase):
           def setUp(self):
@@ -278,7 +278,7 @@ Backend Debugging
 
       # Enable debug mode
       import os
-      os.environ['YAAF_DEBUG'] = 'true'
+      os.environ['YAAAF_DEBUG'] = 'true'
 
 **Common Debug Points**:
    * Agent query processing
@@ -458,10 +458,10 @@ Deployment
    .. code-block:: bash
 
       # Production deployment
-      python -m yaaf backend 4000
+      python -m yaaaf backend 4000
       
       # With production config
-      YAAF_CONFIG=production.json python -m yaaf backend
+      YAAAF_CONFIG=production.json python -m yaaaf backend
 
 **Frontend Deployment**:
 

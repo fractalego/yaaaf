@@ -1,6 +1,6 @@
 import unittest
 
-from yaaf.components.agents.artefacts import ArtefactStorage, Artefact
+from yaaaf.components.agents.artefacts import ArtefactStorage, Artefact
 
 
 class TestArtefactStorage(unittest.TestCase):

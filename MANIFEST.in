@@ -1,0 +1,38 @@
+# Include the README and license
+include README.md
+include license.txt
+include CLAUDE.md
+
+# Include the default configuration
+include yaaf/server/default_config.json
+
+# Include all Python files in the yaaf package
+recursive-include yaaf *.py
+
+# Include any data files needed
+recursive-include yaaf/server *.json
+recursive-include yaaf/components *.py
+recursive-include yaaf/connectors *.py
+recursive-include yaaf/client *.py
+
+# Exclude test files and development artifacts
+exclude tests/*
+exclude frontend/*
+exclude documentation/*
+exclude venv/*
+exclude __pycache__/*
+exclude *.pyc
+exclude .git/*
+exclude .gitignore
+exclude TODO.txt
+exclude uv.lock
+
+# Exclude data files that shouldn't be packaged
+exclude data/*
+
+# Global excludes
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
+global-exclude *.so
+global-exclude .git*

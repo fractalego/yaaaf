@@ -1,9 +1,9 @@
 import asyncio
 import unittest
 
-from yaaf.components.client import OllamaClient
-from yaaf.components.data_types import Messages
-from yaaf.components.extractors.goal_extractor import GoalExtractor
+from yaaaf.components.client import OllamaClient
+from yaaaf.components.data_types import Messages
+from yaaaf.components.extractors.goal_extractor import GoalExtractor
 
 
 class TestGoalExtractor(unittest.TestCase):

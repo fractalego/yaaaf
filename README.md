@@ -284,7 +284,7 @@ pnpm test
 
 ## 📄 License
 
-[Add your license information here]
+MIT License (MIT)
 
 ## 🆘 Support
 

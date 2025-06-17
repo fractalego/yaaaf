@@ -6,16 +6,16 @@ import remarkGfm from "remark-gfm"
 import { cn } from "@/lib/utils"
 import { Artefact } from "@/registry/custom/artefact"
 import { Complete } from "@/registry/custom/complete"
+import { DuckDuckGoSearchAgent } from "@/registry/custom/duck-duck-go-search-agent"
 import { ImageOutput } from "@/registry/custom/image-output"
 import { MleAgent } from "@/registry/custom/mle-agent"
+import { RagAgent } from "@/registry/custom/rag-agent"
+import { ReflectionAgent } from "@/registry/custom/reflection-agent"
 import { ReviewerAgent } from "@/registry/custom/reviewer-agent"
 import { SqlAgent } from "@/registry/custom/sql-agent"
+import { UrlRetrieverAgent } from "@/registry/custom/url-retriever-agent"
 import { VisualizationAgent } from "@/registry/custom/visualization-agent"
 import { CopyButton } from "@/registry/default/ui/copy-button"
-import {DuckDuckGoSearchAgent} from "@/registry/custom/duck-duck-go-search-agent";
-import { ReflectionAgent } from "@/registry/custom/reflection-agent"
-import {UrlRetrieverAgent} from "@/registry/custom/url-retriever-agent";
-import {RagAgent} from "@/registry/custom/rag-agent";
 
 interface MarkdownRendererProps {
   children: string

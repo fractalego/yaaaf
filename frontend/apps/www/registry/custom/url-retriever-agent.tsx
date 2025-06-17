@@ -29,4 +29,4 @@ function UrlRetrieverAgent(element: { text: string }) {
 }
 
 UrlRetrieverAgent.displayName = "UrlRetrieverAgent"
-export {UrlRetrieverAgent}
+export { UrlRetrieverAgent }

@@ -9,8 +9,8 @@ from yaaf.variables import get_variables
 def print_help():
     print("\n")
     print("These are the available commands:")
-    print("> yaaf backend port: start the backend server listening on port 4000")
-    print("> yaaf frontend port: start the frontend server listening on port 3000")
+    print("> yaaf backend [port]: start the backend server (default port: 4000)")
+    print("> yaaf frontend [port]: start the frontend server (default port: 3000)")
     print()
 
 
@@ -29,9 +29,20 @@ def process_cli():
     print_incipit()
 
     arguments = sys.argv
-    if len(arguments) > 2:
+    if len(arguments) >= 2:
         command = arguments[1]
-        port = int(arguments[2])
+        
+        # Use default ports or parse provided port
+        if len(arguments) >= 3:
+            try:
+                port = int(arguments[2])
+            except ValueError:
+                print("Invalid port number. Must be an integer.\n")
+                print_help()
+                return
+        else:
+            # Default ports
+            port = 4000 if command == "backend" else 3000
 
         match command:
             case "backend":

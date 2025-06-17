@@ -104,8 +104,3 @@ This agent accepts a query in plain English and returns the relevant documents f
 These documents provide the information needed to answer the user's question.
         """
 
-    def get_opening_tag(self) -> str:
-        return "<ragagent>"
-
-    def get_closing_tag(self) -> str:
-        return "</ragagent>"

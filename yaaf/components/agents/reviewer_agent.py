@@ -96,8 +96,3 @@ The arguments within the tags must be: a) instructions about what to look for in
 Do *not* use images in the arguments of this agent.
         """
 
-    def get_opening_tag(self) -> str:
-        return "<revieweragent>"
-
-    def get_closing_tag(self) -> str:
-        return "</revieweragent>"

@@ -53,8 +53,3 @@ Inform the agent about the tools at your disposal (SQL and Visualization).
 To call this agent write {self.get_opening_tag()} THINGS TO THINK ABOUT {self.get_closing_tag()}
         """
 
-    def get_opening_tag(self) -> str:
-        return "<selfreflectionagent>"
-
-    def get_closing_tag(self) -> str:
-        return "</selfreflectionagent>"

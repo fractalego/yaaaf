@@ -124,8 +124,3 @@ This agent accepts a query in plain English and uses the appropriate tools to ga
 The tools provide the capabilities needed to answer the user's question or complete the requested task.
         """
 
-    def get_opening_tag(self) -> str:
-        return "<toolagent>"
-
-    def get_closing_tag(self) -> str:
-        return "</toolagent>"

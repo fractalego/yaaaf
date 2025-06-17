@@ -89,8 +89,3 @@ To call this agent write {self.get_opening_tag()} INFORMATION TO RETRIEVE {self.
 Just write in clear and brief English the information you need to retrieve between these tags. 
         """
 
-    def get_opening_tag(self) -> str:
-        return "<websearchagent>"
-
-    def get_closing_tag(self) -> str:
-        return "</websearchagent>"

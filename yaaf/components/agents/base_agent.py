@@ -16,10 +16,10 @@ class BaseAgent:
         return "This is just a Base agent. All it does is to say 'Unknown agent'."
 
     def get_opening_tag(self) -> str:
-        return "<unknown-agent>"
+        return f"<{self.get_name()}>"
 
     def get_closing_tag(self) -> str:
-        return "</unknown-agent>"
+        return f"</{self.get_name()}>"
 
     def is_complete(self, answer: str) -> bool:
         if any(tag in answer for tag in self._completing_tags):

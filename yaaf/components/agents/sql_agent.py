@@ -117,8 +117,3 @@ To call this agent write {self.get_opening_tag()} INFORMATION TO RETRIEVE {self.
 Do not write an SQL formula. Just write in clear and brief English the information you need to retrieve.
         """
 
-    def get_opening_tag(self) -> str:
-        return "<sqlagent>"
-
-    def get_closing_tag(self) -> str:
-        return "</sqlagent>"

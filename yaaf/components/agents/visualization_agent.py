@@ -167,8 +167,3 @@ The arguments within the tags must be: a) instructions about what to look for in
 The information about what to plot will be then used by the agent.
         """
 
-    def get_opening_tag(self) -> str:
-        return "<visualizationagent>"
-
-    def get_closing_tag(self) -> str:
-        return "</visualizationagent>"

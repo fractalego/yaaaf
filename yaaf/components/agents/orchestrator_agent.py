@@ -137,11 +137,6 @@ class OrchestratorAgent(BaseAgent):
 Orchestrator agent: This agent orchestrates the agents.
         """
 
-    def get_opening_tag(self) -> str:
-        return "<orchestratoragent>"
-
-    def get_closing_tag(self) -> str:
-        return "</orchestratoragent>"
 
     def _get_system_prompt(self, goal: str) -> str:
         return orchestrator_prompt_template.complete(

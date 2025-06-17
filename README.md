@@ -269,7 +269,6 @@ pnpm test
 - 📖 **Documentation**: Check the `documentation/` folder
 - 🐛 **Issues**: Report bugs via GitHub Issues
 - 💬 **Discussions**: Join GitHub Discussions for questions
-- 📧 **Contact**: [Add contact information]
 
 ---
 

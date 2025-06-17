@@ -246,7 +246,7 @@ pnpm test
 ## 📋 Requirements
 
 **Backend:**
-- Python 3.12+
+- Python 3.11+
 - FastAPI
 - Pydantic
 - pandas

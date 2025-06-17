@@ -85,6 +85,20 @@ wheels = [
 ]
 
 [[package]]
+name = "build"
+version = "1.2.2.post1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "os_name == 'nt'" },
+    { name = "packaging" },
+    { name = "pyproject-hooks" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7d/46/aeab111f8e06793e4f0e421fcad593d547fb8313b50990f31681ee2fb1ad/build-1.2.2.post1.tar.gz", hash = "sha256:b36993e92ca9375a219c99e606a122ff365a760a2d4bba0caa09bd5278b608b7", size = 46701 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/84/c2/80633736cd183ee4a62107413def345f7e6e3c01563dbca1417363cf957e/build-1.2.2.post1-py3-none-any.whl", hash = "sha256:1d61c0887fa860c01971625baae8bdd338e517b836a2f70dd1f7aa3a6b2fc5b5", size = 22950 },
+]
+
+[[package]]
 name = "cachetools"
 version = "5.5.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1355,6 +1369,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pyproject-hooks"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e7/82/28175b2414effca1cdac8dc99f76d660e7a4fb0ceefa4b4ab8f5f6742925/pyproject_hooks-1.2.0.tar.gz", hash = "sha256:1e859bd5c40fae9448642dd871adf459e5e2084186e8d2c2a79a824c970da1f8", size = 19228 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/24/12818598c362d7f300f18e74db45963dbcb85150324092410c8b49405e42/pyproject_hooks-1.2.0-py3-none-any.whl", hash = "sha256:9e5c6bfa8dcc30091c74b0cf803c81fdd29d94f01992a7707bc97babb1141913", size = 10216 },
+]
+
+[[package]]
 name = "pytest"
 version = "8.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1945,10 +1968,11 @@ wheels = [
 ]
 
 [[package]]
-name = "yaaf"
-version = "0.0.1"
+name = "yaaaf"
+version = "0.0.3"
 source = { editable = "." }
 dependencies = [
+    { name = "build" },
     { name = "duckduckgo-search" },
     { name = "fastapi" },
     { name = "matplotlib" },
@@ -1986,6 +2010,7 @@ nlp = [
 
 [package.metadata]
 requires-dist = [
+    { name = "build", specifier = ">=1.2.2.post1" },
     { name = "duckduckgo-search", specifier = ">=8.0.2" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "matplotlib", specifier = ">=3.5.0" },
@@ -2002,7 +2027,7 @@ requires-dist = [
     { name = "scikit-learn", specifier = ">=1.0.0" },
     { name = "tabulate", specifier = ">=0.8.0" },
     { name = "uvicorn", specifier = ">=0.15.0" },
-    { name = "yaaf", extras = ["dev", "mcp", "nlp"], marker = "extra == 'all'" },
+    { name = "yaaaf", extras = ["dev", "mcp", "nlp"], marker = "extra == 'all'" },
 ]
 
 [[package]]

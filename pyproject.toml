@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yaaaf"
-version = "0.0.2"
+version = "0.0.3"
 description = "YAAAF (Yet Another Amazing Agentic Framework) - A modular framework for building intelligent agentic applications with Python backend and Next.js frontend"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -26,6 +26,7 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
 dependencies = [
+    "build>=1.2.2.post1",
     "duckduckgo-search>=8.0.2",
     "fastapi>=0.115.0",
     "matplotlib>=3.5.0",
@@ -56,10 +57,10 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yaaaf-framework/yaaaf"
+Homepage = "https://github.com/fractalego/yaaaf"
 Documentation = "https://yaaaf.readthedocs.io"
-Repository = "https://github.com/yaaaf-framework/yaaaf.git"
-Issues = "https://github.com/yaaaf-framework/yaaaf/issues"
+Repository = "https://github.com/fractalego/yaaaf.git"
+Issues = "https://github.com/fractalego/yaaaf/issues"
 
 [project.scripts]
 yaaaf = "yaaaf.command_line:main"

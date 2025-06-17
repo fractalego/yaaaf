@@ -10,10 +10,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "YAAAF Contributors"},
+    {name = "fractalego"},
 ]
 maintainers = [
-    {name = "YAAAF Contributors"},
+    {name = "fractalego"},
 ]
 keywords = ["ai", "agents", "framework", "orchestrator", "chatbot", "sql", "visualization", "web-search"]
 classifiers = [

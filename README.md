@@ -1,8 +1,276 @@
-YAAF - Yet Another Agentic Framework
-==========================
+# YAAF - Yet Another Agentic Framework
 
-YAAF is a framework designed to facilitate the development of agentic applications. 
-It provides a basic set of modular components that can be used to build complex systems.
-It features a backend and a frontend, allowing for a complete development environment.
+YAAF is a modular framework for building intelligent agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, machine learning, and reflection.
 
-It's still a work in progress, but the goal is to create a framework that is easy to use and extend.
+## 🚀 Key Features
+
+- **🤖 Modular Agent System**: Specialized agents for SQL, visualization, web search, ML, RAG, and more
+- **🎯 Orchestrator Pattern**: Central coordinator that intelligently routes queries to appropriate agents
+- **⚡ Real-time Streaming**: Live updates through WebSocket-like streaming with structured Note objects
+- **📊 Artifact Management**: Centralized storage for generated content (tables, images, models, etc.)
+- **🌐 Modern Frontend**: React-based UI with real-time chat interface and agent attribution
+- **🔧 Extensible**: Easy to add new agents and capabilities with standardized interfaces
+- **🏷️ Tag-Based Routing**: HTML-like tags for intuitive agent selection (`<sqlagent>`, `<visualizationagent>`, etc.)
+
+## 🏗️ Architecture Overview
+
+```
+┌─────────────────┐    HTTP/REST     ┌──────────────────┐
+│  Frontend       │ ◄──────────────► │  Backend         │
+│  (Next.js)      │                  │  (FastAPI)       │
+└─────────────────┘                  └──────────────────┘
+                                              │
+                                              ▼
+                                    ┌──────────────────┐
+                                    │  Orchestrator    │
+                                    │  Agent           │
+                                    └──────────────────┘
+                                              │
+                        ┌─────────────────────┼─────────────────────┐
+                        ▼                     ▼                     ▼
+              ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
+              │  SQL Agent      │   │ Visualization   │   │ Web Search      │
+              │                 │   │ Agent           │   │ Agent           │
+              └─────────────────┘   └─────────────────┘   └─────────────────┘
+                        ▼                     ▼                     ▼
+              ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
+              │ Centralized     │   │ Artifact        │   │ Storage         │
+              │ Artifact Storage│   │ Management      │   │ System          │
+              └─────────────────┘   └─────────────────┘   └─────────────────┘
+```
+
+## 🚀 Quick Start
+
+### Installation & Setup
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd agents_framework
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Install frontend dependencies
+cd frontend
+pnpm install
+cd ..
+```
+
+### Running YAAF
+
+**Start the backend server** (default port 4000):
+```bash
+python -m yaaf backend
+```
+
+**Start the frontend server** (default port 3000):
+```bash
+python -m yaaf frontend
+```
+
+**Or specify custom ports**:
+```bash
+python -m yaaf backend 8080
+python -m yaaf frontend 3001
+```
+
+### First Steps
+
+1. Open your browser to `http://localhost:3000`
+2. Start chatting with the AI system
+3. Try these example queries:
+   - "How many records are in the database?"
+   - "Create a visualization of the sales data"
+   - "Search for recent AI developments"
+   - "Analyze customer demographics and show trends"
+
+## 🤖 Available Agents
+
+| Agent | Purpose | Usage Tag | Capabilities |
+|-------|---------|-----------|-------------|
+| **OrchestratorAgent** | Central coordinator | `<orchestratoragent>` | Routes queries, manages flow |
+| **SqlAgent** | Database queries | `<sqlagent>` | Natural language to SQL, data retrieval |
+| **VisualizationAgent** | Charts & graphs | `<visualizationagent>` | Matplotlib visualizations from data |
+| **WebSearchAgent** | Web search | `<websearchagent>` | DuckDuckGo search integration |
+| **ReflectionAgent** | Planning & reasoning | `<reflectionagent>` | Step-by-step problem breakdown |
+| **RAGAgent** | Document retrieval | `<ragagent>` | Retrieval-augmented generation |
+| **MleAgent** | Machine learning | `<mleagent>` | sklearn model training & analysis |
+| **ReviewerAgent** | Data analysis | `<revieweragent>` | Extract insights from artifacts |
+| **ToolAgent** | External tools | `<toolagent>` | MCP (Model Context Protocol) integration |
+
+## 💡 Example Usage
+
+### Simple Query
+```python
+from yaaf.components.orchestrator_builder import OrchestratorBuilder
+from yaaf.components.data_types import Messages
+
+orchestrator = OrchestratorBuilder().build()
+messages = Messages().add_user_utterance("How many users are in the database?")
+response = await orchestrator.query(messages)
+```
+
+### Multi-Agent Workflow
+```python
+# Step 1: Get data
+data_query = "Get sales data for the last 12 months"
+data_response = await orchestrator.query(Messages().add_user_utterance(data_query))
+
+# Step 2: Visualize
+viz_query = f"Create a chart showing trends: {data_response}"
+chart_response = await orchestrator.query(Messages().add_user_utterance(viz_query))
+```
+
+### Frontend Integration
+```typescript
+// Real-time chat with agent attribution
+const note = {
+  message: "Query results show 1,247 users",
+  artefact_id: "table_abc123",
+  agent_name: "sqlagent"
+}
+
+// Displays as: <sqlagent>Query results show 1,247 users</sqlagent>
+//              <Artefact>table_abc123</Artefact>
+```
+
+## 🛠️ Development
+
+### Backend Development
+```bash
+# Run tests
+python -m unittest discover tests/
+
+# Code formatting
+ruff format .
+ruff check .
+
+# Start with debugging
+YAAF_DEBUG=true python -m yaaf backend
+```
+
+### Frontend Development
+```bash
+cd frontend
+
+# Development server
+pnpm dev
+
+# Type checking
+pnpm typecheck
+
+# Linting & formatting
+pnpm lint
+pnpm format:write
+
+# Build for production
+pnpm build
+```
+
+## 📊 Data Flow
+
+1. **User Input**: Query submitted through frontend chat interface
+2. **Stream Creation**: Backend creates conversation stream
+3. **Orchestration**: OrchestratorAgent analyzes query and routes to appropriate agents
+4. **Agent Processing**: Specialized agents process their portions of the request
+5. **Artifact Generation**: Agents create structured artifacts (tables, images, etc.)
+6. **Note Creation**: Results packaged as Note objects with agent attribution
+7. **Real-time Streaming**: Notes streamed back to frontend with live updates
+8. **UI Rendering**: Frontend displays formatted responses with agent identification
+
+## 🔧 Configuration
+
+### Environment Variables
+- `YAAF_CONFIG`: Path to configuration JSON file
+- `ANTHROPIC_MODEL`: Default model (e.g., "qwen2.5:32b")
+
+### Configuration File
+```json
+{
+  "model": "qwen2.5:32b",
+  "temperature": 0.4,
+  "max_tokens": 1000,
+  "query_suggestions": [
+    "How many records are in the database?",
+    "Show me a visualization of the data",
+    "Search for recent news about AI"
+  ]
+}
+```
+
+## 📚 Documentation
+
+Comprehensive documentation is available in the `documentation/` folder:
+
+```bash
+cd documentation
+pip install -r requirements.txt
+make html
+open build/html/index.html
+```
+
+**Documentation includes:**
+- 📖 Getting Started Guide
+- 🏗️ Architecture Overview  
+- 🤖 Agent Development Guide
+- 🔌 API Reference
+- 🌐 Frontend Development
+- 💻 Development Practices
+- 📋 Usage Examples
+
+## 🧪 Testing
+
+```bash
+# Backend tests
+python -m unittest discover tests/
+
+# Specific agent tests
+python -m unittest tests.test_sql_agent
+python -m unittest tests.test_orchestrator_agent
+
+# Frontend tests
+cd frontend
+pnpm test
+```
+
+## 🤝 Contributing
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Follow code style**: Run `ruff format .` and `pnpm format:write`
+4. **Add tests**: Ensure new features have test coverage
+5. **Update docs**: Add documentation for new features
+6. **Submit PR**: Create a pull request with clear description
+
+## 📋 Requirements
+
+**Backend:**
+- Python 3.8+
+- FastAPI
+- Pydantic
+- pandas
+- matplotlib
+- sqlite3
+
+**Frontend:**
+- Node.js 18+
+- Next.js 14
+- TypeScript
+- Tailwind CSS
+- pnpm
+
+## 📄 License
+
+[Add your license information here]
+
+## 🆘 Support
+
+- 📖 **Documentation**: Check the `documentation/` folder
+- 🐛 **Issues**: Report bugs via GitHub Issues
+- 💬 **Discussions**: Join GitHub Discussions for questions
+- 📧 **Contact**: [Add contact information]
+
+---
+
+**YAAF** - Building the future of agentic applications, one intelligent agent at a time! 🚀

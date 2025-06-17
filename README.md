@@ -183,18 +183,29 @@ pnpm build
 
 ### Environment Variables
 - `YAAAF_CONFIG`: Path to configuration JSON file
-- `ANTHROPIC_MODEL`: Default model (e.g., "qwen2.5:32b")
 
 ### Configuration File
 ```json
 {
-  "model": "qwen2.5:32b",
-  "temperature": 0.4,
-  "max_tokens": 1000,
-  "query_suggestions": [
-    "How many records are in the database?",
-    "Show me a visualization of the data",
-    "Search for recent news about AI"
+  "client": {
+    "model": "qwen2.5:32b",
+    "temperature": 0.7,
+    "max_tokens": 1024
+  },
+  "agents": [
+    "reflection",
+    "visualization",
+    "sql",
+    "reviewer",
+    "websearch",
+    "url_reviewer"
+  ],
+  "sources": [
+    {
+      "name": "london_archaeological_data",
+      "type": "sqlite",
+      "path": "../../data/london_archaeological_data.db"
+    }
   ]
 }
 ```

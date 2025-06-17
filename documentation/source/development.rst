@@ -10,7 +10,7 @@ Prerequisites
 ~~~~~~~~~~~~
 
 **System Requirements**:
-   * Python 3.8+
+   * Python 3.12+
    * Node.js 18+
    * Git
    * pnpm (for frontend)

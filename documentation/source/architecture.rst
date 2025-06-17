@@ -202,7 +202,7 @@ Configuration System
    Configuration through environment variables and JSON files.
 
 **Model Configuration**:
-   Support for different LLM models and providers.
+   Currently supports Ollama models only. The system uses ``OllamaClient`` for all LLM interactions.
 
 **Agent Selection**:
    Configurable agent registration and capabilities.

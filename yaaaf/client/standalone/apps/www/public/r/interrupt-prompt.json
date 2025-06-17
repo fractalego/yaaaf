@@ -1,0 +1,15 @@
+{
+  "name": "interrupt-prompt",
+  "type": "registry:ui",
+  "dependencies": [
+    "framer-motion@11"
+  ],
+  "files": [
+    {
+      "path": "ui/interrupt-prompt.tsx",
+      "content": "\"use client\"\n\nimport { AnimatePresence, motion } from \"framer-motion\"\nimport { X } from \"lucide-react\"\n\ninterface InterruptPromptProps {\n  isOpen: boolean\n  close: () => void\n}\n\nexport function InterruptPrompt({ isOpen, close }: InterruptPromptProps) {\n  return (\n    <AnimatePresence>\n      {isOpen && (\n        <motion.div\n          initial={{ top: 0, filter: \"blur(5px)\" }}\n          animate={{\n            top: -40,\n            filter: \"blur(0px)\",\n            transition: {\n              type: \"spring\",\n              filter: { type: \"tween\" },\n            },\n          }}\n          exit={{ top: 0, filter: \"blur(5px)\" }}\n          className=\"absolute left-1/2 flex -translate-x-1/2 overflow-hidden whitespace-nowrap rounded-full border bg-background py-1 text-center text-sm text-muted-foreground\"\n        >\n          <span className=\"ml-2.5\">Press Enter again to interrupt</span>\n          <button\n            className=\"ml-1 mr-2.5 flex items-center\"\n            type=\"button\"\n            onClick={close}\n            aria-label=\"Close\"\n          >\n            <X className=\"h-3 w-3\" />\n          </button>\n        </motion.div>\n      )}\n    </AnimatePresence>\n  )\n}\n",
+      "type": "registry:ui",
+      "target": ""
+    }
+  ]
+}

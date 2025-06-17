@@ -12,6 +12,41 @@ Prerequisites
 * Python 3.11 or higher
 * Node.js 18 or higher (for frontend development)
 * pnpm (for frontend package management)
+* **Ollama** - Required for LLM integration
+
+Ollama Setup
+~~~~~~~~~~~~
+
+**Important**: YAAAF currently supports Ollama only for LLM integration.
+
+1. **Install Ollama**:
+
+   Visit `https://ollama.ai/ <https://ollama.ai/>`_ and follow the installation instructions for your operating system.
+
+2. **Download a model**:
+
+   .. code-block:: bash
+
+      ollama pull qwen2.5:32b
+
+   Or use a smaller model for testing:
+
+   .. code-block:: bash
+
+      ollama pull qwen2.5:7b
+
+3. **Start Ollama**:
+
+   Ollama should start automatically after installation. Verify it's running:
+
+   .. code-block:: bash
+
+      ollama list
+
+   Ollama typically runs on ``http://localhost:11434``.
+
+.. note::
+   YAAAF uses the ``OllamaClient`` for all LLM interactions. Support for other LLM providers (OpenAI, Anthropic, etc.) may be added in future versions.
 
 Backend Setup
 ~~~~~~~~~~~~~

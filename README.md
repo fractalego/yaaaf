@@ -181,6 +181,17 @@ pnpm build
 
 ## 🔧 Configuration
 
+### LLM Requirements
+
+**⚠️ Important**: YAAAF currently supports **Ollama only** for LLM integration. You must have Ollama installed and running on your system.
+
+**Prerequisites:**
+- Install [Ollama](https://ollama.ai/) on your system
+- Download and run a compatible model (e.g., `ollama pull qwen2.5:32b`)
+- Ensure Ollama is running (usually on `http://localhost:11434`)
+
+YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM providers (OpenAI, Anthropic, etc.) may be added in future versions.
+
 ### Environment Variables
 - `YAAAF_CONFIG`: Path to configuration JSON file
 

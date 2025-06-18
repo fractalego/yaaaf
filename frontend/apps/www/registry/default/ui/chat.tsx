@@ -35,6 +35,7 @@ interface ChatPropsBase {
   ) => void
   setMessages?: (messages: any[]) => void
   transcribeAudio?: (blob: Blob) => Promise<string>
+  onArtifactClick?: (artifactId: string) => void
 }
 
 interface ChatPropsWithoutSuggestions extends ChatPropsBase {
@@ -62,6 +63,7 @@ export function Chat({
   onRateResponse,
   setMessages,
   transcribeAudio,
+  onArtifactClick,
 }: ChatProps) {
   const lastMessage = messages.at(-1)
   const isEmpty = messages.length === 0
@@ -199,6 +201,7 @@ export function Chat({
             messages={messages}
             isTyping={isTyping}
             messageOptions={messageOptions}
+            onArtifactClick={onArtifactClick}
           />
         </ChatMessages>
       ) : null}

@@ -120,6 +120,7 @@ export interface ChatMessageProps extends Message {
   showTimeStamp?: boolean
   animation?: Animation
   actions?: React.ReactNode
+  onArtifactClick?: (artifactId: string) => void
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -132,6 +133,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   experimental_attachments,
   toolInvocations,
   parts,
+  onArtifactClick,
 }) => {
   console.log(content)
   const addSpinner: boolean = content.indexOf(complete_tag) == -1
@@ -165,7 +167,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         ) : null}
 
         <div className={cn(chatBubbleVariants({ isUser, animation }))}>
-          <MarkdownRenderer>{content}</MarkdownRenderer>
+          <MarkdownRenderer onArtifactClick={onArtifactClick}>
+            {content}
+          </MarkdownRenderer>
         </div>
 
         {showTimeStamp && createdAt ? (
@@ -199,7 +203,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             key={`text-${index}`}
           >
             <div className={cn(chatBubbleVariants({ isUser, animation }))}>
-              <MarkdownRenderer>{text}</MarkdownRenderer>
+              <MarkdownRenderer onArtifactClick={onArtifactClick}>
+                {text}
+              </MarkdownRenderer>
               {actions ? (
                 <div className="absolute -bottom-4 right-2 flex space-x-1 rounded-lg border bg-background p-1 text-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
                   {actions}
@@ -244,7 +250,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   return (
     <div className={cn("flex flex-col", isUser ? "items-end" : "items-start")}>
       <div className={cn(chatBubbleVariants({ isUser, animation }))}>
-        <MarkdownRenderer>{content}</MarkdownRenderer>
+        <MarkdownRenderer onArtifactClick={onArtifactClick}>
+          {content}
+        </MarkdownRenderer>
         {actions ? (
           <div className="absolute -bottom-4 right-2 flex space-x-1 rounded-lg border bg-background p-1 text-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
             {actions}

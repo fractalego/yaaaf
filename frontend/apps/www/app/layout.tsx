@@ -19,11 +19,7 @@ export const metadata: Metadata = {
   },
   metadataBase: new URL(siteConfig.url),
   description: siteConfig.description,
-  keywords: [
-    "Agents",
-    "Python",
-    "LLM",
-  ],
+  keywords: ["Agents", "Python", "LLM"],
   authors: [
     {
       name: "Fractalego",

@@ -64,7 +64,7 @@ export async function getCoordinates(location: string): Promise<Coordinates> {
 export async function getWeather(location: string): Promise<WeatherData> {
   // Get coordinates for the location
   const coords = await getCoordinates(location)
-  
+
   // Fetch weather data
   const weatherResponse = await fetch(
     `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&timezone=auto`

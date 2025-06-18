@@ -26,5 +26,11 @@
       "type": "text",
       "path": "../../data/Archaeology - Wikipedia.html"
     }
-  ]
+  ],
+  "safety_filter": {
+    "enabled": false,
+    "blocked_keywords": [],
+    "blocked_patterns": [],
+    "custom_message": "I cannot answer that"
+  }
 }

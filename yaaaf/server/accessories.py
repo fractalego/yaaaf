@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Dict, List
 from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
-from yaaaf.components.data_types import Note, Messages
+from yaaaf.components.data_types import Note
 from yaaaf.components.safety_filter import SafetyFilter
 from yaaaf.server.config import get_config
 
@@ -15,11 +15,11 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
     try:
         notes: List[Note] = []
         _stream_id_to_messages[stream_id] = notes
-        
+
         # Apply safety filter
         config = get_config()
         safety_filter = SafetyFilter(config.safety_filter)
-        
+
         if not safety_filter.is_safe(messages):
             # Add safety message to notes and return early
             safety_note = Note(
@@ -30,7 +30,7 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
             notes.append(safety_note)
             _logger.info(f"Query blocked by safety filter for stream {stream_id}")
             return
-        
+
         await orchestrator.query(messages=messages, notes=notes)
     except Exception as e:
         _logger.error(f"Accessories: Failed to compute for stream {stream_id}: {e}")

@@ -37,6 +37,22 @@ def _get_simple_config() -> Settings:
         temperature=0.7,
         max_tokens=100,
     )
+    safety_filter_settings: SafetyFilterSettings = SafetyFilterSettings(
+        enabled=True,
+        blocked_keywords=[
+            "harmful",
+            "dangerous",
+            "illegal",
+            "violence",
+            "weapon",
+        ],
+        blocked_patterns=[
+            "how to .*? (hack|break|crack)",
+            "create.*?(virus|malware)",
+            "bypass.*?(security|safety)",
+        ],
+        custom_message = "I cannot answer that",
+    )
     config: Settings = Settings(
         client=client_settings,
         sources=[],
@@ -50,6 +66,7 @@ def _get_simple_config() -> Settings:
             "user_input",
             "url",
         ],
+        safety_filter=safety_filter_settings,
     )
     return config
 

@@ -8,6 +8,7 @@
     "reflection",
     "visualization",
     "sql",
+    "rag",
     "reviewer",
     "websearch",
     "url_reviewer"
@@ -17,6 +18,11 @@
       "name": "london_archaeological_data",
       "type": "sqlite",
       "path": "../../data/london_archaeological_data.db"
+    },
+    {
+      "name": "Wikipedia page about archaeology",
+      "type": "text",
+      "path": "../../data/Archaeology - Wikipedia.html",
     }
   ]
 }

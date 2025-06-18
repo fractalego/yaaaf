@@ -3,6 +3,7 @@ import sys
 
 from yaaaf.client.run import run_frontend
 from yaaaf.server.run import run_server
+from yaaaf.config_generator import ConfigGenerator
 from yaaaf.variables import get_variables
 
 
@@ -11,6 +12,7 @@ def print_help():
     print("These are the available commands:")
     print("> yaaaf backend [port]: start the backend server (default port: 4000)")
     print("> yaaaf frontend [port]: start the frontend server (default port: 3000)")
+    print("> yaaaf config: create a local config.json file interactively")
     print()
 
 
@@ -32,24 +34,36 @@ def process_cli():
     if len(arguments) >= 2:
         command = arguments[1]
 
-        # Use default ports or parse provided port
-        if len(arguments) >= 3:
-            try:
-                port = int(arguments[2])
-            except ValueError:
-                print("Invalid port number. Must be an integer.\n")
-                print_help()
-                return
-        else:
-            # Default ports
-            port = 4000 if command == "backend" else 3000
-
         match command:
             case "backend":
+                # Use default port or parse provided port
+                if len(arguments) >= 3:
+                    try:
+                        port = int(arguments[2])
+                    except ValueError:
+                        print("Invalid port number. Must be an integer.\n")
+                        print_help()
+                        return
+                else:
+                    port = 4000
                 run_server(host="0.0.0.0", port=port)
 
             case "frontend":
+                # Use default port or parse provided port
+                if len(arguments) >= 3:
+                    try:
+                        port = int(arguments[2])
+                    except ValueError:
+                        print("Invalid port number. Must be an integer.\n")
+                        print_help()
+                        return
+                else:
+                    port = 3000
                 run_frontend(port=port)
+
+            case "config":
+                generator = ConfigGenerator()
+                generator.generate()
 
             case _:
                 print("Unknown argument.\n")

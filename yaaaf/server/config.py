@@ -14,6 +14,7 @@ class SourceSettings(BaseSettings):
     name: str | None = None
     type: str | None = None
     path: str | None = None
+    description: str | None = None
 
 
 class Settings(BaseSettings):

@@ -18,7 +18,7 @@ class TestClients(unittest.TestCase):
             .add_user_utterance("Hello, how are you?")
         )
         answer = asyncio.run(
-            client.predict(messages=messages, stop_sequences=["<task-completed/>"])
+            client.predict(messages=messages, stop_sequences=["<taskcompleted/>"])
         )
         expected = "hello"
         self.assertIn(expected, answer.lower())

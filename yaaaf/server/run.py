@@ -1,4 +1,5 @@
 import os
+import logging
 import uvicorn
 
 from fastapi import FastAPI
@@ -26,8 +27,36 @@ app.add_api_route(
 
 
 def run_server(host: str, port: int):
+    # Configure logging to show INFO level messages from YAAAF components
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        force=True  # Override any existing logging configuration
+    )
+    
+    # Also set uvicorn's logging level to INFO
+    uvicorn_logger = logging.getLogger("uvicorn")
+    uvicorn_logger.setLevel(logging.INFO)
+    
+    # Ensure YAAAF component loggers are at INFO level
+    yaaaf_logger = logging.getLogger("yaaaf")
+    yaaaf_logger.setLevel(logging.INFO)
+    
+    # Create server logger for startup messages
+    server_logger = logging.getLogger("yaaaf.server")
+    server_logger.info(f"🚀 Starting YAAAF backend server on {host}:{port}")
+    server_logger.info("📋 Agent registration logs will appear when first chat session starts")
+    
     os.environ["YAAF_API_PORT"] = str(port)
-    uvicorn.run(app, host=host, port=port)
+    
+    # Configure uvicorn to use our logging setup
+    uvicorn.run(
+        app, 
+        host=host, 
+        port=port,
+        log_level="info",  # Ensure uvicorn uses info level
+        access_log=True   # Show access logs
+    )
 
 
 if __name__ == "__main__":

@@ -30,7 +30,7 @@ def handle_exceptions(func: Callable) -> Callable:
             )
 
             # Return formatted error message with task completion
-            return f"{error_msg} <task-completed/>"
+            return f"{error_msg} <taskcompleted/>"
 
     return wrapper
 
@@ -60,6 +60,6 @@ def handle_exceptions_sync(func: Callable) -> Callable:
             )
 
             # Return formatted error message with task completion
-            return f"{error_msg} <task-completed/>"
+            return f"{error_msg} <taskcompleted/>"
 
     return wrapper

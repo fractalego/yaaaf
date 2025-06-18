@@ -91,11 +91,11 @@ class OrchestratorAgent(BaseAgent):
                     "You didn't call any agent. Is the answer finished or did you miss outputting the tags? Reminder: use the relevant html tags to call the agents.\n\n"
                 )
         if not self.is_complete(answer) and step_index == self._max_steps - 1:
-            answer += "\nThe Orchestrator agent has finished its maximum number of steps. <task-completed/>"
+            answer += f"\nThe Orchestrator agent has finished its maximum number of steps. {task_completed_tag}"
             if notes is not None:
                 notes.append(
                     Note(
-                        message="The Orchestrator agent has finished its maximum number of steps.",
+                        message=f"The Orchestrator agent has finished its maximum number of steps. {task_completed_tag}",
                         agent_name=self.get_name(),
                     )
                 )
@@ -108,6 +108,8 @@ class OrchestratorAgent(BaseAgent):
             )
         self._agents_map[agent.get_opening_tag()] = agent
         self._stop_sequences.append(agent.get_closing_tag())
+        
+        _logger.info(f"Registered agent: {agent.get_name()} (tag: {agent.get_opening_tag()})")
 
     def map_answer_to_agent(self, answer: str) -> Tuple[BaseAgent | None, str]:
         for tag, agent in self._agents_map.items():

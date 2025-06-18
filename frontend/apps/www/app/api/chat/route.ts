@@ -47,9 +47,7 @@ export async function POST(req: Request) {
           // Check if task is paused and needs user input
           if (utterance.indexOf(paused_tag) !== -1) {
             stopIterations = true
-            // Remove the paused tag from display but keep the question
-            utterance = utterance.replace(paused_tag, "")
-            // Add visual indicator that input is needed
+            // Add visual indicator that input is needed (keep the tag for spinner logic)
             utterance += " 🤔 <em>(Waiting for your response...)</em>"
           }
           utterance = utterance.replaceAll("\n", "<br/>")

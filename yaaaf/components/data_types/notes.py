@@ -34,7 +34,7 @@ class Note(BaseModel):
     def clean_agent_tags(text: str) -> str:
         """Remove agent opening and closing tags while preserving artefact and completion tags"""
         # Remove agent tags (ending with 'agent') but keep artefact and completion tags
-        # This preserves <artefact>, <task-completed>, etc.
+        # This preserves <artefact>, <taskcompleted>, etc.
         cleaned_text = re.sub(r"</?(\w*agent)>", "", text, flags=re.IGNORECASE)
         return cleaned_text.strip()
 

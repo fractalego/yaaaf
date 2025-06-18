@@ -2,9 +2,9 @@
 
 import * as React from "react"
 
-function ReviewerAgent(element: { text: string }) {
+function UrlReviewerAgent(element: { text: string }) {
   return (
-    <div className="inline-block bg-slate-100 dark:bg-slate-800 dark:text-white p-3 text-xl rounded-sm">
+    <div className="inline-block bg-purple-100 dark:bg-purple-800 dark:text-white p-3 text-xl rounded-sm">
       <div className="inline-block pr-5">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -13,14 +13,14 @@ function ReviewerAgent(element: { text: string }) {
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          className="lucide lucide-search-check-icon lucide-search-check"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="lucide lucide-search-check"
         >
           <path d="m8 11 2 2 4-4" />
           <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.3-4.3" />
+          <path d="m21 21-4.35-4.35" />
         </svg>
       </div>
       {element.text}
@@ -28,5 +28,5 @@ function ReviewerAgent(element: { text: string }) {
   )
 }
 
-ReviewerAgent.displayName = "ReviewerAgent"
-export { ReviewerAgent }
+UrlReviewerAgent.displayName = "UrlReviewerAgent"
+export { UrlReviewerAgent }

@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm"
 import { cn } from "@/lib/utils"
 import { Artefact } from "@/registry/custom/artefact"
 import { Complete } from "@/registry/custom/complete"
+import { Paused } from "@/registry/custom/paused"
 import { DuckDuckGoSearchAgent } from "@/registry/custom/duck-duck-go-search-agent"
 import { ImageOutput } from "@/registry/custom/image-output"
 import { MleAgent } from "@/registry/custom/mle-agent"
@@ -14,6 +15,9 @@ import { ReflectionAgent } from "@/registry/custom/reflection-agent"
 import { ReviewerAgent } from "@/registry/custom/reviewer-agent"
 import { SqlAgent } from "@/registry/custom/sql-agent"
 import { UrlRetrieverAgent } from "@/registry/custom/url-retriever-agent"
+import { UrlAgent } from "@/registry/custom/url-agent"
+import { UrlReviewerAgent } from "@/registry/custom/url-reviewer-agent"
+import { UserInputAgent } from "@/registry/custom/user-input-agent"
 import { VisualizationAgent } from "@/registry/custom/visualization-agent"
 import { CopyButton } from "@/registry/default/ui/copy-button"
 
@@ -186,6 +190,9 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     taskcompleted: ({ children }: any) => {
       return <Complete />
     },
+    taskpaused: ({ children }: any) => {
+      return <Paused />
+    },
     duckduckgosearchagent: ({ children }: any) => {
       return <DuckDuckGoSearchAgent text={children}></DuckDuckGoSearchAgent>
     },
@@ -194,6 +201,15 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     },
     ragagent: ({ children }: any) => {
       return <RagAgent text={children}></RagAgent>
+    },
+    urlagent: ({ children }: any) => {
+      return <UrlAgent text={children}></UrlAgent>
+    },
+    userinputagent: ({ children }: any) => {
+      return <UserInputAgent text={children}></UserInputAgent>
+    },
+    urlrevieweragent: ({ children }: any) => {
+      return <UrlReviewerAgent text={children}></UrlReviewerAgent>
     },
     h1: withClass("h1", "text-2xl font-semibold"),
     h2: withClass("h2", "font-semibold text-xl"),

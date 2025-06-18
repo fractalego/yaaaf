@@ -17,10 +17,18 @@ class SourceSettings(BaseSettings):
     description: str | None = None
 
 
+class SafetyFilterSettings(BaseSettings):
+    enabled: bool = False
+    blocked_keywords: List[str] = []
+    blocked_patterns: List[str] = []
+    custom_message: str = "I cannot answer that"
+
+
 class Settings(BaseSettings):
     client: ClientSettings
     sources: List[SourceSettings] = []
     agents: List[str] = []
+    safety_filter: SafetyFilterSettings = SafetyFilterSettings()
 
 
 def _get_simple_config() -> Settings:
@@ -39,6 +47,8 @@ def _get_simple_config() -> Settings:
             "reviewer",
             "websearch",
             "url_reviewer",
+            "user_input",
+            "url",
         ],
     )
     return config

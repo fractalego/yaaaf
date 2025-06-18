@@ -13,7 +13,7 @@ import {
 } from "@/registry/default/ui/collapsible"
 import { FilePreview } from "@/registry/default/ui/file-preview"
 import { MarkdownRenderer } from "@/registry/default/ui/markdown-renderer"
-import { complete_tag } from "@/app/settings"
+import { complete_tag, paused_tag } from "@/app/settings"
 
 const chatBubbleVariants = cva(
   "group/message relative break-words rounded-lg p-3 text-sm sm:max-w-[70%]",
@@ -136,7 +136,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   onArtifactClick,
 }) => {
   console.log(content)
-  const addSpinner: boolean = content.indexOf(complete_tag) == -1
+  const addSpinner: boolean = content.indexOf(complete_tag) == -1 && content.indexOf(paused_tag) == -1
 
   const files = useMemo(() => {
     return experimental_attachments?.map((attachment) => {

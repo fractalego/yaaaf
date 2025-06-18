@@ -69,7 +69,7 @@ class UserInputAgent(BaseAgent):
 
         # Clean up the final output
         final_output = (
-            current_output.replace(task_completed_tag, "")
+            current_output
             .replace(task_paused_tag, "")
             .strip()
         )

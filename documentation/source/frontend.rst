@@ -150,7 +150,7 @@ Configures backend endpoints:
    export const port = process.env.NEXT_PUBLIC_BACKEND_PORT || "4000"
    export const create_stream_url = `http://localhost:${port}/create_stream`
    export const get_utterances_url = `http://localhost:${port}/get_utterances`
-   export const complete_tag = "<task-completed/>"
+   export const complete_tag = "<taskcompleted/>"
 
 Component Registry
 -----------------

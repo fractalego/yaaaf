@@ -111,30 +111,6 @@ messages = Messages().add_user_utterance("How many users are in the database?")
 response = await orchestrator.query(messages)
 ```
 
-### Multi-Agent Workflow
-```python
-# Step 1: Get data
-data_query = "Get sales data for the last 12 months"
-data_response = await orchestrator.query(Messages().add_user_utterance(data_query))
-
-# Step 2: Visualize
-viz_query = f"Create a chart showing trends: {data_response}"
-chart_response = await orchestrator.query(Messages().add_user_utterance(viz_query))
-```
-
-### Frontend Integration
-```typescript
-// Real-time chat with agent attribution
-const note = {
-  message: "Query results show 1,247 users",
-  artefact_id: "table_abc123",
-  agent_name: "sqlagent"
-}
-
-// Displays as: <sqlagent>Query results show 1,247 users</sqlagent>
-//              <Artefact>table_abc123</Artefact>
-```
-
 ## 🛠️ Development
 
 ### Backend Development

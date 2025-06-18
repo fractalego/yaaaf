@@ -96,13 +96,40 @@ async function createStream(
 // Function to format Note object to string with agent name tags and artefact info
 function formatNoteToString(note: Note): string {
   let result = ""
-
-  // Wrap message in agent name tags if agent name exists
-  if (note.agent_name) {
-    result = `<${note.agent_name}>${note.message}</${note.agent_name}>`
+  
+  // Check if message contains <markdown> tags - if so, extract content without agent wrapping
+  const markdownRegex = /<markdown>([\s\S]*?)<\/markdown>/g
+  const markdownMatches = note.message.match(markdownRegex)
+  
+  if (markdownMatches) {
+    // Extract content from all <markdown> tags and return as plain text
+    const markdownContent = markdownMatches
+      .map(match => match.replace(/<\/?markdown>/g, ''))
+      .join('\n\n')
+    
+    // Remove the <markdown> tags from the original message
+    const messageWithoutMarkdown = note.message.replace(markdownRegex, '').trim()
+    
+    // Combine markdown content with the rest of the message
+    if (messageWithoutMarkdown) {
+      if (note.agent_name) {
+        result = markdownContent + '\n\n' + `<${note.agent_name}>${messageWithoutMarkdown}</${note.agent_name}>`
+      } else {
+        result = markdownContent + '\n\n' + messageWithoutMarkdown
+      }
+    } else {
+      // Only markdown content, no agent wrapping
+      result = markdownContent
+    }
   } else {
-    result = note.message
+    // No markdown tags, use original logic
+    if (note.agent_name) {
+      result = `<${note.agent_name}>${note.message}</${note.agent_name}>`
+    } else {
+      result = note.message
+    }
   }
+  
   return result
 }
 

@@ -142,14 +142,32 @@ Orchestrator agent: This agent orchestrates the agents.
             goal=goal,
         )
 
+    def _sanitize_dataframe_for_markdown(self, df) -> str:
+        """Sanitize dataframe data to prevent markdown table breakage."""
+        # Create a copy to avoid modifying the original
+        df_clean = df.copy()
+        
+        # Apply sanitization to all string columns
+        for col in df_clean.columns:
+            if df_clean[col].dtype == 'object':  # String columns
+                df_clean[col] = df_clean[col].astype(str).apply(lambda x: (
+                    x.replace('|', '\\|')      # Escape pipe characters
+                     .replace('\n', ' ')       # Replace newlines with spaces
+                     .replace('\r', ' ')       # Replace carriage returns
+                     .replace('\t', ' ')       # Replace tabs with spaces
+                     .strip()                  # Remove leading/trailing whitespace
+                ))
+        
+        return df_clean.to_markdown(index=False)
+
     def _add_relevant_information(self, answer: str) -> str:
         if "<artefact type='image'>" in answer:
             image_artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
             answer = f"<imageoutput>{image_artefact.id}</imageoutput>" + "\n" + answer
         if "<artefact type='paragraphs-table'>" in answer:
             artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
-            answer = f"\n\n{artefact.data.to_markdown(index=False)}\n\n" + answer
+            answer = f"<markdown>{self._sanitize_dataframe_for_markdown(artefact.data)}</markdown>" + answer
         if "<artefact type='called-tools-table'>" in answer:
             artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
-            answer = f"\n\n{artefact.data.to_markdown(index=False)}\n\n" + answer
+            answer = f"<markdown>{self._sanitize_dataframe_for_markdown(artefact.data)}</markdown>" + answer
         return answer

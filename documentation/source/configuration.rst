@@ -288,6 +288,7 @@ A comprehensive setup with multiple agents and sources:
        "rag",
        "reviewer",
        "websearch",
+       "brave_search",
        "url_reviewer"
      ],
      "sources": [
@@ -308,8 +309,45 @@ A comprehensive setup with multiple agents and sources:
          "path": "./kb/articles/",
          "description": "Internal knowledge base"
        }
-     ]
+     ],
+     "api_keys": {
+       "brave_search_api_key": "YOUR_BRAVE_SEARCH_API_KEY_HERE"
+     },
+     "safety_filter": {
+       "enabled": false,
+       "blocked_keywords": [],
+       "blocked_patterns": [],
+       "custom_message": "I cannot answer that"
+     }
    }
+
+API Keys Configuration
+~~~~~~~~~~~~~~~~~~~~~~
+
+Some agents require API keys for external services. Configure them in the ``api_keys`` section:
+
+.. code-block:: json
+
+   {
+     "api_keys": {
+       "brave_search_api_key": "your-brave-search-api-key-here"
+     }
+   }
+
+**Available API Keys:**
+
+* **``brave_search_api_key``**: Required for BraveSearchAgent
+  
+  * Obtain from: https://api.search.brave.com/
+  * Used for: Web search using Brave's independent search index
+  * Required when: Using the ``brave_search`` agent
+
+**Security Notes:**
+
+* Never commit API keys to version control
+* Use environment variables in production
+* Rotate keys regularly for security
+* Store keys securely and restrict access
 
 Troubleshooting
 ---------------

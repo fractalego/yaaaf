@@ -104,7 +104,7 @@ VisualizationAgent
 WebSearchAgent (DuckDuckGoSearchAgent)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Purpose**: Performs web searches and retrieves relevant information.
+**Purpose**: Performs web searches and retrieves relevant information using DuckDuckGo.
 
 **Capabilities**:
    * Searches the web using DuckDuckGo
@@ -118,6 +118,40 @@ WebSearchAgent (DuckDuckGoSearchAgent)
    * "Search for recent developments in AI"
    * "Find information about Python best practices"
    * "Look up current weather in San Francisco"
+
+BraveSearchAgent
+~~~~~~~~~~~~~~~~
+
+**Purpose**: Performs web searches using Brave's independent search API with privacy focus.
+
+**Capabilities**:
+   * Searches using Brave's independent search index
+   * Privacy-focused search results
+   * API key-based authentication
+   * Returns structured data with URLs and snippets
+   * Independent from Google/Bing search indexes
+
+**Usage Tags**: ``<bravesearchagent>...</bravesearchagent>``
+
+**Configuration Requirements**:
+   * Brave Search API key must be configured
+   * See :doc:`brave_search_agent` for detailed setup instructions
+
+**Example Queries**:
+   * "Search for renewable energy innovations"
+   * "Find privacy-focused alternatives to mainstream services"
+   * "Look up independent journalism about tech industry"
+
+**Example Configuration**:
+
+.. code-block:: json
+
+   {
+     "agents": ["brave_search"],
+     "api_keys": {
+       "brave_search_api_key": "YOUR_API_KEY_HERE"
+     }
+   }
 
 ReflectionAgent
 ~~~~~~~~~~~~~~

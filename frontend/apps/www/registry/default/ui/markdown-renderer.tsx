@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm"
 
 import { cn } from "@/lib/utils"
 import { Artefact } from "@/registry/custom/artefact"
+import { BraveSearchAgent } from "@/registry/custom/brave-search-agent"
 import { Complete } from "@/registry/custom/complete"
 import { DuckDuckGoSearchAgent } from "@/registry/custom/duck-duck-go-search-agent"
 import { ImageOutput } from "@/registry/custom/image-output"
@@ -195,6 +196,9 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     },
     duckduckgosearchagent: ({ children }: any) => {
       return <DuckDuckGoSearchAgent text={children}></DuckDuckGoSearchAgent>
+    },
+    bravesearchagent: ({ children }: any) => {
+      return <BraveSearchAgent text={children}></BraveSearchAgent>
     },
     urlretrieveragent: ({ children }: any) => {
       return <UrlRetrieverAgent text={children}></UrlRetrieverAgent>

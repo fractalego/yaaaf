@@ -10,6 +10,7 @@ from yaaaf.components.agents.url_reviewer_agent import UrlReviewerAgent
 from yaaaf.components.agents.user_input_agent import UserInputAgent
 from yaaaf.components.agents.visualization_agent import VisualizationAgent
 from yaaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
+from yaaaf.components.agents.brave_search_agent import BraveSearchAgent
 from yaaaf.components.client import OllamaClient
 from yaaaf.components.sources.sqlite_source import SqliteSource
 from yaaaf.components.sources.rag_source import RAGSource
@@ -26,6 +27,7 @@ class OrchestratorBuilder:
             "rag": RAGAgent,
             "reviewer": ReviewerAgent,
             "websearch": DuckDuckGoSearchAgent,
+            "brave_search": BraveSearchAgent,
             "url": URLAgent,
             "url_reviewer": UrlReviewerAgent,
             "user_input": UserInputAgent,

@@ -24,11 +24,16 @@ class SafetyFilterSettings(BaseSettings):
     custom_message: str = "I cannot answer that"
 
 
+class APISettings(BaseSettings):
+    brave_search_api_key: str | None = None
+
+
 class Settings(BaseSettings):
     client: ClientSettings
     sources: List[SourceSettings] = []
     agents: List[str] = []
     safety_filter: SafetyFilterSettings = SafetyFilterSettings()
+    api_keys: APISettings = APISettings()
 
 
 def _get_simple_config() -> Settings:
@@ -51,8 +56,9 @@ def _get_simple_config() -> Settings:
             "create.*?(virus|malware)",
             "bypass.*?(security|safety)",
         ],
-        custom_message = "I cannot answer that",
+        custom_message="I cannot answer that",
     )
+    api_settings: APISettings = APISettings(brave_search_api_key=None)
     config: Settings = Settings(
         client=client_settings,
         sources=[],
@@ -67,6 +73,7 @@ def _get_simple_config() -> Settings:
             "url",
         ],
         safety_filter=safety_filter_settings,
+        api_keys=api_settings,
     )
     return config
 

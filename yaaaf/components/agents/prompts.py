@@ -227,6 +227,17 @@ JUST OUTPUT THE QUERY BETWEEN THE TAGS.
 )
 
 
+brave_search_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to search the web using Brave Search and find the relevant information.
+The query needs to be written in python between the tags ```text ... ```
+The goal of this query is to find the relevant information in the web.
+DO NOT OUTPUT THE ANSWER YOURSELF. DO NOT WRITE CODE TO CALL THE API.
+JUST OUTPUT THE QUERY BETWEEN THE TAGS.
+    """
+)
+
+
 url_retriever_agent_prompt_template_without_model = PromptTemplate(
     prompt="""
 Your task is to analise markdown table of texts and urls and answer a query given as input.

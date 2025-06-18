@@ -11,6 +11,7 @@ Welcome to YAAAF Documentation
    configuration
    architecture
    agents
+   brave_search_agent
    api_reference
    frontend
    gdpr_popup
@@ -66,6 +67,7 @@ YAAAF includes several built-in agents:
 * **SqlAgent**: Executes SQL queries and returns structured data
 * **VisualizationAgent**: Creates charts and visualizations from data
 * **WebSearchAgent**: Performs web searches using DuckDuckGo
+* **BraveSearchAgent**: Privacy-focused web search using Brave's independent search API
 * **ReflectionAgent**: Provides step-by-step reasoning and planning
 * **RAGAgent**: Retrieval-augmented generation from document sources
 * **ToolAgent**: Integration with MCP (Model Context Protocol) tools

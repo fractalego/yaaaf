@@ -28,6 +28,7 @@ from yaaaf.components.agents.prompts import (
     visualization_agent_prompt_template_without_model,
     visualization_agent_prompt_template_with_model,
 )
+from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
 matplotlib.use("Agg")
@@ -43,65 +44,46 @@ class VisualizationAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         self._client = client
 
+    @handle_exceptions
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
-        try:
-            last_utterance = messages.utterances[-1]
-            artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
-                last_utterance.content
-            )
-        except Exception as e:
-            _logger.error(f"VisualizationAgent: Failed to extract artefacts from utterance: {e}")
-            raise
+        last_utterance = messages.utterances[-1]
+        artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
+            last_utterance.content
+        )
         if not artefact_list:
             return no_artefact_text
-        try:
-            image_id: str = create_hash(str(messages))
-            image_name: str = image_id + ".png"
-            messages = messages.add_system_prompt(
-                create_prompt_from_artefacts(
-                    artefact_list,
-                    image_name,
-                    visualization_agent_prompt_template_with_model,
-                    visualization_agent_prompt_template_without_model,
-                )
+        
+        image_id: str = create_hash(str(messages))
+        image_name: str = image_id + ".png"
+        messages = messages.add_system_prompt(
+            create_prompt_from_artefacts(
+                artefact_list,
+                image_name,
+                visualization_agent_prompt_template_with_model,
+                visualization_agent_prompt_template_without_model,
             )
-            df, model = get_table_and_model_from_artefacts(artefact_list)
-        except Exception as e:
-            _logger.error(f"VisualizationAgent: Failed to setup visualization context: {e}")
-            raise
+        )
+        df, model = get_table_and_model_from_artefacts(artefact_list)
         code = ""
         for _ in range(self._max_steps):
-            try:
-                answer = await self._client.predict(
-                    messages=messages, stop_sequences=self._stop_sequences
-                )
-            except Exception as e:
-                _logger.error(f"VisualizationAgent: Client prediction failed in visualization step: {e}")
-                raise
-            try:
-                messages.add_assistant_utterance(answer)
-                code = get_first_text_between_tags(answer, self._output_tag, "```")
-            except Exception as e:
-                _logger.error(f"VisualizationAgent: Failed to extract code from answer: {e}")
-                code = None
+            answer = await self._client.predict(
+                messages=messages, stop_sequences=self._stop_sequences
+            )
+            messages.add_assistant_utterance(answer)
+            code = get_first_text_between_tags(answer, self._output_tag, "```")
             code_result = "No code found"
             if code:
-                try:
-                    old_stdout = sys.stdout
-                    redirected_output = sys.stdout = StringIO()
-                    global_variables = globals().copy()
-                    global_variables.update({"dataframe": df, "sklearn_model": model})
-                    exec(code, global_variables)
-                    sys.stdout = old_stdout
-                    code_result = redirected_output.getvalue()
-                    if code_result.strip() == "":
-                        code_result = ""
-                except Exception as e:
-                    _logger.error(f"VisualizationAgent: Code execution failed: {e}")
-                    code_result = f"Error while executing the code above.\nThis exception is raised {str(e)}"
-                    answer = str(code_result)
+                old_stdout = sys.stdout
+                redirected_output = sys.stdout = StringIO()
+                global_variables = globals().copy()
+                global_variables.update({"dataframe": df, "sklearn_model": model})
+                exec(code, global_variables)
+                sys.stdout = old_stdout
+                code_result = redirected_output.getvalue()
+                if code_result.strip() == "":
+                    code_result = ""
 
             if (
                 self.is_complete(answer)
@@ -115,47 +97,32 @@ class VisualizationAgent(BaseAgent):
             )
 
         if not os.path.exists(image_name):
-            _logger.warning(f"VisualizationAgent: No image file generated at {image_name}")
             return "No image was generated. Please try again."
 
-        try:
-            with open(image_name, "rb") as file:
-                base64_image: str = base64.b64encode(file.read()).decode("ascii")
-                self._storage.store_artefact(
-                    image_id,
-                    Artefact(
-                        type=Artefact.Types.IMAGE,
-                        image=base64_image,
-                        description=str(messages),
-                        code=code,
-                        data=df,
-                        id=image_id,
-                    ),
-                )
-                os.remove(image_name)
-        except Exception as e:
-            _logger.error(f"VisualizationAgent: Failed to process or store image artefact: {e}")
-            # Clean up image file if it exists
-            try:
-                if os.path.exists(image_name):
-                    os.remove(image_name)
-            except:
-                pass
-            return f"Visualization completed but failed to store image: {e}"
+        with open(image_name, "rb") as file:
+            base64_image: str = base64.b64encode(file.read()).decode("ascii")
+            self._storage.store_artefact(
+                image_id,
+                Artefact(
+                    type=Artefact.Types.IMAGE,
+                    image=base64_image,
+                    description=str(messages),
+                    code=code,
+                    data=df,
+                    id=image_id,
+                ),
+            )
+            os.remove(image_name)
         
         result = f"The result is in this artefact <artefact type='image'>{image_id}</artefact>"
         
         if notes is not None:
-            try:
-                note = Note(
-                    message=result,
-                    artefact_id=image_id,
-                    agent_name=self.get_name()
-                )
-                notes.append(note)
-            except Exception as e:
-                _logger.error(f"VisualizationAgent: Failed to create or append visualization note: {e}")
-                # Continue execution even if note creation fails
+            note = Note(
+                message=result,
+                artefact_id=image_id,
+                agent_name=self.get_name()
+            )
+            notes.append(note)
         
         return result
 

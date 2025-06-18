@@ -22,6 +22,7 @@ from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages
 from yaaaf.components.agents.prompts import mle_agent_prompt_template_without_model, mle_agent_prompt_template_with_model
+from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ class MleAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         self._client = client
 
+    @handle_exceptions
     async def query(
         self, messages: Messages, notes: Optional[List[str]] = None
     ) -> str:
@@ -66,20 +68,15 @@ class MleAgent(BaseAgent):
             messages.add_assistant_utterance(answer)
             code = get_first_text_between_tags(answer, self._output_tag, "```")
             if code:
-                try:
-                    old_stdout = sys.stdout
-                    redirected_output = sys.stdout = StringIO()
-                    global_variables = globals().copy()
-                    global_variables.update({"dataframe": df, "sklearn_model": model})
-                    exec(code, global_variables)
-                    sys.stdout = old_stdout
-                    code_result = redirected_output.getvalue()
-                    if code_result.strip() == "":
-                        code_result = ""
-                except Exception as e:
-                    print(e)
-                    code_result = f"Error while executing the code above.\nThis exception is raised {str(e)}"
-                    answer = str(code_result)
+                old_stdout = sys.stdout
+                redirected_output = sys.stdout = StringIO()
+                global_variables = globals().copy()
+                global_variables.update({"dataframe": df, "sklearn_model": model})
+                exec(code, global_variables)
+                sys.stdout = old_stdout
+                code_result = redirected_output.getvalue()
+                if code_result.strip() == "":
+                    code_result = ""
 
             if (
                 self.is_complete(answer)

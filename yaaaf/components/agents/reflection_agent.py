@@ -6,6 +6,7 @@ from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import PromptTemplate, Messages
 from yaaaf.components.agents.prompts import reflection_agent_prompt_template
+from yaaaf.components.decorators import handle_exceptions
 
 
 class ReflectionAgent(BaseAgent):
@@ -18,6 +19,7 @@ class ReflectionAgent(BaseAgent):
     def __init__(self, client: BaseClient) -> None:
         self._client = client
 
+    @handle_exceptions
     async def query(
         self, messages: Messages, notes: Optional[List[str]] = None
     ) -> str:

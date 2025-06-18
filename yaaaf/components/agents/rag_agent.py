@@ -11,6 +11,7 @@ from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, PromptTemplate
 from yaaaf.components.agents.prompts import rag_agent_prompt_template
 from yaaaf.components.sources.rag_source import RAGSource
+from yaaaf.components.decorators import handle_exceptions
 
 
 class RAGAgent(BaseAgent):
@@ -31,6 +32,7 @@ class RAGAgent(BaseAgent):
         )
         self._sources = sources
 
+    @handle_exceptions
     async def query(
         self, messages: Messages, notes: Optional[List[str]] = None
     ) -> str:

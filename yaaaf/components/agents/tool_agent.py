@@ -12,6 +12,7 @@ from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, PromptTemplate
 from yaaaf.connectors.mcp_connector import MCPTools
+from yaaaf.components.decorators import handle_exceptions
 
 
 class ToolAgent(BaseAgent):
@@ -32,6 +33,7 @@ class ToolAgent(BaseAgent):
         )
         self._tools = tools
 
+    @handle_exceptions
     async def query(
         self, messages: Messages, notes: Optional[List[str]] = None
     ) -> str:
@@ -64,31 +66,24 @@ class ToolAgent(BaseAgent):
                     tools_and_args_dict["tool_index"],
                     tools_and_args_dict["arguments"],
                 ):
-                    try:
-                        # Parse tool index to get group and tool indices
-                        tool_group = self._tools[int(group_index)]
-                        tool = tool_group[int(tool_index)]
+                    # Parse tool index to get group and tool indices
+                    tool_group = self._tools[int(group_index)]
+                    tool = tool_group[int(tool_index)]
 
-                        # Parse arguments JSON
-                        args = (
-                            json.loads(arguments)
-                            if isinstance(arguments, str)
-                            else arguments
-                        )
+                    # Parse arguments JSON
+                    args = (
+                        json.loads(arguments)
+                        if isinstance(arguments, str)
+                        else arguments
+                    )
 
-                        # Call the tool
-                        result = await tool_group.call_tool(tool.name, args)
-                        all_tool_results.append(result)
-                        all_tool_calls.append(
-                            f"Tool {tool_index} ({tool.name}): {args}"
-                        )
-                        answer += f"Tool index: {tool_index} -> {result}\n"
-
-                    except Exception as e:
-                        error_msg = f"Error calling tool {tool_index}: {str(e)}"
-                        all_tool_results.append(error_msg)
-                        all_tool_calls.append(f"Tool {tool_index}: ERROR")
-                        answer += f"Tool index: {tool_index} -> {error_msg}\n"
+                    # Call the tool
+                    result = await tool_group.call_tool(tool.name, args)
+                    all_tool_results.append(result)
+                    all_tool_calls.append(
+                        f"Tool {tool_index} ({tool.name}): {args}"
+                    )
+                    answer += f"Tool index: {tool_index} -> {result}\n"
 
                 current_output = all_tool_results.copy()
                 messages = messages.add_user_utterance(

@@ -19,6 +19,7 @@ from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Utterance
+from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class ReviewerAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         self._client = client
 
+    @handle_exceptions
     async def query(
         self, messages: Messages, notes: Optional[List[str]] = None
     ) -> str:
@@ -60,19 +62,15 @@ class ReviewerAgent(BaseAgent):
             messages.add_assistant_utterance(answer)
             code = get_first_text_between_tags(answer, self._output_tag, "```")
             if code:
-                try:
-                    old_stdout = sys.stdout
-                    redirected_output = sys.stdout = StringIO()
-                    global_variables = globals().copy()
-                    global_variables.update({"dataframe": df, "sklearn_model": model})
-                    exec(code, global_variables)
-                    sys.stdout = old_stdout
-                    code_result = redirected_output.getvalue()
-                    if code_result.strip() == "":
-                        code_result = "The code executed successfully but no output was generated."
-                except Exception as e:
-                    print(e)
-                    code_result = f"Error while executing the code above.\nThis exception is raised {str(e)}"
+                old_stdout = sys.stdout
+                redirected_output = sys.stdout = StringIO()
+                global_variables = globals().copy()
+                global_variables.update({"dataframe": df, "sklearn_model": model})
+                exec(code, global_variables)
+                sys.stdout = old_stdout
+                code_result = redirected_output.getvalue()
+                if code_result.strip() == "":
+                    code_result = "The code executed successfully but no output was generated."
 
             if (
                 self.is_complete(answer)

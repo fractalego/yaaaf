@@ -14,6 +14,7 @@ from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages
+from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class UrlReviewerAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         self._client = client
 
+    @handle_exceptions
     async def query(
         self, messages: Messages, notes: Optional[List[str]] = None
     ) -> str:

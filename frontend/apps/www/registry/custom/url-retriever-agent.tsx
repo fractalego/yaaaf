@@ -4,7 +4,7 @@ import * as React from "react"
 
 function UrlRetrieverAgent(element: { text: string }) {
   return (
-    <div className="inline-block bg-pink-100 dark:bg-pink-800 dark:text-white p-3 text-xl rounded-sm">
+    <div className="inline-block bg-stone-200 dark:bg-stone-700 dark:text-white p-3 text-xl rounded-sm">
       <div className="inline-block pr-5">
         <svg
           xmlns="http://www.w3.org/2000/svg"

@@ -4,7 +4,7 @@ import * as React from "react"
 
 function SqlAgent(element: { text: string }) {
   return (
-    <div className="inline-block bg-yellow-100 dark:bg-yellow-800 dark:text-white p-3 text-xl rounded-sm">
+    <div className="inline-block bg-slate-300 dark:bg-slate-600 dark:text-white p-3 text-xl rounded-sm">
       <div className="inline-block pr-5">
         <svg
           xmlns="http://www.w3.org/2000/svg"

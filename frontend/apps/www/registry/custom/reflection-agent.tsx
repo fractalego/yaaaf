@@ -4,7 +4,7 @@ import * as React from "react"
 
 function ReflectionAgent(element: { text: string }) {
   return (
-    <div className="inline-block bg-green-100 dark:bg-green-800 dark:text-white p-3 text-xl rounded-sm">
+    <div className="inline-block bg-slate-200 dark:bg-slate-700 dark:text-white p-3 text-xl rounded-sm">
       <div className="inline-block pr-5">
         <svg
           xmlns="http://www.w3.org/2000/svg"

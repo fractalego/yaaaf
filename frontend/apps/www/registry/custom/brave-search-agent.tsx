@@ -4,7 +4,7 @@ import * as React from "react"
 
 function BraveSearchAgent(element: { text: string }) {
   return (
-    <div className="inline-block bg-orange-100 dark:bg-orange-800 dark:text-white p-3 text-xl rounded-sm">
+    <div className="inline-block bg-gray-100 dark:bg-gray-800 dark:text-white p-3 text-xl rounded-sm">
       <div className="inline-block pr-5">
         <svg
           xmlns="http://www.w3.org/2000/svg"

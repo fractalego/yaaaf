@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-YAAAF (Yet Another Amazing Agentic Framework) is a modular framework for building agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, and reflection.
+YAAAF (Yet Another Autonomous Agents Framework) is a modular framework for building agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, and reflection.
 
 ## Development Commands
 

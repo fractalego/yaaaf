@@ -3,7 +3,7 @@
 YAAAF Configuration Generator
 
 This module provides an interactive command-line interface for creating a local config.json file
-for the YAAAF (Yet Another Amazing Agentic Framework) system.
+for the YAAAF (Yet Another Autonomous Agents Framework) system.
 """
 
 import json

@@ -1,5 +1,5 @@
 """
-YAAAF - Yet Another Amazing Agentic Framework
+YAAAF - Yet Another Autonomous Agents Framework
 
 A modular framework for building intelligent agentic applications with Python backend
 and Next.js frontend components. The system features an orchestrator pattern with

@@ -1,4 +1,4 @@
-# YAAAF - Yet Another Amazing Agentic Framework
+# YAAAF - Yet Another Autonomous Agents Framework
 
 YAAAF is a modular framework for building intelligent agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, machine learning, and reflection.
 

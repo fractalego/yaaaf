@@ -8,6 +8,7 @@ Welcome to YAAAF Documentation
    :caption: Contents:
 
    getting_started
+   configuration
    architecture
    agents
    api_reference
@@ -31,6 +32,9 @@ Quick Start
 Install and run YAAAF in just a few commands:
 
 .. code-block:: bash
+
+   # Create a custom configuration (optional)
+   python -m yaaaf config
 
    # Start the backend server (default port 4000)
    python -m yaaaf backend

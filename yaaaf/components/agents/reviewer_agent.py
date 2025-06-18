@@ -1,8 +1,5 @@
 import logging
-import pandas as pd
-import sklearn
 import sys
-import re
 from io import StringIO
 from typing import List, Optional
 
@@ -21,7 +18,7 @@ from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages, Utterance
+from yaaaf.components.data_types import Messages
 from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)

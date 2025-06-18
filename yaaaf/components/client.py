@@ -1,9 +1,12 @@
 import requests
 import json
 
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 
 from yaaaf.components.agents.tokens_utils import strip_thought_tokens
+
+if TYPE_CHECKING:
+    from yaaaf.components.data_types import Messages
 
 
 class BaseClient:

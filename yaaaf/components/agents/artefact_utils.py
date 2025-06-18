@@ -1,7 +1,10 @@
 import re
 import pandas as pd
 
-from typing import List, Tuple, Optional
+from typing import List, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import sklearn.base
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.data_types import Utterance, PromptTemplate
 
@@ -13,7 +16,7 @@ def get_artefacts_from_utterance_content(utterance: Utterance | str) -> List[Art
         utterance_content = utterance
 
     artefact_matches = re.findall(
-        rf"<artefact.*?>(.+?)</artefact>",
+        r"<artefact.*?>(.+?)</artefact>",
         utterance_content,
         re.MULTILINE | re.DOTALL,
     )

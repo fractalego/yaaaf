@@ -3,10 +3,7 @@ import logging
 import os
 import sys
 import matplotlib
-import re
 
-import numpy as np
-import sklearn
 
 from io import StringIO
 from typing import List, Optional

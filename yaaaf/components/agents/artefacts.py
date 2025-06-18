@@ -48,7 +48,7 @@ class ArtefactStorage:
         self, utterance: str
     ) -> Optional[Artefact]:
         artefact_matches = re.findall(
-            rf"<artefact.*>(.+?)</artefact>", utterance, re.MULTILINE | re.DOTALL
+            r"<artefact.*>(.+?)</artefact>", utterance, re.MULTILINE | re.DOTALL
         )
         if not artefact_matches:
             return None
@@ -57,7 +57,7 @@ class ArtefactStorage:
 
     def retrieve_from_utterance_string(self, utterance: str) -> List[Artefact]:
         artefact_matches = re.findall(
-            rf"<artefact.*>(.+?)</artefact>", utterance, re.MULTILINE | re.DOTALL
+            r"<artefact.*>(.+?)</artefact>", utterance, re.MULTILINE | re.DOTALL
         )
 
         return [

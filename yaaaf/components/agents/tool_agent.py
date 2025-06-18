@@ -108,7 +108,7 @@ class ToolAgent(BaseAgent):
         return f"The result is in this artefact <artefact type='called-tools-table'>{tool_id}</artefact>"
 
     def get_description(self) -> str:
-        return f"""
+        return """
 Tool agent: This agent uses MCP (Model Context Protocol) tools to perform various operations.
 Each tool group contains a collection of tools that can be called with specific arguments.
 This agent accepts a query in plain English and uses the appropriate tools to gather information or perform actions.

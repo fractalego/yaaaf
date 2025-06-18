@@ -67,7 +67,7 @@ class DuckDuckGoSearchAgent(BaseAgent):
                     f"The query is {answer} but there are no results from the web search. Try again. If there are errors correct the query accordingly."
                 )
 
-        if type(current_output) == str:
+        if isinstance(current_output, str):
             return current_output.replace(task_completed_tag, "")
 
         df_info_output = StringIO()

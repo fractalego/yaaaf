@@ -1,6 +1,9 @@
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 
 from yaaaf.components.data_types import Note
+
+if TYPE_CHECKING:
+    from yaaaf.components.data_types import Messages
 
 
 class BaseAgent:

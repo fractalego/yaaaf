@@ -88,7 +88,7 @@ class OrchestratorAgent(BaseAgent):
             else:
                 messages = messages.add_assistant_utterance(answer)
                 messages = messages.add_user_utterance(
-                    f"You didn't call any agent. Is the answer finished or did you miss outputting the tags? Reminder: use the relevant html tags to call the agents.\n\n"
+                    "You didn't call any agent. Is the answer finished or did you miss outputting the tags? Reminder: use the relevant html tags to call the agents.\n\n"
                 )
         if not self.is_complete(answer) and step_index == self._max_steps - 1:
             answer += "\nThe Orchestrator agent has finished its maximum number of steps. <task-completed/>"

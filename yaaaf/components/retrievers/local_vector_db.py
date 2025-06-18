@@ -4,7 +4,7 @@ from nltk import download
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from typing import List, Tuple
-from rank_bm25 import BM25, BM25Okapi
+from rank_bm25 import BM25Okapi
 
 download("stopwords")
 download("punkt_tab")

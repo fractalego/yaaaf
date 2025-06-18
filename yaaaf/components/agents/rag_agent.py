@@ -97,7 +97,7 @@ class RAGAgent(BaseAgent):
         )
 
     def get_description(self) -> str:
-        return f"""
+        return """
 RAG agent: This agent queries the RAG sources and retrieves the relevant information.
 Each source is a folder containing a list of documents.
 This agent accepts a query in plain English and returns the relevant documents from the sources.

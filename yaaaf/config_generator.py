@@ -29,6 +29,7 @@ class ConfigGenerator:
             "rag": "Retrieval-Augmented Generation using text sources",
             "reviewer": "Analyzes artifacts and validates results",
             "websearch": "Performs web searches using DuckDuckGo",
+            "url": "Analyzes content from URLs based on instructions",
             "url_reviewer": "Extracts information from web search results",
         }
 

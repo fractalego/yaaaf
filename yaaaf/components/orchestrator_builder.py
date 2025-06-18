@@ -5,6 +5,7 @@ from yaaaf.components.agents.reflection_agent import ReflectionAgent
 from yaaaf.components.agents.reviewer_agent import ReviewerAgent
 from yaaaf.components.agents.sql_agent import SqlAgent
 from yaaaf.components.agents.rag_agent import RAGAgent
+from yaaaf.components.agents.url_agent import URLAgent
 from yaaaf.components.agents.url_reviewer_agent import UrlReviewerAgent
 from yaaaf.components.agents.visualization_agent import VisualizationAgent
 from yaaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
@@ -24,6 +25,7 @@ class OrchestratorBuilder:
             "rag": RAGAgent,
             "reviewer": ReviewerAgent,
             "websearch": DuckDuckGoSearchAgent,
+            "url": URLAgent,
             "url_reviewer": UrlReviewerAgent,
         }
 

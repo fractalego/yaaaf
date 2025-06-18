@@ -35,7 +35,6 @@ export function MessageInput({
     }
   }, [isGenerating])
 
-
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (submitOnEnter && event.key === "Enter" && !event.shiftKey) {
       event.preventDefault()
@@ -82,7 +81,6 @@ export function MessageInput({
         />
       )}
 
-
       <div className="relative flex w-full items-center space-x-2">
         <div className="relative flex-1">
           <textarea
@@ -96,7 +94,6 @@ export function MessageInput({
             )}
             {...props}
           />
-
         </div>
       </div>
 
@@ -123,9 +120,7 @@ export function MessageInput({
           </Button>
         )}
       </div>
-
     </div>
   )
 }
 MessageInput.displayName = "MessageInput"
-

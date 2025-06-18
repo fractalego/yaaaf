@@ -1,4 +1,5 @@
 import { MainNavItem, SidebarNavItem } from "types/nav"
+
 import { siteConfig } from "@/config/site"
 
 export interface DocsConfig {

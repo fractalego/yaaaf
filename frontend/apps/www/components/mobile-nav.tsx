@@ -69,30 +69,29 @@ export function MobileNav() {
           <div className="flex flex-col space-y-3">
             {docsConfig.mainNav?.map(
               (item) =>
-                item.href && (
-                  item.external ? (
-                    <a
-                      key={item.href}
-                      href={item.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground transition-colors hover:text-foreground"
-                      onClick={() => setOpen(false)}
-                    >
-                      {item.title}
-                    </a>
-                  ) : (
-                    <MobileLink
-                      key={item.href}
-                      href={item.href}
-                      onOpenChange={setOpen}
-                      className="flex items-center space-x-2"
-                    >
-                      {item.title === "Home" && <Home className="h-4 w-4" />}
-                      <span>{item.title}</span>
-                    </MobileLink>
-                  )
-                )
+                item.href &&
+                (item.external ? (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground transition-colors hover:text-foreground"
+                    onClick={() => setOpen(false)}
+                  >
+                    {item.title}
+                  </a>
+                ) : (
+                  <MobileLink
+                    key={item.href}
+                    href={item.href}
+                    onOpenChange={setOpen}
+                    className="flex items-center space-x-2"
+                  >
+                    {item.title === "Home" && <Home className="h-4 w-4" />}
+                    <span>{item.title}</span>
+                  </MobileLink>
+                ))
             )}
           </div>
           <div className="flex flex-col space-y-2">

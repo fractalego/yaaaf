@@ -13,6 +13,7 @@ Welcome to YAAAF Documentation
    agents
    api_reference
    frontend
+   gdpr_popup
    development
    examples
 

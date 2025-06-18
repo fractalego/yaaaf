@@ -2,9 +2,9 @@ import { createDataStreamResponse } from "ai"
 
 import {
   complete_tag,
-  paused_tag,
   create_stream_url,
   get_utterances_url,
+  paused_tag,
 } from "@/app/settings"
 
 // Define the Note interface to match the backend structure
@@ -103,26 +103,31 @@ async function createStream(
 // Function to format Note object to string with agent name tags and artefact info
 function formatNoteToString(note: Note): string {
   let result = ""
-  
+
   // Check if message contains <markdown> tags - if so, extract content without agent wrapping
   const markdownRegex = /<markdown>([\s\S]*?)<\/markdown>/g
   const markdownMatches = note.message.match(markdownRegex)
-  
+
   if (markdownMatches) {
     // Extract content from all <markdown> tags and return as plain text
     const markdownContent = markdownMatches
-      .map(match => match.replace(/<\/?markdown>/g, ''))
-      .join('\n\n')
-    
+      .map((match) => match.replace(/<\/?markdown>/g, ""))
+      .join("\n\n")
+
     // Remove the <markdown> tags from the original message
-    const messageWithoutMarkdown = note.message.replace(markdownRegex, '').trim()
-    
+    const messageWithoutMarkdown = note.message
+      .replace(markdownRegex, "")
+      .trim()
+
     // Combine markdown content with the rest of the message
     if (messageWithoutMarkdown) {
       if (note.agent_name) {
-        result = markdownContent + '\n\n' + `<${note.agent_name}>${messageWithoutMarkdown}</${note.agent_name}>`
+        result =
+          markdownContent +
+          "\n\n" +
+          `<${note.agent_name}>${messageWithoutMarkdown}</${note.agent_name}>`
       } else {
-        result = markdownContent + '\n\n' + messageWithoutMarkdown
+        result = markdownContent + "\n\n" + messageWithoutMarkdown
       }
     } else {
       // Only markdown content, no agent wrapping
@@ -136,7 +141,7 @@ function formatNoteToString(note: Note): string {
       result = note.message
     }
   }
-  
+
   return result
 }
 

@@ -136,7 +136,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   onArtifactClick,
 }) => {
   console.log(content)
-  const addSpinner: boolean = content.indexOf(complete_tag) == -1 && content.indexOf(paused_tag) == -1
+  const addSpinner: boolean =
+    content.indexOf(complete_tag) == -1 && content.indexOf(paused_tag) == -1
 
   const files = useMemo(() => {
     return experimental_attachments?.map((attachment) => {

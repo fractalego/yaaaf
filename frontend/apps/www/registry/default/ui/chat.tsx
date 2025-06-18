@@ -1,10 +1,6 @@
 "use client"
 
-import {
-  forwardRef,
-  useCallback,
-  useRef,
-} from "react"
+import { forwardRef, useCallback, useRef } from "react"
 import { ArrowDown, ThumbsDown, ThumbsUp } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -297,4 +293,3 @@ export const ChatForm = forwardRef<HTMLFormElement, ChatFormProps>(
   }
 )
 ChatForm.displayName = "ChatForm"
-

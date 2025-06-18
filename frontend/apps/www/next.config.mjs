@@ -5,6 +5,9 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   output: 'standalone',
+  env: {
+    NEXT_PUBLIC_YAAAF_ACTIVATE_POPUP: process.env.YAAAF_ACTIVATE_POPUP,
+  },
   images: {
     remotePatterns: [
       {

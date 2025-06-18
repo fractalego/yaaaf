@@ -2,7 +2,7 @@
   "name": "use-audio-recording",
   "type": "registry:hook",
   "registryDependencies": [
-    "https://github.com/fractalego/yaaf/r/audio-utils.json"
+    "https://github.com/fractalego/yaaaf/r/audio-utils.json"
   ],
   "files": [
     {

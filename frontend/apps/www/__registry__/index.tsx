@@ -8,7 +8,7 @@ export const Index: Record<string, any> = {
     "chat": {
       name: "chat",
       type: "registry:ui",
-      registryDependencies: ["button","https://github.com/fractalego/yaaf/r/use-auto-scroll.json","https://github.com/fractalego/yaaf/r/chat-message.json","https://github.com/fractalego/yaaf/r/message-input.json","https://github.com/fractalego/yaaf/r/message-list.json","https://github.com/fractalego/yaaf/r/prompt-suggestions.json"],
+      registryDependencies: ["button","https://github.com/fractalego/yaaaf/r/use-auto-scroll.json","https://github.com/fractalego/yaaaf/r/chat-message.json","https://github.com/fractalego/yaaaf/r/message-input.json","https://github.com/fractalego/yaaaf/r/message-list.json","https://github.com/fractalego/yaaaf/r/prompt-suggestions.json"],
       files: ["registry/default/ui/chat.tsx"],
       component: React.lazy(() => import("@/registry/default/ui/chat.tsx")),
       source: "",
@@ -30,7 +30,7 @@ export const Index: Record<string, any> = {
     "chat-message": {
       name: "chat-message",
       type: "registry:ui",
-      registryDependencies: ["button","collapsible","https://github.com/fractalego/yaaf/r/copy-button.json","https://github.com/fractalego/yaaf/r/markdown-renderer.json"],
+      registryDependencies: ["button","collapsible","https://github.com/fractalego/yaaaf/r/copy-button.json","https://github.com/fractalego/yaaaf/r/markdown-renderer.json"],
       files: ["registry/default/ui/chat-message.tsx"],
       component: React.lazy(() => import("@/registry/default/ui/chat-message.tsx")),
       source: "",
@@ -41,7 +41,7 @@ export const Index: Record<string, any> = {
     "copy-button": {
       name: "copy-button",
       type: "registry:ui",
-      registryDependencies: ["button","https://github.com/fractalego/yaaf/r/use-copy-to-clipboard.json"],
+      registryDependencies: ["button","https://github.com/fractalego/yaaaf/r/use-copy-to-clipboard.json"],
       files: ["registry/default/ui/copy-button.tsx"],
       component: React.lazy(() => import("@/registry/default/ui/copy-button.tsx")),
       source: "",
@@ -63,7 +63,7 @@ export const Index: Record<string, any> = {
     "markdown-renderer": {
       name: "markdown-renderer",
       type: "registry:ui",
-      registryDependencies: ["https://github.com/fractalego/yaaf/r/copy-button.json"],
+      registryDependencies: ["https://github.com/fractalego/yaaaf/r/copy-button.json"],
       files: ["registry/default/ui/markdown-renderer.tsx"],
       component: React.lazy(() => import("@/registry/default/ui/markdown-renderer.tsx")),
       source: "",
@@ -74,7 +74,7 @@ export const Index: Record<string, any> = {
     "message-input": {
       name: "message-input",
       type: "registry:ui",
-      registryDependencies: ["button","https://github.com/fractalego/yaaf/r/use-autosize-textarea.json","https://github.com/fractalego/yaaf/r/file-preview.json","https://github.com/fractalego/yaaf/r/audio-visualizer.json","https://github.com/fractalego/yaaf/r/interrupt-prompt.json","https://github.com/fractalego/yaaf/r/use-audio-recording.json"],
+      registryDependencies: ["button","https://github.com/fractalego/yaaaf/r/use-autosize-textarea.json","https://github.com/fractalego/yaaaf/r/file-preview.json","https://github.com/fractalego/yaaaf/r/audio-visualizer.json","https://github.com/fractalego/yaaaf/r/interrupt-prompt.json","https://github.com/fractalego/yaaaf/r/use-audio-recording.json"],
       files: ["registry/default/ui/message-input.tsx"],
       component: React.lazy(() => import("@/registry/default/ui/message-input.tsx")),
       source: "",
@@ -96,7 +96,7 @@ export const Index: Record<string, any> = {
     "message-list": {
       name: "message-list",
       type: "registry:ui",
-      registryDependencies: ["https://github.com/fractalego/yaaf/r/chat-message.json","https://github.com/fractalego/yaaf/r/typing-indicator.json"],
+      registryDependencies: ["https://github.com/fractalego/yaaaf/r/chat-message.json","https://github.com/fractalego/yaaaf/r/typing-indicator.json"],
       files: ["registry/default/ui/message-list.tsx"],
       component: React.lazy(() => import("@/registry/default/ui/message-list.tsx")),
       source: "",
@@ -173,7 +173,7 @@ export const Index: Record<string, any> = {
     "use-audio-recording": {
       name: "use-audio-recording",
       type: "registry:hook",
-      registryDependencies: ["https://github.com/fractalego/yaaf/r/audio-utils.json"],
+      registryDependencies: ["https://github.com/fractalego/yaaaf/r/audio-utils.json"],
       files: ["registry/default/hooks/use-audio-recording.ts"],
       component: React.lazy(() => import("@/registry/default/hooks/use-audio-recording.ts")),
       source: "",

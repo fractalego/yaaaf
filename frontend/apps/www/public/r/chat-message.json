@@ -7,8 +7,8 @@
   "registryDependencies": [
     "button",
     "collapsible",
-    "https://github.com/fractalego/yaaf/r/copy-button.json",
-    "https://github.com/fractalego/yaaf/r/markdown-renderer.json"
+    "https://github.com/fractalego/yaaaf/r/copy-button.json",
+    "https://github.com/fractalego/yaaaf/r/markdown-renderer.json"
   ],
   "files": [
     {

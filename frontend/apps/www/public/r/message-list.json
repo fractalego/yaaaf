@@ -2,8 +2,8 @@
   "name": "message-list",
   "type": "registry:ui",
   "registryDependencies": [
-    "https://github.com/fractalego/yaaf/r/chat-message.json",
-    "https://github.com/fractalego/yaaf/r/typing-indicator.json"
+    "https://github.com/fractalego/yaaaf/r/chat-message.json",
+    "https://github.com/fractalego/yaaaf/r/typing-indicator.json"
   ],
   "files": [
     {

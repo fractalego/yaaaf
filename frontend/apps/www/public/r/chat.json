@@ -3,11 +3,11 @@
   "type": "registry:ui",
   "registryDependencies": [
     "button",
-    "https://github.com/fractalego/yaaf/r/use-auto-scroll.json",
-    "https://github.com/fractalego/yaaf/r/chat-message.json",
-    "https://github.com/fractalego/yaaf/r/message-input.json",
-    "https://github.com/fractalego/yaaf/r/message-list.json",
-    "https://github.com/fractalego/yaaf/r/prompt-suggestions.json"
+    "https://github.com/fractalego/yaaaf/r/use-auto-scroll.json",
+    "https://github.com/fractalego/yaaaf/r/chat-message.json",
+    "https://github.com/fractalego/yaaaf/r/message-input.json",
+    "https://github.com/fractalego/yaaaf/r/message-list.json",
+    "https://github.com/fractalego/yaaaf/r/prompt-suggestions.json"
   ],
   "files": [
     {

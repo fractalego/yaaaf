@@ -4,6 +4,7 @@ import * as React from "react"
 import Link, { LinkProps } from "next/link"
 import { useRouter } from "next/navigation"
 import { ViewVerticalIcon } from "@radix-ui/react-icons"
+import { Home } from "lucide-react"
 
 import { docsConfig } from "@/config/docs"
 import { siteConfig } from "@/config/site"
@@ -69,13 +70,28 @@ export function MobileNav() {
             {docsConfig.mainNav?.map(
               (item) =>
                 item.href && (
-                  <MobileLink
-                    key={item.href}
-                    href={item.href}
-                    onOpenChange={setOpen}
-                  >
-                    {item.title}
-                  </MobileLink>
+                  item.external ? (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground transition-colors hover:text-foreground"
+                      onClick={() => setOpen(false)}
+                    >
+                      {item.title}
+                    </a>
+                  ) : (
+                    <MobileLink
+                      key={item.href}
+                      href={item.href}
+                      onOpenChange={setOpen}
+                      className="flex items-center space-x-2"
+                    >
+                      {item.title === "Home" && <Home className="h-4 w-4" />}
+                      <span>{item.title}</span>
+                    </MobileLink>
+                  )
                 )
             )}
           </div>

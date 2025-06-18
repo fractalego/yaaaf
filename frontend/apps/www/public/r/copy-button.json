@@ -3,7 +3,7 @@
   "type": "registry:ui",
   "registryDependencies": [
     "button",
-    "https://github.com/fractalego/yaaf/r/use-copy-to-clipboard.json"
+    "https://github.com/fractalego/yaaaf/r/use-copy-to-clipboard.json"
   ],
   "files": [
     {

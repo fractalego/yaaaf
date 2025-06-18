@@ -16,12 +16,13 @@ import { MarkdownRenderer } from "@/registry/default/ui/markdown-renderer"
 import { complete_tag, paused_tag } from "@/app/settings"
 
 const chatBubbleVariants = cva(
-  "group/message relative break-words rounded-lg p-3 text-sm sm:max-w-[70%]",
+  "group/message relative break-words rounded-xl p-4 text-sm sm:max-w-[75%] shadow-sm border",
   {
     variants: {
       isUser: {
-        true: "bg-primary text-primary-foreground",
-        false: "bg-muted text-foreground",
+        true: "bg-primary text-primary-foreground border-primary/20 shadow-md",
+        false:
+          "bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 text-foreground border-border/40 shadow-lg",
       },
       animation: {
         none: "",
@@ -208,12 +209,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                 {text}
               </MarkdownRenderer>
               {actions ? (
-                <div className="absolute -bottom-4 right-2 flex space-x-1 rounded-lg border bg-background p-1 text-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
+                <div className="absolute -bottom-3 right-3 flex space-x-1 rounded-lg border bg-background/95 backdrop-blur-sm p-1.5 text-foreground opacity-0 transition-all duration-200 group-hover/message:opacity-100 shadow-md">
                   {actions}
                 </div>
               ) : null}
               {role == "assistant" && addSpinner ? (
-                <Loader2 className="mt-5 h-5 w-5 animate-spin" />
+                <div className="mt-4 flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-xs">Thinking...</span>
+                </div>
               ) : null}
             </div>
 
@@ -255,7 +259,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           {content}
         </MarkdownRenderer>
         {actions ? (
-          <div className="absolute -bottom-4 right-2 flex space-x-1 rounded-lg border bg-background p-1 text-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
+          <div className="absolute -bottom-3 right-3 flex space-x-1 rounded-lg border bg-background/95 backdrop-blur-sm p-1.5 text-foreground opacity-0 transition-all duration-200 group-hover/message:opacity-100 shadow-md">
             {actions}
           </div>
         ) : null}
@@ -286,17 +290,17 @@ const ReasoningBlock = ({ part }: { part: ReasoningPart }) => {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <div className="mb-2 flex flex-col items-start sm:max-w-[70%]">
+    <div className="mb-3 flex flex-col items-start sm:max-w-[75%]">
       <Collapsible
         open={isOpen}
         onOpenChange={setIsOpen}
-        className="group w-full overflow-hidden rounded-lg border bg-muted/50"
+        className="group w-full overflow-hidden rounded-xl border bg-gradient-to-br from-blue-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:to-indigo-950/30 shadow-sm"
       >
-        <div className="flex items-center p-2">
+        <div className="flex items-center p-3">
           <CollapsibleTrigger asChild>
-            <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <button className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 transition-colors">
               <ChevronRight className="h-4 w-4 transition-transform group-data-[state=open]:rotate-90" />
-              <span>Thinking</span>
+              <span className="font-medium">💭 Thinking</span>
             </button>
           </CollapsibleTrigger>
         </div>
@@ -309,10 +313,10 @@ const ReasoningBlock = ({ part }: { part: ReasoningPart }) => {
               closed: { height: 0, opacity: 0 },
             }}
             transition={{ duration: 0.3, ease: [0.04, 0.62, 0.23, 0.98] }}
-            className="border-t"
+            className="border-t border-blue-200/50 dark:border-blue-800/50"
           >
-            <div className="p-2">
-              <div className="whitespace-pre-wrap text-xs">
+            <div className="p-3 bg-white/50 dark:bg-slate-900/50">
+              <div className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                 {part.reasoning}
               </div>
             </div>
@@ -329,7 +333,7 @@ function ToolCall({
   if (!toolInvocations?.length) return null
 
   return (
-    <div className="flex flex-col items-start gap-2">
+    <div className="flex flex-col items-start gap-3">
       {toolInvocations.map((invocation, index) => {
         const isCancelled =
           invocation.state === "result" &&
@@ -339,15 +343,13 @@ function ToolCall({
           return (
             <div
               key={index}
-              className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground"
+              className="flex items-center gap-2 rounded-xl border bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-300 shadow-sm"
             >
               <Ban className="h-4 w-4" />
               <span>
                 Cancelled{" "}
-                <span className="font-mono">
-                  {"`"}
+                <span className="font-mono bg-red-100 dark:bg-red-900/50 px-1.5 py-0.5 rounded text-xs">
                   {invocation.toolName}
-                  {"`"}
                 </span>
               </span>
             </div>
@@ -360,15 +362,13 @@ function ToolCall({
             return (
               <div
                 key={index}
-                className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground"
+                className="flex items-center gap-2 rounded-xl border bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 px-4 py-3 text-sm text-blue-700 dark:text-blue-300 shadow-sm"
               >
                 <Terminal className="h-4 w-4" />
                 <span>
                   Calling{" "}
-                  <span className="font-mono">
-                    {"`"}
+                  <span className="font-mono bg-blue-100 dark:bg-blue-900/50 px-1.5 py-0.5 rounded text-xs">
                     {invocation.toolName}
-                    {"`"}
                   </span>
                   ...
                 </span>
@@ -379,20 +379,18 @@ function ToolCall({
             return (
               <div
                 key={index}
-                className="flex flex-col gap-1.5 rounded-lg border bg-muted/50 px-3 py-2 text-sm"
+                className="flex flex-col gap-2 rounded-xl border bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 px-4 py-3 text-sm shadow-sm"
               >
-                <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
                   <Code2 className="h-4 w-4" />
                   <span>
                     Result from{" "}
-                    <span className="font-mono">
-                      {"`"}
+                    <span className="font-mono bg-green-100 dark:bg-green-900/50 px-1.5 py-0.5 rounded text-xs">
                       {invocation.toolName}
-                      {"`"}
                     </span>
                   </span>
                 </div>
-                <pre className="overflow-x-auto whitespace-pre-wrap text-foreground">
+                <pre className="overflow-x-auto whitespace-pre-wrap text-slate-700 dark:text-slate-300 bg-white/50 dark:bg-slate-900/50 p-3 rounded-lg text-xs leading-relaxed">
                   {JSON.stringify(invocation.result, null, 2)}
                 </pre>
               </div>

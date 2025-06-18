@@ -4,11 +4,15 @@ from typing import List, Optional
 
 import pandas as pd
 
-from yaaaf.components.agents.artefact_utils import get_table_and_model_from_artefacts, \
-    get_artefacts_from_utterance_content
+from yaaaf.components.agents.artefact_utils import (
+    get_table_and_model_from_artefacts,
+    get_artefacts_from_utterance_content,
+)
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.agents.base_agent import BaseAgent
-from yaaaf.components.agents.prompts import url_retriever_agent_prompt_template_without_model
+from yaaaf.components.agents.prompts import (
+    url_retriever_agent_prompt_template_without_model,
+)
 from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
@@ -30,9 +34,7 @@ class UrlReviewerAgent(BaseAgent):
         self._client = client
 
     @handle_exceptions
-    async def query(
-        self, messages: Messages, notes: Optional[List[str]] = None
-    ) -> str:
+    async def query(self, messages: Messages, notes: Optional[List[str]] = None) -> str:
         last_utterance = messages.utterances[-1]
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
@@ -56,10 +58,7 @@ class UrlReviewerAgent(BaseAgent):
             if output.strip() != "":
                 output_df = mdpd.from_md(output)
 
-            if (
-                self.is_complete(answer)
-                or answer.strip() == ""
-            ):
+            if self.is_complete(answer) or answer.strip() == "":
                 break
 
             messages.add_assistant_utterance(
@@ -79,9 +78,7 @@ class UrlReviewerAgent(BaseAgent):
                 id=hash_id,
             ),
         )
-        return (
-            f"The result is in this artefact <artefact type='paragraphs-table'>{hash_id}</artefact>"
-        )
+        return f"The result is in this artefact <artefact type='paragraphs-table'>{hash_id}</artefact>"
 
     def get_description(self) -> str:
         return f"""
@@ -91,4 +88,3 @@ This agent is called when you need to better look into the content of a url.
 The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (only websearch results.
 Do *not* use images in the arguments of this agent.
         """
-

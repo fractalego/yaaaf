@@ -28,21 +28,22 @@ class MCPTools(BaseModel):
     def get_tools_descriptions(self) -> str:
         """Get a string representation of available tool descriptions"""
         return "\n".join(
-            f"{i}) Name: {tool.name}, Description: {tool.description.strip()}, Input schema: {str(tool.inputSchema).strip()}" for i, tool in enumerate(self.tools)
+            f"{i}) Name: {tool.name}, Description: {tool.description.strip()}, Input schema: {str(tool.inputSchema).strip()}"
+            for i, tool in enumerate(self.tools)
         )
 
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
         """Call a tool by name with given arguments"""
         if not self.server:
             raise RuntimeError("MCP server connection not available")
-        
+
         return await self.server.call_tool(tool_name, arguments)
 
     async def call_tool_by_index(self, index: int, arguments: Dict[str, Any]) -> Any:
         """Call a tool by index with given arguments"""
         if index < 0 or index >= len(self.tools):
             raise IndexError(f"Tool index {index} out of range")
-        
+
         tool_name = self.tools[index].name
         return await self.call_tool(tool_name, arguments)
 
@@ -62,24 +63,24 @@ class MCPConnector:
             # Get available tools
             tools_response = await self._server.list_tools()
             tool_descriptions = []
-            
+
             for tool_info in tools_response:
                 tool_desc = ToolDescription(
                     name=tool_info.name,
                     description=tool_info.description or "",
-                    inputSchema=tool_info.parameters_json_schema or {}
+                    inputSchema=tool_info.parameters_json_schema or {},
                 )
                 tool_descriptions.append(tool_desc)
-            
+
             # Create Tool object with server reference
             mcp_tools = MCPTools(
                 server_description=self._connector_description,
                 tools=tool_descriptions,
-                server=self._server
+                server=self._server,
             )
-            
+
             return mcp_tools
-            
+
         except Exception as e:
             if self._server:
                 await self._server.__aexit__(None, None, None)

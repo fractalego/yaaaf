@@ -33,11 +33,15 @@ class TestOrchestratorAgent(unittest.TestCase):
         messages = Messages().add_user_utterance(
             "How many archaeological findings are there in the dataset?"
         )
-        asyncio.run(agent.query(
-            messages=messages,
-            notes=notes,
-        ))
-        artefacts = get_artefacts_from_utterance_content("\n".join([note.message for note in notes]))
+        asyncio.run(
+            agent.query(
+                messages=messages,
+                notes=notes,
+            )
+        )
+        artefacts = get_artefacts_from_utterance_content(
+            "\n".join([note.message for note in notes])
+        )
         assert len(artefacts) > 0
         expected = "1015"
         self.assertIn(expected, artefacts[0].data.to_markdown())
@@ -53,6 +57,8 @@ class TestOrchestratorAgent(unittest.TestCase):
                 notes=notes,
             )
         )
-        artefacts = get_artefacts_from_utterance_content("\n".join([note.message for note in notes]))
+        artefacts = get_artefacts_from_utterance_content(
+            "\n".join([note.message for note in notes])
+        )
         expected = "prehistoric deposits"
         self.assertIn(expected, artefacts[0].data.to_markdown().lower())

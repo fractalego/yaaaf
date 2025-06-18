@@ -7,7 +7,8 @@ from yaaaf.server.routes import (
     create_stream,
     get_artifact,
     get_image,
-    get_all_utterances, get_query_suggestions,
+    get_all_utterances,
+    get_query_suggestions,
 )
 from yaaaf.server.server_settings import server_settings
 
@@ -19,7 +20,10 @@ app.add_api_route("/create_stream", endpoint=create_stream, methods=["POST"])
 app.add_api_route("/get_utterances", endpoint=get_all_utterances, methods=["POST"])
 app.add_api_route("/get_artefact", endpoint=get_artifact, methods=["POST"])
 app.add_api_route("/get_image", endpoint=get_image, methods=["POST"])
-app.add_api_route("/get_query_suggestions", endpoint=get_query_suggestions, methods=["POST"])
+app.add_api_route(
+    "/get_query_suggestions", endpoint=get_query_suggestions, methods=["POST"]
+)
+
 
 def run_server(host: str, port: int):
     os.environ["YAAF_API_PORT"] = str(port)

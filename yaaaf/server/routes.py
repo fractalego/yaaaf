@@ -52,7 +52,9 @@ def create_stream(arguments: CreateStreamArguments):
         stream_id = arguments.stream_id
         messages = Messages(utterances=arguments.messages)
         orchestrator = OrchestratorBuilder(get_config()).build()
-        t = threading.Thread(target=asyncio.run, args=(do_compute(stream_id, messages, orchestrator),))
+        t = threading.Thread(
+            target=asyncio.run, args=(do_compute(stream_id, messages, orchestrator),)
+        )
         t.start()
     except Exception as e:
         _logger.error(f"Routes: Failed to create stream for {arguments.stream_id}: {e}")
@@ -63,7 +65,9 @@ def get_all_utterances(arguments: NewUtteranceArguments) -> List[Note]:
     try:
         return get_utterances(arguments.stream_id)
     except Exception as e:
-        _logger.error(f"Routes: Failed to get utterances for {arguments.stream_id}: {e}")
+        _logger.error(
+            f"Routes: Failed to get utterances for {arguments.stream_id}: {e}"
+        )
         raise
 
 
@@ -99,4 +103,3 @@ def get_query_suggestions(query: str) -> List[str]:
     except Exception as e:
         _logger.error(f"Routes: Failed to get query suggestions: {e}")
         raise
-

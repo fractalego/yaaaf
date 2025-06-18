@@ -31,7 +31,14 @@ def _get_simple_config() -> Settings:
     config: Settings = Settings(
         client=client_settings,
         sources=[],
-        agents=["reflection", "visualization", "sql", "reviewer", "websearch", "url_reviewer"],
+        agents=[
+            "reflection",
+            "visualization",
+            "sql",
+            "reviewer",
+            "websearch",
+            "url_reviewer",
+        ],
     )
     return config
 
@@ -45,7 +52,9 @@ def get_config() -> Settings:
     if os.environ.get("YAAF_CONFIG"):
         config_path = os.environ["YAAF_CONFIG"]
         if not os.path.exists(config_path):
-            raise FileNotFoundError(f"Configuration file '{config_path}' does not exist.")
+            raise FileNotFoundError(
+                f"Configuration file '{config_path}' does not exist."
+            )
         return Settings.model_validate_json(open(config_path).read())
 
     return _get_simple_config()

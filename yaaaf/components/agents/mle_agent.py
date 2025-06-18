@@ -11,7 +11,8 @@ from typing import List, Optional
 
 from yaaaf.components.agents.artefact_utils import (
     get_table_and_model_from_artefacts,
-    get_artefacts_from_utterance_content, create_prompt_from_artefacts,
+    get_artefacts_from_utterance_content,
+    create_prompt_from_artefacts,
 )
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.agents.base_agent import BaseAgent
@@ -21,7 +22,10 @@ from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages
-from yaaaf.components.agents.prompts import mle_agent_prompt_template_without_model, mle_agent_prompt_template_with_model
+from yaaaf.components.agents.prompts import (
+    mle_agent_prompt_template_without_model,
+    mle_agent_prompt_template_with_model,
+)
 from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
@@ -38,9 +42,7 @@ class MleAgent(BaseAgent):
         self._client = client
 
     @handle_exceptions
-    async def query(
-        self, messages: Messages, notes: Optional[List[str]] = None
-    ) -> str:
+    async def query(self, messages: Messages, notes: Optional[List[str]] = None) -> str:
         last_utterance = messages.utterances[-1]
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
@@ -114,4 +116,3 @@ To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEF
 The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).
 The information about what to plot will be then used by the agent.
         """
-

@@ -2,9 +2,7 @@ import re
 
 
 def strip_thought_tokens(answer: str) -> str:
-    answer = re.sub(
-        r"<think>(.*?)</think>", "", answer, flags=re.DOTALL | re.MULTILINE
-    )
+    answer = re.sub(r"<think>(.*?)</think>", "", answer, flags=re.DOTALL | re.MULTILINE)
     return answer
 
 

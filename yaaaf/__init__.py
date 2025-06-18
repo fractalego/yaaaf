@@ -1,9 +1,9 @@
 """
 YAAAF - Yet Another Amazing Agentic Framework
 
-A modular framework for building intelligent agentic applications with Python backend 
-and Next.js frontend components. The system features an orchestrator pattern with 
-specialized agents for different tasks like SQL queries, web search, visualization, 
+A modular framework for building intelligent agentic applications with Python backend
+and Next.js frontend components. The system features an orchestrator pattern with
+specialized agents for different tasks like SQL queries, web search, visualization,
 machine learning, and reflection.
 """
 
@@ -35,31 +35,25 @@ __all__ = [
     "__author__",
     "__email__",
     "__license__",
-    
     # Core data types
     "Messages",
-    "Note", 
+    "Note",
     "Utterance",
     "PromptTemplate",
-    
     # Base classes
     "BaseAgent",
     "BaseClient",
-    
     # Main orchestrator
     "OrchestratorAgent",
     "OrchestratorBuilder",
-    
     # Specialized agents
     "SqlAgent",
-    "VisualizationAgent", 
+    "VisualizationAgent",
     "DuckDuckGoSearchAgent",
     "ReflectionAgent",
     "RAGAgent",
-    
     # Client implementations
     "OllamaClient",
-    
     # Configuration
     "get_config",
 ]

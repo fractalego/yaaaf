@@ -54,7 +54,7 @@ class VisualizationAgent(BaseAgent):
         )
         if not artefact_list:
             return no_artefact_text
-        
+
         image_id: str = create_hash(str(messages))
         image_name: str = image_id + ".png"
         messages = messages.add_system_prompt(
@@ -113,17 +113,15 @@ class VisualizationAgent(BaseAgent):
                 ),
             )
             os.remove(image_name)
-        
+
         result = f"The result is in this artefact <artefact type='image'>{image_id}</artefact>"
-        
+
         if notes is not None:
             note = Note(
-                message=result,
-                artefact_id=image_id,
-                agent_name=self.get_name()
+                message=result, artefact_id=image_id, agent_name=self.get_name()
             )
             notes.append(note)
-        
+
         return result
 
     def get_description(self) -> str:
@@ -133,4 +131,3 @@ To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEF
 The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).
 The information about what to plot will be then used by the agent.
         """
-

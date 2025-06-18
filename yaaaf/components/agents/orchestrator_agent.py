@@ -36,7 +36,7 @@ class OrchestratorAgent(BaseAgent):
         messages = messages.add_system_prompt(
             self._get_system_prompt(await self._goal_extractor.extract(messages))
         )
-        
+
         answer: str = ""
         for step_index in range(self._max_steps):
             answer = await self._client.predict(
@@ -44,14 +44,16 @@ class OrchestratorAgent(BaseAgent):
             )
             agent_to_call, instruction = self.map_answer_to_agent(answer)
             extracted_agent_name = Note.extract_agent_name_from_tags(answer)
-            agent_name = extracted_agent_name or (agent_to_call.get_name() if agent_to_call else self.get_name())
-            
+            agent_name = extracted_agent_name or (
+                agent_to_call.get_name() if agent_to_call else self.get_name()
+            )
+
             if notes is not None:
                 artefacts = get_artefacts_from_utterance_content(answer)
                 note = Note(
                     message=Note.clean_agent_tags(answer),
                     artefact_id=artefacts[0].id if artefacts else None,
-                    agent_name=agent_name
+                    agent_name=agent_name,
                 )
                 notes.append(note)
 
@@ -72,11 +74,11 @@ class OrchestratorAgent(BaseAgent):
                     artefacts = get_artefacts_from_utterance_content(answer)
                     extracted_agent_name = Note.extract_agent_name_from_tags(answer)
                     final_agent_name = extracted_agent_name or agent_name
-                    
+
                     note = Note(
                         message=Note.clean_agent_tags(answer),
                         artefact_id=artefacts[0].id if artefacts else None,
-                        agent_name=final_agent_name
+                        agent_name=final_agent_name,
                     )
                     notes.append(note)
 
@@ -94,7 +96,7 @@ class OrchestratorAgent(BaseAgent):
                 notes.append(
                     Note(
                         message="The Orchestrator agent has finished its maximum number of steps.",
-                        agent_name=self.get_name()
+                        agent_name=self.get_name(),
                     )
                 )
         return answer
@@ -123,7 +125,6 @@ class OrchestratorAgent(BaseAgent):
 Orchestrator agent: This agent orchestrates the agents.
         """
 
-
     def _get_system_prompt(self, goal: str) -> str:
         return orchestrator_prompt_template.complete(
             agents_list="\n".join(
@@ -143,28 +144,12 @@ Orchestrator agent: This agent orchestrates the agents.
 
     def _add_relevant_information(self, answer: str) -> str:
         if "<artefact type='image'>" in answer:
-            image_artefact: Artefact = get_artefacts_from_utterance_content(
-                answer
-            )[0]
-            answer = (
-                    f"<imageoutput>{image_artefact.id}</imageoutput>"
-                    + "\n"
-                    + answer
-            )
+            image_artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
+            answer = f"<imageoutput>{image_artefact.id}</imageoutput>" + "\n" + answer
         if "<artefact type='paragraphs-table'>" in answer:
-            artefact: Artefact = get_artefacts_from_utterance_content(
-                answer
-            )[0]
-            answer = (
-                    f"\n\n{artefact.data.to_markdown(index=False)}\n\n"
-                    + answer
-            )
+            artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
+            answer = f"\n\n{artefact.data.to_markdown(index=False)}\n\n" + answer
         if "<artefact type='called-tools-table'>" in answer:
-            artefact: Artefact = get_artefacts_from_utterance_content(
-                answer
-            )[0]
-            answer = (
-                    f"\n\n{artefact.data.to_markdown(index=False)}\n\n"
-                    + answer
-            )
+            artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
+            answer = f"\n\n{artefact.data.to_markdown(index=False)}\n\n" + answer
         return answer

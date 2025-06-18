@@ -20,9 +20,7 @@ class ReflectionAgent(BaseAgent):
         self._client = client
 
     @handle_exceptions
-    async def query(
-        self, messages: Messages, notes: Optional[List[str]] = None
-    ) -> str:
+    async def query(self, messages: Messages, notes: Optional[List[str]] = None) -> str:
         messages = messages.add_system_prompt(self._system_prompt.complete())
         current_output: str = "No output"
         for _ in range(self._max_steps):
@@ -54,4 +52,3 @@ Use it when you need to think about the task.
 Inform the agent about the tools at your disposal (SQL and Visualization).
 To call this agent write {self.get_opening_tag()} THINGS TO THINK ABOUT {self.get_closing_tag()}
         """
-

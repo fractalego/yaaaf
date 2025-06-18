@@ -31,7 +31,7 @@ def process_cli():
     arguments = sys.argv
     if len(arguments) >= 2:
         command = arguments[1]
-        
+
         # Use default ports or parse provided port
         if len(arguments) >= 3:
             try:

@@ -56,7 +56,9 @@ class TestWebSearchAgent(unittest.TestCase):
         )
 
         storage = ArtefactStorage()
-        artefact = storage.retrieve_from_utterance_string("".join([note.message for note in notes]))[-1]
+        artefact = storage.retrieve_from_utterance_string(
+            "".join([note.message for note in notes])
+        )[-1]
         expected = "population"
         print(artefact.data.to_markdown(index=False))
         self.assertIn(expected, artefact.data.to_markdown(index=False).lower())

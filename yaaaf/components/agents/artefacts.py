@@ -44,7 +44,9 @@ class ArtefactStorage:
             raise ValueError(f"Artefact with hash {hash_key} not found.")
         return self.hash_to_artefact_dict.get(hash_key)
 
-    def retrieve_first_from_utterance_string(self, utterance: str) -> Optional[Artefact]:
+    def retrieve_first_from_utterance_string(
+        self, utterance: str
+    ) -> Optional[Artefact]:
         artefact_matches = re.findall(
             rf"<artefact.*>(.+?)</artefact>", utterance, re.MULTILINE | re.DOTALL
         )
@@ -58,6 +60,6 @@ class ArtefactStorage:
             rf"<artefact.*>(.+?)</artefact>", utterance, re.MULTILINE | re.DOTALL
         )
 
-        return [self.retrieve_from_id(artefact_match) for artefact_match in artefact_matches]
-
-
+        return [
+            self.retrieve_from_id(artefact_match) for artefact_match in artefact_matches
+        ]

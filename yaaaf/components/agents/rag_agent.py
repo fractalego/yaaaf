@@ -33,9 +33,7 @@ class RAGAgent(BaseAgent):
         self._sources = sources
 
     @handle_exceptions
-    async def query(
-        self, messages: Messages, notes: Optional[List[str]] = None
-    ) -> str:
+    async def query(self, messages: Messages, notes: Optional[List[str]] = None) -> str:
         messages = messages.add_system_prompt(
             self._system_prompt.complete(folders=self._folders_description)
         )
@@ -105,4 +103,3 @@ Each source is a folder containing a list of documents.
 This agent accepts a query in plain English and returns the relevant documents from the sources.
 These documents provide the information needed to answer the user's question.
         """
-

@@ -11,7 +11,9 @@ from yaaaf.components.data_types import Messages, Note
 from yaaaf.components.sources.rag_source import RAGSource
 
 _path = os.path.dirname(os.path.abspath(__file__))
-_source = RAGSource(description="A wiki page about archaeology", source_path="wiki/archaeology")
+_source = RAGSource(
+    description="A wiki page about archaeology", source_path="wiki/archaeology"
+)
 with open(os.path.join(_path, "../data", "Archaeology - Wikipedia.html"), "r") as f:
     _text = f.read()
 _chunk_size = 1000

@@ -29,6 +29,5 @@ class TestMCPConnector(unittest.TestCase):
         print("Result from tool call:", result)
 
 
-
 if __name__ == "__main__":
     unittest.main()

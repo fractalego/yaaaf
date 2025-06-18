@@ -31,12 +31,8 @@ class DuckDuckGoSearchAgent(BaseAgent):
         self._client = client
 
     @handle_exceptions
-    async def query(
-        self, messages: Messages, notes: Optional[List[str]] = None
-    ) -> str:
-        messages = messages.add_system_prompt(
-            self._system_prompt
-        )
+    async def query(self, messages: Messages, notes: Optional[List[str]] = None) -> str:
+        messages = messages.add_system_prompt(self._system_prompt)
         search_query = ""
         current_output: str | pd.DataFrame = "No output"
         for _ in range(self._max_steps):
@@ -49,11 +45,16 @@ class DuckDuckGoSearchAgent(BaseAgent):
             search_query: str = get_first_text_between_tags(
                 answer, self._output_tag, "```"
             )
-            query_results: List[Dict[str, str]] = DDGS().text(search_query, max_results=5)
+            query_results: List[Dict[str, str]] = DDGS().text(
+                search_query, max_results=5
+            )
             if query_results:
                 current_output = pd.DataFrame(
-                    [[result["title"], result["body"], result["href"]] for result in query_results],
-                    columns=["Title", "Summary", "URL"]
+                    [
+                        [result["title"], result["body"], result["href"]]
+                        for result in query_results
+                    ],
+                    columns=["Title", "Summary", "URL"],
                 )
 
                 messages = messages.add_user_utterance(
@@ -90,4 +91,3 @@ This agent provides an interface to web search engine.
 To call this agent write {self.get_opening_tag()} INFORMATION TO RETRIEVE {self.get_closing_tag()}
 Just write in clear and brief English the information you need to retrieve between these tags. 
         """
-

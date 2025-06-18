@@ -34,9 +34,7 @@ class ToolAgent(BaseAgent):
         self._tools = tools
 
     @handle_exceptions
-    async def query(
-        self, messages: Messages, notes: Optional[List[str]] = None
-    ) -> str:
+    async def query(self, messages: Messages, notes: Optional[List[str]] = None) -> str:
         messages = messages.add_system_prompt(
             self._system_prompt.complete(tools_descriptions=self._tools_description)
         )
@@ -80,9 +78,7 @@ class ToolAgent(BaseAgent):
                     # Call the tool
                     result = await tool_group.call_tool(tool.name, args)
                     all_tool_results.append(result)
-                    all_tool_calls.append(
-                        f"Tool {tool_index} ({tool.name}): {args}"
-                    )
+                    all_tool_calls.append(f"Tool {tool_index} ({tool.name}): {args}")
                     answer += f"Tool index: {tool_index} -> {result}\n"
 
                 current_output = all_tool_results.copy()
@@ -118,4 +114,3 @@ Each tool group contains a collection of tools that can be called with specific 
 This agent accepts a query in plain English and uses the appropriate tools to gather information or perform actions.
 The tools provide the capabilities needed to answer the user's question or complete the requested task.
         """
-

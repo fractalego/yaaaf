@@ -58,7 +58,7 @@ class SqlAgent(BaseAgent):
                     note = Note(
                         message=f"```SQL\n{sql_query}\n```",
                         artefact_id=None,
-                        agent_name=self.get_name()
+                        agent_name=self.get_name(),
                     )
                     notes.append(note)
                 current_output = self._source.get_data(sql_query)
@@ -93,4 +93,3 @@ This agent provides an interface to a dataset through SQL queries. It includes t
 To call this agent write {self.get_opening_tag()} INFORMATION TO RETRIEVE {self.get_closing_tag()}
 Do not write an SQL formula. Just write in clear and brief English the information you need to retrieve.
         """
-

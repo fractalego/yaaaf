@@ -56,4 +56,3 @@ class OllamaClient(BaseClient):
             return strip_thought_tokens(json.loads(response.text)["message"]["content"])
         else:
             raise Exception(f"Error: {response.status_code}, {response.text}")
-

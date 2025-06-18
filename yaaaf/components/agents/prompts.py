@@ -244,7 +244,6 @@ This output *must* be between the markdown tags ```table ... ```.
 )
 
 
-
 tool_agent_prompt_template = PromptTemplate(
     prompt="""
 Your task is to use available MCP tools to help answer the user's question.

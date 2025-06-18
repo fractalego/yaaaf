@@ -9,7 +9,9 @@ from yaaaf.connectors.mcp_connector import MCPConnector
 
 class TestToolAgent(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        self.connector = MCPConnector("http://localhost:8080/sse", "MCP server for number crunching")
+        self.connector = MCPConnector(
+            "http://localhost:8080/sse", "MCP server for number crunching"
+        )
 
     async def test_single_tool(self):
         client = OllamaClient(
@@ -17,9 +19,7 @@ class TestToolAgent(unittest.IsolatedAsyncioTestCase):
             temperature=0.4,
             max_tokens=1000,
         )
-        messages = Messages().add_user_utterance(
-            "What is the sum of 5 and 10?"
-        )
+        messages = Messages().add_user_utterance("What is the sum of 5 and 10?")
 
         """Test that a single tool can be retrieved and called"""
         mcp_tools = await self.connector.get_tools()

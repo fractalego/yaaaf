@@ -6,8 +6,11 @@ import re
 from io import StringIO
 from typing import List, Optional
 
-from yaaaf.components.agents.artefact_utils import get_table_and_model_from_artefacts, \
-    get_artefacts_from_utterance_content, create_prompt_from_artefacts
+from yaaaf.components.agents.artefact_utils import (
+    get_table_and_model_from_artefacts,
+    get_artefacts_from_utterance_content,
+    create_prompt_from_artefacts,
+)
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.prompts import (
@@ -35,9 +38,7 @@ class ReviewerAgent(BaseAgent):
         self._client = client
 
     @handle_exceptions
-    async def query(
-        self, messages: Messages, notes: Optional[List[str]] = None
-    ) -> str:
+    async def query(self, messages: Messages, notes: Optional[List[str]] = None) -> str:
         last_utterance = messages.utterances[-1]
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
@@ -70,7 +71,9 @@ class ReviewerAgent(BaseAgent):
                 sys.stdout = old_stdout
                 code_result = redirected_output.getvalue()
                 if code_result.strip() == "":
-                    code_result = "The code executed successfully but no output was generated."
+                    code_result = (
+                        "The code executed successfully but no output was generated."
+                    )
 
             if (
                 self.is_complete(answer)
@@ -93,4 +96,3 @@ This agent is called when you need to check if the output of the sql agent answe
 The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).
 Do *not* use images in the arguments of this agent.
         """
-

@@ -2,8 +2,6 @@
 
 import { useRef, useState } from "react"
 
-import { transcribeAudio } from "@/lib/utils/audio"
-
 import { ChatForm } from "../ui/chat"
 import { MessageInput } from "../ui/message-input"
 
@@ -37,23 +35,17 @@ export default function MessageInputDemo() {
         }, 2000)
       }}
     >
-      {({ files, setFiles }) => (
-        <MessageInput
-          value={value}
-          onChange={(event) => {
-            setValue(event.target.value)
-          }}
-          allowAttachments
-          files={files}
-          setFiles={setFiles}
-          stop={() => {
-            setIsGenerating(false)
-            cancelTimeout()
-          }}
-          isGenerating={isGenerating}
-          transcribeAudio={transcribeAudio}
-        />
-      )}
+      <MessageInput
+        value={value}
+        onChange={(event) => {
+          setValue(event.target.value)
+        }}
+        stop={() => {
+          setIsGenerating(false)
+          cancelTimeout()
+        }}
+        isGenerating={isGenerating}
+      />
     </ChatForm>
   )
 }

@@ -7,11 +7,11 @@
   ],
   "registryDependencies": [
     "button",
-    "https://github.com/fractalego/yaaf/r/use-autosize-textarea.json",
-    "https://github.com/fractalego/yaaf/r/file-preview.json",
-    "https://github.com/fractalego/yaaf/r/audio-visualizer.json",
-    "https://github.com/fractalego/yaaf/r/interrupt-prompt.json",
-    "https://github.com/fractalego/yaaf/r/use-audio-recording.json"
+    "https://github.com/fractalego/yaaaf/r/use-autosize-textarea.json",
+    "https://github.com/fractalego/yaaaf/r/file-preview.json",
+    "https://github.com/fractalego/yaaaf/r/audio-visualizer.json",
+    "https://github.com/fractalego/yaaaf/r/interrupt-prompt.json",
+    "https://github.com/fractalego/yaaaf/r/use-audio-recording.json"
   ],
   "files": [
     {

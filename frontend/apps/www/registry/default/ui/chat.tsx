@@ -4,8 +4,6 @@ import {
   forwardRef,
   useCallback,
   useRef,
-  useState,
-  type ReactElement,
 } from "react"
 import { ArrowDown, ThumbsDown, ThumbsUp } from "lucide-react"
 
@@ -19,10 +17,7 @@ import { MessageList } from "@/registry/default/ui/message-list"
 import { PromptSuggestions } from "@/registry/default/ui/prompt-suggestions"
 
 interface ChatPropsBase {
-  handleSubmit: (
-    event?: { preventDefault?: () => void },
-    options?: { experimental_attachments?: FileList }
-  ) => void
+  handleSubmit: (event?: { preventDefault?: () => void }) => void
   messages: Array<Message>
   input: string
   className?: string
@@ -34,7 +29,6 @@ interface ChatPropsBase {
     rating: "thumbs-up" | "thumbs-down"
   ) => void
   setMessages?: (messages: any[]) => void
-  transcribeAudio?: (blob: Blob) => Promise<string>
   onArtifactClick?: (artifactId: string) => void
 }
 
@@ -62,7 +56,6 @@ export function Chat({
   className,
   onRateResponse,
   setMessages,
-  transcribeAudio,
   onArtifactClick,
 }: ChatProps) {
   const lastMessage = messages.at(-1)
@@ -211,18 +204,12 @@ export function Chat({
         isPending={isGenerating || isTyping}
         handleSubmit={handleSubmit}
       >
-        {({ files, setFiles }) => (
-          <MessageInput
-            value={input}
-            onChange={handleInputChange}
-            allowAttachments
-            files={files}
-            setFiles={setFiles}
-            stop={handleStop}
-            isGenerating={isGenerating}
-            transcribeAudio={transcribeAudio}
-          />
-        )}
+        <MessageInput
+          value={input}
+          onChange={handleInputChange}
+          stop={handleStop}
+          isGenerating={isGenerating}
+        />
       </ChatForm>
       {isEmpty && append && suggestions ? (
         <PromptSuggestions
@@ -296,44 +283,18 @@ ChatContainer.displayName = "ChatContainer"
 interface ChatFormProps {
   className?: string
   isPending: boolean
-  handleSubmit: (
-    event?: { preventDefault?: () => void },
-    options?: { experimental_attachments?: FileList }
-  ) => void
-  children: (props: {
-    files: File[] | null
-    setFiles: React.Dispatch<React.SetStateAction<File[] | null>>
-  }) => ReactElement
+  handleSubmit: (event?: { preventDefault?: () => void }) => void
+  children: React.ReactNode
 }
 
 export const ChatForm = forwardRef<HTMLFormElement, ChatFormProps>(
   ({ children, handleSubmit, isPending, className }, ref) => {
-    const [files, setFiles] = useState<File[] | null>(null)
-
-    const onSubmit = (event: React.FormEvent) => {
-      if (!files) {
-        handleSubmit(event)
-        return
-      }
-
-      const fileList = createFileList(files)
-      handleSubmit(event, { experimental_attachments: fileList })
-      setFiles(null)
-    }
-
     return (
-      <form ref={ref} onSubmit={onSubmit} className={className}>
-        {children({ files, setFiles })}
+      <form ref={ref} onSubmit={handleSubmit} className={className}>
+        {children}
       </form>
     )
   }
 )
 ChatForm.displayName = "ChatForm"
 
-function createFileList(files: File[] | FileList): FileList {
-  const dataTransfer = new DataTransfer()
-  for (const file of Array.from(files)) {
-    dataTransfer.items.add(file)
-  }
-  return dataTransfer.files
-}

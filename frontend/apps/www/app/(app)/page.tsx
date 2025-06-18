@@ -4,7 +4,6 @@ import { useState } from "react"
 import { useChat, type UseChatOptions } from "@ai-sdk/react"
 
 import { cn } from "@/lib/utils"
-import { transcribeAudio } from "@/lib/utils/audio"
 import { ArtefactPanel } from "@/registry/custom/artefact-panel"
 import { Chat } from "@/registry/default/ui/chat"
 import { query_suggestions } from "@/app/settings"
@@ -56,7 +55,6 @@ export default function ChatDemo() {
               stop={stop}
               append={append}
               setMessages={setMessages}
-              transcribeAudio={transcribeAudio}
               suggestions={query_suggestions.split(",")}
               onArtifactClick={setSelectedArtifactId}
             />

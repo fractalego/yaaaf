@@ -4,7 +4,6 @@ import { useState } from "react"
 import { useChat, type UseChatOptions } from "@ai-sdk/react"
 
 import { cn } from "@/lib/utils"
-import { transcribeAudio } from "@/lib/utils/audio"
 import { Chat } from "@/registry/default/ui/chat"
 import {
   Select,
@@ -71,7 +70,6 @@ export default function ChatDemo(props: ChatDemoProps) {
         stop={stop}
         append={append}
         setMessages={setMessages}
-        transcribeAudio={transcribeAudio}
         suggestions={[
           "What is the weather in San Francisco?",
           "Explain step-by-step how to solve this math problem: If x² + 6x + 9 = 25, what is x?",

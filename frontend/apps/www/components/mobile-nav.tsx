@@ -148,7 +148,11 @@ function MobileLink({
     <Link
       href={href}
       onClick={() => {
-        router.push(href.toString())
+        if (href === "/") {
+          window.location.reload()
+        } else {
+          router.push(href.toString())
+        }
         onOpenChange?.(false)
       }}
       className={cn(className)}

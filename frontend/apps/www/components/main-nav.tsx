@@ -26,6 +26,7 @@ export function MainNav() {
             "flex items-center space-x-1 transition-colors hover:text-foreground/80",
             pathname === "/" ? "text-foreground" : "text-foreground/60"
           )}
+          onClick={() => window.location.reload()}
         >
           <Home className="h-4 w-4" />
           <span>Home</span>

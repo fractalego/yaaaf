@@ -4,11 +4,11 @@
     "type": "registry:ui",
     "registryDependencies": [
       "button",
-      "https://github.com/fractalego/yaaf/r/use-auto-scroll.json",
-      "https://github.com/fractalego/yaaf/r/chat-message.json",
-      "https://github.com/fractalego/yaaf/r/message-input.json",
-      "https://github.com/fractalego/yaaf/r/message-list.json",
-      "https://github.com/fractalego/yaaf/r/prompt-suggestions.json"
+      "https://github.com/fractalego/yaaaf/r/use-auto-scroll.json",
+      "https://github.com/fractalego/yaaaf/r/chat-message.json",
+      "https://github.com/fractalego/yaaaf/r/message-input.json",
+      "https://github.com/fractalego/yaaaf/r/message-list.json",
+      "https://github.com/fractalego/yaaaf/r/prompt-suggestions.json"
     ],
     "files": [
       {
@@ -26,8 +26,8 @@
     "registryDependencies": [
       "button",
       "collapsible",
-      "https://github.com/fractalego/yaaf/r/copy-button.json",
-      "https://github.com/fractalego/yaaf/r/markdown-renderer.json"
+      "https://github.com/fractalego/yaaaf/r/copy-button.json",
+      "https://github.com/fractalego/yaaaf/r/markdown-renderer.json"
     ],
     "files": [
       {
@@ -41,7 +41,7 @@
     "type": "registry:ui",
     "registryDependencies": [
       "button",
-      "https://github.com/fractalego/yaaf/r/use-copy-to-clipboard.json"
+      "https://github.com/fractalego/yaaaf/r/use-copy-to-clipboard.json"
     ],
     "files": [
       {
@@ -59,7 +59,7 @@
       "shiki@1"
     ],
     "registryDependencies": [
-      "https://github.com/fractalego/yaaf/r/copy-button.json"
+      "https://github.com/fractalego/yaaaf/r/copy-button.json"
     ],
     "files": [
       {
@@ -93,11 +93,11 @@
     ],
     "registryDependencies": [
       "button",
-      "https://github.com/fractalego/yaaf/r/use-autosize-textarea.json",
-      "https://github.com/fractalego/yaaf/r/file-preview.json",
-      "https://github.com/fractalego/yaaf/r/audio-visualizer.json",
-      "https://github.com/fractalego/yaaf/r/interrupt-prompt.json",
-      "https://github.com/fractalego/yaaf/r/use-audio-recording.json"
+      "https://github.com/fractalego/yaaaf/r/use-autosize-textarea.json",
+      "https://github.com/fractalego/yaaaf/r/file-preview.json",
+      "https://github.com/fractalego/yaaaf/r/audio-visualizer.json",
+      "https://github.com/fractalego/yaaaf/r/interrupt-prompt.json",
+      "https://github.com/fractalego/yaaaf/r/use-audio-recording.json"
     ],
     "files": [
       {
@@ -110,8 +110,8 @@
     "name": "message-list",
     "type": "registry:ui",
     "registryDependencies": [
-      "https://github.com/fractalego/yaaf/r/chat-message.json",
-      "https://github.com/fractalego/yaaf/r/typing-indicator.json"
+      "https://github.com/fractalego/yaaaf/r/chat-message.json",
+      "https://github.com/fractalego/yaaaf/r/typing-indicator.json"
     ],
     "files": [
       {

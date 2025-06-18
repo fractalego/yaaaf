@@ -4,8 +4,8 @@ import * as React from "react"
 import { useEffect, useState } from "react"
 import { X } from "lucide-react"
 
-import { Button } from "@/registry/default/ui/button"
 import { ArtefactPage } from "@/registry/custom/artefact-page"
+import { Button } from "@/registry/default/ui/button"
 import { get_artefact } from "@/app/artefacts/actions"
 
 interface ArtefactPanelProps {
@@ -30,16 +30,24 @@ function ArtefactPanel({ artifactId, onClose }: ArtefactPanelProps) {
         console.log("Fetching artifact with ID:", artifactId)
         const data = await get_artefact(artifactId)
         console.log("Raw artifact response:", data)
-        
-        if (data && (data.data !== undefined || data.code !== undefined || data.image !== undefined)) {
+
+        if (
+          data &&
+          (data.data !== undefined ||
+            data.code !== undefined ||
+            data.image !== undefined)
+        ) {
           console.log("Setting artifact data to:", data)
           setArtifactData(data)
         } else {
           console.error("Invalid artifact data structure:", data)
-          throw new Error("Invalid artifact data structure received from server")
+          throw new Error(
+            "Invalid artifact data structure received from server"
+          )
         }
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to load artifact"
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to load artifact"
         setError(errorMessage)
         console.error("Error fetching artifact:", err)
       } finally {
@@ -59,7 +67,7 @@ function ArtefactPanel({ artifactId, onClose }: ArtefactPanelProps) {
     }
 
     console.log("Artifact data:", artifactData)
-    
+
     return (
       <ArtefactPage
         data={artifactData.data}
@@ -99,7 +107,7 @@ function ArtefactPanel({ artifactId, onClose }: ArtefactPanelProps) {
         )}
 
         {!loading && !error && artifactData && renderArtifactContent()}
-        
+
         {!loading && !error && !artifactData && (
           <div className="flex items-center justify-center h-32">
             <div className="text-muted-foreground">No artifact data found</div>

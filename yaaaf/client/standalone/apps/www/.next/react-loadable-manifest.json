@@ -1671,7 +1671,7 @@
   "../../node_modules/shiki/dist/themes.mjs -> @shikijs/themes/kanagawa-wave": {
     "id": 66916,
     "files": [
-      "static/chunks/4574.c143ea94b1a7fcb6.js"
+      "static/chunks/6916.c8888894b0c5d73c.js"
     ]
   },
   "../../node_modules/shiki/dist/themes.mjs -> @shikijs/themes/laserwave": {
@@ -1871,13 +1871,12 @@
       "static/chunks/6496-636704828a411190.js",
       "static/chunks/6129-3d053ae5d1ae9553.js",
       "static/chunks/1197-02590c68341ef9a8.js",
-      "static/chunks/6916-e0319fd87afc45f1.js",
-      "static/chunks/6817-52f457093e78e253.js",
+      "static/chunks/5502-ece520767e66cd8c.js",
       "static/chunks/3437-ee2f7430b3b9c3fd.js",
-      "static/chunks/2088-344cc4f8060c1480.js",
-      "static/chunks/8250-51814b967acf78f6.js",
-      "static/chunks/4929-c7134c7098120ce3.js",
-      "static/chunks/5662-1c671713f2713279.js"
+      "static/chunks/1288-a7d4f0cc4a32c0a6.js",
+      "static/chunks/8250-d1433a5a947ed11c.js",
+      "static/chunks/9951-472294b0a0208dd2.js",
+      "static/chunks/5662.4913248dba68131d.js"
     ]
   },
   "__registry__/index.tsx -> @/registry/default/example/chat-message-actions-demo.tsx": {
@@ -1887,8 +1886,8 @@
       "static/chunks/6496-636704828a411190.js",
       "static/chunks/6129-3d053ae5d1ae9553.js",
       "static/chunks/1197-02590c68341ef9a8.js",
-      "static/chunks/2088-344cc4f8060c1480.js",
-      "static/chunks/8250-51814b967acf78f6.js",
+      "static/chunks/1288-a7d4f0cc4a32c0a6.js",
+      "static/chunks/8250-d1433a5a947ed11c.js",
       "static/chunks/8682.221f220aa741cb12.js"
     ]
   },
@@ -1899,8 +1898,8 @@
       "static/chunks/6496-636704828a411190.js",
       "static/chunks/6129-3d053ae5d1ae9553.js",
       "static/chunks/1197-02590c68341ef9a8.js",
-      "static/chunks/2088-344cc4f8060c1480.js",
-      "static/chunks/8250-51814b967acf78f6.js",
+      "static/chunks/1288-a7d4f0cc4a32c0a6.js",
+      "static/chunks/8250-d1433a5a947ed11c.js",
       "static/chunks/9800.4bb0c6d26b867599.js"
     ]
   },
@@ -1911,8 +1910,8 @@
       "static/chunks/6496-636704828a411190.js",
       "static/chunks/6129-3d053ae5d1ae9553.js",
       "static/chunks/1197-02590c68341ef9a8.js",
-      "static/chunks/2088-344cc4f8060c1480.js",
-      "static/chunks/8250-51814b967acf78f6.js",
+      "static/chunks/1288-a7d4f0cc4a32c0a6.js",
+      "static/chunks/8250-d1433a5a947ed11c.js",
       "static/chunks/9572.292a6e527ddc71be.js"
     ]
   },
@@ -1923,8 +1922,8 @@
       "static/chunks/6496-636704828a411190.js",
       "static/chunks/6129-3d053ae5d1ae9553.js",
       "static/chunks/1197-02590c68341ef9a8.js",
-      "static/chunks/2088-344cc4f8060c1480.js",
-      "static/chunks/8250-51814b967acf78f6.js",
+      "static/chunks/1288-a7d4f0cc4a32c0a6.js",
+      "static/chunks/8250-d1433a5a947ed11c.js",
       "static/chunks/9353.ddf41b96cb5d4b56.js"
     ]
   },
@@ -1962,8 +1961,8 @@
       "static/chunks/aaea2bcf-df49a8a9a6fa59ea.js",
       "static/chunks/6496-636704828a411190.js",
       "static/chunks/1197-02590c68341ef9a8.js",
-      "static/chunks/2088-344cc4f8060c1480.js",
-      "static/chunks/2317.363ffb58893144ae.js"
+      "static/chunks/1288-a7d4f0cc4a32c0a6.js",
+      "static/chunks/2317.82aa54a3bfab5358.js"
     ]
   },
   "__registry__/index.tsx -> @/registry/default/example/message-input-demo.tsx": {
@@ -1973,11 +1972,10 @@
       "static/chunks/6496-636704828a411190.js",
       "static/chunks/6129-3d053ae5d1ae9553.js",
       "static/chunks/1197-02590c68341ef9a8.js",
-      "static/chunks/6916-e0319fd87afc45f1.js",
-      "static/chunks/2088-344cc4f8060c1480.js",
-      "static/chunks/8250-51814b967acf78f6.js",
-      "static/chunks/4929-c7134c7098120ce3.js",
-      "static/chunks/7914.8e4d8278ff23fb28.js"
+      "static/chunks/1288-a7d4f0cc4a32c0a6.js",
+      "static/chunks/8250-d1433a5a947ed11c.js",
+      "static/chunks/9951-472294b0a0208dd2.js",
+      "static/chunks/2746.0e6769424aa72de2.js"
     ]
   },
   "__registry__/index.tsx -> @/registry/default/example/message-list-demo.tsx": {
@@ -1987,8 +1985,8 @@
       "static/chunks/6496-636704828a411190.js",
       "static/chunks/6129-3d053ae5d1ae9553.js",
       "static/chunks/1197-02590c68341ef9a8.js",
-      "static/chunks/2088-344cc4f8060c1480.js",
-      "static/chunks/8250-51814b967acf78f6.js",
+      "static/chunks/1288-a7d4f0cc4a32c0a6.js",
+      "static/chunks/8250-d1433a5a947ed11c.js",
       "static/chunks/3231.254f879a3fa78ba0.js"
     ]
   },
@@ -2049,8 +2047,8 @@
       "static/chunks/6496-636704828a411190.js",
       "static/chunks/6129-3d053ae5d1ae9553.js",
       "static/chunks/1197-02590c68341ef9a8.js",
-      "static/chunks/2088-344cc4f8060c1480.js",
-      "static/chunks/8250-51814b967acf78f6.js",
+      "static/chunks/1288-a7d4f0cc4a32c0a6.js",
+      "static/chunks/8250-d1433a5a947ed11c.js",
       "static/chunks/86.91699b90047e543c.js"
     ]
   },
@@ -2061,11 +2059,10 @@
       "static/chunks/6496-636704828a411190.js",
       "static/chunks/6129-3d053ae5d1ae9553.js",
       "static/chunks/1197-02590c68341ef9a8.js",
-      "static/chunks/6916-e0319fd87afc45f1.js",
-      "static/chunks/2088-344cc4f8060c1480.js",
-      "static/chunks/8250-51814b967acf78f6.js",
-      "static/chunks/4929-c7134c7098120ce3.js",
-      "static/chunks/9951.ed8bf7309c94e9a9.js"
+      "static/chunks/1288-a7d4f0cc4a32c0a6.js",
+      "static/chunks/8250-d1433a5a947ed11c.js",
+      "static/chunks/9951-472294b0a0208dd2.js",
+      "static/chunks/6719.932bc9f697ba680d.js"
     ]
   },
   "__registry__/index.tsx -> @/registry/default/ui/copy-button.tsx": {
@@ -2090,20 +2087,19 @@
     ]
   },
   "__registry__/index.tsx -> @/registry/default/ui/markdown-renderer.tsx": {
-    "id": 72088,
+    "id": 31288,
     "files": [
       "static/chunks/aaea2bcf-df49a8a9a6fa59ea.js",
       "static/chunks/6496-636704828a411190.js",
       "static/chunks/1197-02590c68341ef9a8.js",
-      "static/chunks/2088-344cc4f8060c1480.js"
+      "static/chunks/1288-a7d4f0cc4a32c0a6.js"
     ]
   },
   "__registry__/index.tsx -> @/registry/default/ui/message-input.tsx": {
     "id": 34929,
     "files": [
       "static/chunks/6129-3d053ae5d1ae9553.js",
-      "static/chunks/4929-c7134c7098120ce3.js",
-      "static/chunks/7976.b12a0bd86ca0ca79.js"
+      "static/chunks/4929.c6d94ca6dc47f424.js"
     ]
   },
   "__registry__/index.tsx -> @/registry/default/ui/message-list.tsx": {
@@ -2113,8 +2109,8 @@
       "static/chunks/6496-636704828a411190.js",
       "static/chunks/6129-3d053ae5d1ae9553.js",
       "static/chunks/1197-02590c68341ef9a8.js",
-      "static/chunks/2088-344cc4f8060c1480.js",
-      "static/chunks/8250-51814b967acf78f6.js",
+      "static/chunks/1288-a7d4f0cc4a32c0a6.js",
+      "static/chunks/8250-d1433a5a947ed11c.js",
       "static/chunks/6205.0870ec351b1dca47.js"
     ]
   },
@@ -2133,7 +2129,7 @@
   "registry/default/ui/markdown-renderer.tsx -> shiki": {
     "id": 62028,
     "files": [
-      "static/chunks/2028.47ee45f6c0a44166.js"
+      "static/chunks/2028.3cbb29477853887b.js"
     ]
   }
 }

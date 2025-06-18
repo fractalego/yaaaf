@@ -1,1 +1,1 @@
-"use strict";exports.id=4964,exports.ids=[4964],exports.modules={54964:(e,r,s)=>{s.r(r),s.d(r,{default:()=>i});var t=s(10326),d=s(17577),l=s(61113);function i(){let[e,r]=(0,d.useState)("");return t.jsx("div",{className:"w-full",children:t.jsx(l.MarkdownRenderer,{children:e})})}}};
+"use strict";exports.id=4964,exports.ids=[4964],exports.modules={54964:(e,r,s)=>{s.r(r),s.d(r,{default:()=>i});var t=s(10326),d=s(17577),l=s(36224);function i(){let[e,r]=(0,d.useState)("");return t.jsx("div",{className:"w-full",children:t.jsx(l.MarkdownRenderer,{children:e})})}}};

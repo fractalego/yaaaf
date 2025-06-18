@@ -17,7 +17,8 @@
         "DEPLOYMENT_PROTECTION_BYPASS",
         "GROQ_API_KEY",
         "YAAAF_API_PORT",
-        "YAAAF_QUERY_SUGGESTIONS"
+        "YAAAF_QUERY_SUGGESTIONS",
+        "NEXT_PUBLIC_YAAAF_ACTIVATE_POPUP"
       ],
       "outputs": ["dist/**", ".next/**"]
     },

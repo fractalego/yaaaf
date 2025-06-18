@@ -7,6 +7,7 @@ export const get_image_url = `http://localhost:${port}/get_image`
 export const get_artefact_url = `http://localhost:${port}/get_artefact`
 
 export const complete_tag = "<taskcompleted/>"
+export const paused_tag = "<taskpaused/>"
 export const query_suggestions: string =
   "who is the president,what is the capital of France,how to cook pasta,what is the weather today,how to learn programming"
 console.log(

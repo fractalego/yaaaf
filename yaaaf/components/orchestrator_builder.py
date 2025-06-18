@@ -7,6 +7,7 @@ from yaaaf.components.agents.sql_agent import SqlAgent
 from yaaaf.components.agents.rag_agent import RAGAgent
 from yaaaf.components.agents.url_agent import URLAgent
 from yaaaf.components.agents.url_reviewer_agent import UrlReviewerAgent
+from yaaaf.components.agents.user_input_agent import UserInputAgent
 from yaaaf.components.agents.visualization_agent import VisualizationAgent
 from yaaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
 from yaaaf.components.client import OllamaClient
@@ -27,6 +28,7 @@ class OrchestratorBuilder:
             "websearch": DuckDuckGoSearchAgent,
             "url": URLAgent,
             "url_reviewer": UrlReviewerAgent,
+            "user_input": UserInputAgent,
         }
 
     def _load_text_from_file(self, file_path: str) -> str:

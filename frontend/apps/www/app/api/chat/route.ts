@@ -2,6 +2,7 @@ import { createDataStreamResponse } from "ai"
 
 import {
   complete_tag,
+  paused_tag,
   create_stream_url,
   get_utterances_url,
 } from "@/app/settings"
@@ -42,6 +43,14 @@ export async function POST(req: Request) {
           let utterance = formatNoteToString(note)
           if (utterance.indexOf(complete_tag) !== -1) {
             stopIterations = true
+          }
+          // Check if task is paused and needs user input
+          if (utterance.indexOf(paused_tag) !== -1) {
+            stopIterations = true
+            // Remove the paused tag from display but keep the question
+            utterance = utterance.replace(paused_tag, "")
+            // Add visual indicator that input is needed
+            utterance += " 🤔 <em>(Waiting for your response...)</em>"
           }
           utterance = utterance.replaceAll("\n", "<br/>")
           utterance = utterance.replaceAll('"', "&quot;")

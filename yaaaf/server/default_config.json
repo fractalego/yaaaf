@@ -12,7 +12,8 @@
     "reviewer",
     "websearch",
     "url",
-    "url_reviewer"
+    "url_reviewer",
+    "user_input"
   ],
   "sources": [
     {

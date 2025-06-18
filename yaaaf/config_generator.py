@@ -31,6 +31,7 @@ class ConfigGenerator:
             "websearch": "Performs web searches using DuckDuckGo",
             "url": "Analyzes content from URLs based on instructions",
             "url_reviewer": "Extracts information from web search results",
+            "user_input": "Interacts with users to gather additional information and clarification",
         }
 
 

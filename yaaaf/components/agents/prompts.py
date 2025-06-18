@@ -288,3 +288,28 @@ INSTRUCTION_HERE
 Think step-by-step about what the user wants to find in the URL and format your response accordingly.
 """
 )
+
+
+user_input_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to interact with the user to gather additional information needed to complete their request.
+
+When you need clarification or additional information from the user, you should:
+1. Analyze the user's request to identify what information is missing or unclear
+2. Formulate specific, clear questions to ask the user
+3. Output your question in the correct format to pause execution and wait for user response
+
+When you need to ask the user a question, use this format:
+```question
+YOUR_QUESTION_HERE
+```
+
+After asking a question, you must pause execution using {task_paused_tag} to wait for the user's response.
+
+When the user provides the needed information, integrate it into your understanding and either:
+- Ask follow-up questions if more clarification is needed (using the same format)
+- Complete the task if you have sufficient information (using {task_completed_tag})
+
+Think step-by-step about what information you need from the user and ask clear, specific questions.
+"""
+)

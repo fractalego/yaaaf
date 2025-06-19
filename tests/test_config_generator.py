@@ -35,7 +35,9 @@ class TestConfigGenerator(unittest.TestCase):
             "rag",
             "reviewer",
             "websearch",
+            "url",
             "url_reviewer",
+            "user_input",
         }
         self.assertEqual(set(self.generator.available_agents.keys()), expected_agents)
 
@@ -130,7 +132,6 @@ class TestConfigGenerator(unittest.TestCase):
             description = self.generator.available_agents[agent_name]
             self.assertIsInstance(description, str)
             self.assertGreater(len(description), 10)  # Reasonable description length
-
 
     @patch("builtins.input")
     @patch("os.path.exists")

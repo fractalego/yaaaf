@@ -17,8 +17,7 @@ class PromptTemplate(BaseModel):
 
     def complete(self, **kwargs) -> str:
         return (
-            self.prompt
-            .replace("{task_completed_tag}", task_completed_tag)
+            self.prompt.replace("{task_completed_tag}", task_completed_tag)
             .replace("{task_paused_tag}", task_paused_tag)
             .format(**kwargs)
         )

@@ -1,0 +1,33 @@
+{
+  "_comment": "Model training data cutoff dates configuration",
+  "_description": {
+    "model_training_cutoffs": "Exact model name to cutoff date mappings (highest priority)",
+    "pattern_matching": "Pattern-based matching for model families (fallback)"
+  },
+  "model_training_cutoffs": {
+    "qwen2.5:32b": "October 2023",
+    "qwen2.5:7b": "October 2023",
+    "qwen2.5:14b": "October 2023",
+    "qwen2.5:72b": "October 2023",
+    "qwen2.5-coder:32b": "June 2024",
+    "qwen2.5-coder:7b": "June 2024",
+    "qwen2.5-coder:14b": "June 2024",
+    "qwen3:8b": "November 2024",
+    "qwen3:32b": "November 2024",
+    "qwen3:30b": "November 2024",
+    "llama3.1:8b": "April 2024",
+    "llama3.1:70b": "April 2024",
+    "llama3.3:70b": "December 2024",
+    "gemma3:12b": "November 2024"
+  },
+  "pattern_matching": {
+    "qwen2.5": {
+      "default": "October 2023",
+      "coder": "June 2024"
+    },
+    "qwen3": "November 2024",
+    "llama3.1": "April 2024",
+    "llama3.3": "December 2024",
+    "gemma3": "November 2024"
+  }
+}

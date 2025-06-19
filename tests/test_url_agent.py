@@ -1,6 +1,6 @@
 import asyncio
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from yaaaf.components.agents.url_agent import URLAgent
 from yaaaf.components.client import OllamaClient

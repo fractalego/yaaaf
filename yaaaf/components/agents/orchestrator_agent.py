@@ -108,8 +108,10 @@ class OrchestratorAgent(BaseAgent):
             )
         self._agents_map[agent.get_opening_tag()] = agent
         self._stop_sequences.append(agent.get_closing_tag())
-        
-        _logger.info(f"Registered agent: {agent.get_name()} (tag: {agent.get_opening_tag()})")
+
+        _logger.info(
+            f"Registered agent: {agent.get_name()} (tag: {agent.get_opening_tag()})"
+        )
 
     def map_answer_to_agent(self, answer: str) -> Tuple[BaseAgent | None, str]:
         for tag, agent in self._agents_map.items():
@@ -128,7 +130,15 @@ Orchestrator agent: This agent orchestrates the agents.
         """
 
     def _get_system_prompt(self, goal: str) -> str:
+        # Get training cutoff information from the client if available
+        training_cutoff_info = ""
+        if hasattr(self._client, "get_training_cutoff_date"):
+            cutoff_date = self._client.get_training_cutoff_date()
+            if cutoff_date:
+                training_cutoff_info = f"Your training date cutoff is {cutoff_date}. You have been trained to know only information before that date."
+
         return orchestrator_prompt_template.complete(
+            training_cutoff_info=training_cutoff_info,
             agents_list="\n".join(
                 [
                     "* " + agent.get_description().strip() + "\n"
@@ -148,18 +158,24 @@ Orchestrator agent: This agent orchestrates the agents.
         """Sanitize dataframe data to prevent markdown table breakage."""
         # Create a copy to avoid modifying the original
         df_clean = df.copy()
-        
+
         # Apply sanitization to all string columns
         for col in df_clean.columns:
-            if df_clean[col].dtype == 'object':  # String columns
-                df_clean[col] = df_clean[col].astype(str).apply(lambda x: (
-                    x.replace('|', '\\|')      # Escape pipe characters
-                     .replace('\n', ' ')       # Replace newlines with spaces
-                     .replace('\r', ' ')       # Replace carriage returns
-                     .replace('\t', ' ')       # Replace tabs with spaces
-                     .strip()                  # Remove leading/trailing whitespace
-                ))
-        
+            if df_clean[col].dtype == "object":  # String columns
+                df_clean[col] = (
+                    df_clean[col]
+                    .astype(str)
+                    .apply(
+                        lambda x: (
+                            x.replace("|", "\\|")  # Escape pipe characters
+                            .replace("\n", " ")  # Replace newlines with spaces
+                            .replace("\r", " ")  # Replace carriage returns
+                            .replace("\t", " ")  # Replace tabs with spaces
+                            .strip()  # Remove leading/trailing whitespace
+                        )
+                    )
+                )
+
         return df_clean.to_markdown(index=False)
 
     def _add_relevant_information(self, answer: str) -> str:
@@ -168,8 +184,14 @@ Orchestrator agent: This agent orchestrates the agents.
             answer = f"<imageoutput>{image_artefact.id}</imageoutput>" + "\n" + answer
         if "<artefact type='paragraphs-table'>" in answer:
             artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
-            answer = f"<markdown>{self._sanitize_dataframe_for_markdown(artefact.data)}</markdown>" + answer
+            answer = (
+                f"<markdown>{self._sanitize_dataframe_for_markdown(artefact.data)}</markdown>"
+                + answer
+            )
         if "<artefact type='called-tools-table'>" in answer:
             artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
-            answer = f"<markdown>{self._sanitize_dataframe_for_markdown(artefact.data)}</markdown>" + answer
+            answer = (
+                f"<markdown>{self._sanitize_dataframe_for_markdown(artefact.data)}</markdown>"
+                + answer
+            )
         return answer

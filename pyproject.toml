@@ -73,6 +73,7 @@ exclude = ["tests*", "frontend*", "documentation*"]
 [tool.setuptools.package-data]
 yaaaf = [
     "server/default_config.json",
+    "components/model_training_cutoffs.json",
     "components/agents/*.py",
     "components/data_types/*.py",
     "components/extractors/*.py",

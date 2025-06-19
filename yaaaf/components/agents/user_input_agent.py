@@ -68,11 +68,7 @@ class UserInputAgent(BaseAgent):
             current_output = answer
 
         # Clean up the final output
-        final_output = (
-            current_output
-            .replace(task_paused_tag, "")
-            .strip()
-        )
+        final_output = current_output.replace(task_paused_tag, "").strip()
         return final_output
 
     def get_description(self) -> str:

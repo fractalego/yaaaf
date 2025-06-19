@@ -34,7 +34,6 @@ class ConfigGenerator:
             "user_input": "Interacts with users to gather additional information and clarification",
         }
 
-
     def print_welcome(self):
         """Print welcome message and instructions."""
         print("=" * 70)
@@ -93,8 +92,7 @@ class ConfigGenerator:
 
         # Model selection
         model_name = self.get_input(
-            "Enter Ollama model name (e.g., qwen2.5:32b, llama3.1:8b)", 
-            "qwen2.5:32b"
+            "Enter Ollama model name (e.g., qwen2.5:32b, llama3.1:8b)", "qwen2.5:32b"
         )
         self.config["client"]["model"] = model_name
 

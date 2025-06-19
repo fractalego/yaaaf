@@ -7,6 +7,8 @@ Your role is to orchestrate a set of 3 analytics agents. You call different agen
 These calls happen by writing the name of the agent as the tag name.
 Information about the task is provided between tags.
 
+{training_cutoff_info}
+
 You have these agents at your disposal:
 {agents_list}
    

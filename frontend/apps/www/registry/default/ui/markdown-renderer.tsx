@@ -165,17 +165,17 @@ function childrenTakeAllStringContents(element: any): string {
 
 function getComponents(onArtifactClick?: (artifactId: string) => void) {
   return {
-    sqlagent: ({ children }: any) => {
-      return <SqlAgent text={children}></SqlAgent>
+    sqlagent: ({ children, ...props }: any) => {
+      return <SqlAgent text={children} modelName={props["data-model"]}></SqlAgent>
     },
-    visualizationagent: ({ children }: any) => {
-      return <VisualizationAgent text={children}></VisualizationAgent>
+    visualizationagent: ({ children, ...props }: any) => {
+      return <VisualizationAgent text={children} modelName={props["data-model"]}></VisualizationAgent>
     },
-    mleagent: ({ children }: any) => {
-      return <MleAgent text={children}></MleAgent>
+    mleagent: ({ children, ...props }: any) => {
+      return <MleAgent text={children} modelName={props["data-model"]}></MleAgent>
     },
-    revieweragent: ({ children }: any) => {
-      return <ReviewerAgent text={children}></ReviewerAgent>
+    revieweragent: ({ children, ...props }: any) => {
+      return <ReviewerAgent text={children} modelName={props["data-model"]}></ReviewerAgent>
     },
     artefact: ({ children }: any) => {
       return (
@@ -185,8 +185,8 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     imageoutput: ({ children }: any) => {
       return <ImageOutput id={children}></ImageOutput>
     },
-    reflectionagent: ({ children }: any) => {
-      return <ReflectionAgent text={children}></ReflectionAgent>
+    reflectionagent: ({ children, ...props }: any) => {
+      return <ReflectionAgent text={children} modelName={props["data-model"]}></ReflectionAgent>
     },
     taskcompleted: ({ children }: any) => {
       return <Complete />
@@ -194,26 +194,26 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     taskpaused: ({ children }: any) => {
       return <Paused />
     },
-    duckduckgosearchagent: ({ children }: any) => {
-      return <DuckDuckGoSearchAgent text={children}></DuckDuckGoSearchAgent>
+    duckduckgosearchagent: ({ children, ...props }: any) => {
+      return <DuckDuckGoSearchAgent text={children} modelName={props["data-model"]}></DuckDuckGoSearchAgent>
     },
-    bravesearchagent: ({ children }: any) => {
-      return <BraveSearchAgent text={children}></BraveSearchAgent>
+    bravesearchagent: ({ children, ...props }: any) => {
+      return <BraveSearchAgent text={children} modelName={props["data-model"]}></BraveSearchAgent>
     },
-    urlretrieveragent: ({ children }: any) => {
-      return <UrlRetrieverAgent text={children}></UrlRetrieverAgent>
+    urlretrieveragent: ({ children, ...props }: any) => {
+      return <UrlRetrieverAgent text={children} modelName={props["data-model"]}></UrlRetrieverAgent>
     },
-    ragagent: ({ children }: any) => {
-      return <RagAgent text={children}></RagAgent>
+    ragagent: ({ children, ...props }: any) => {
+      return <RagAgent text={children} modelName={props["data-model"]}></RagAgent>
     },
-    urlagent: ({ children }: any) => {
-      return <UrlAgent text={children}></UrlAgent>
+    urlagent: ({ children, ...props }: any) => {
+      return <UrlAgent text={children} modelName={props["data-model"]}></UrlAgent>
     },
-    userinputagent: ({ children }: any) => {
-      return <UserInputAgent text={children}></UserInputAgent>
+    userinputagent: ({ children, ...props }: any) => {
+      return <UserInputAgent text={children} modelName={props["data-model"]}></UserInputAgent>
     },
-    urlrevieweragent: ({ children }: any) => {
-      return <UrlReviewerAgent text={children}></UrlReviewerAgent>
+    urlrevieweragent: ({ children, ...props }: any) => {
+      return <UrlReviewerAgent text={children} modelName={props["data-model"]}></UrlReviewerAgent>
     },
     h1: withClass("h1", "text-2xl font-semibold"),
     h2: withClass("h2", "font-semibold text-xl"),

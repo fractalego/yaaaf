@@ -7,9 +7,10 @@ class Note(BaseModel):
     message: str
     artefact_id: Optional[str] = None
     agent_name: Optional[str] = None
+    model_name: Optional[str] = None
 
     def __repr__(self):
-        return f"Note(message={self.message[:50]}..., artefact_id={self.artefact_id}, agent_name={self.agent_name})"
+        return f"Note(message={self.message[:50]}..., artefact_id={self.artefact_id}, agent_name={self.agent_name}, model_name={self.model_name})"
 
     def __str__(self):
         return self.__repr__()

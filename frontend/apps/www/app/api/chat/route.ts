@@ -12,6 +12,7 @@ interface Note {
   message: string
   artefact_id: string | null
   agent_name: string | null
+  model_name: string | null
 }
 
 export async function POST(req: Request) {
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
           utterance = utterance.replaceAll('"', "&quot;")
           utterance = utterance.replaceAll("\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
           console.log(
-            `Frontend: Processing utterance from ${note.agent_name}:`,
+            `Frontend: Processing utterance from ${note.agent_name} (${note.model_name}):`,
             utterance
           )
           dataStream.write(`0:"${utterance}<br/><br/>"\n`)
@@ -122,10 +123,11 @@ function formatNoteToString(note: Note): string {
     // Combine markdown content with the rest of the message
     if (messageWithoutMarkdown) {
       if (note.agent_name) {
+        const modelInfo = note.model_name ? ` data-model="${note.model_name}"` : ""
         result =
           markdownContent +
           "\n\n" +
-          `<${note.agent_name}>${messageWithoutMarkdown}</${note.agent_name}>`
+          `<${note.agent_name}${modelInfo}>${messageWithoutMarkdown}</${note.agent_name}>`
       } else {
         result = markdownContent + "\n\n" + messageWithoutMarkdown
       }
@@ -136,7 +138,8 @@ function formatNoteToString(note: Note): string {
   } else {
     // No markdown tags, use original logic
     if (note.agent_name) {
-      result = `<${note.agent_name}>${note.message}</${note.agent_name}>`
+      const modelInfo = note.model_name ? ` data-model="${note.model_name}"` : ""
+      result = `<${note.agent_name}${modelInfo}>${note.message}</${note.agent_name}>`
     } else {
       result = note.message
     }
@@ -176,6 +179,7 @@ async function getUtterances(stream_id: string): Promise<Array<Note>> {
         message: `Error in getting utterances: ${error}`,
         artefact_id: null,
         agent_name: "System",
+        model_name: null,
       },
     ]
   }

@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm"
 
 import { cn } from "@/lib/utils"
 import { Artefact } from "@/registry/custom/artefact"
+import { BashAgent } from "@/registry/custom/bash-agent"
 import { BraveSearchAgent } from "@/registry/custom/brave-search-agent"
 import { Complete } from "@/registry/custom/complete"
 import { DuckDuckGoSearchAgent } from "@/registry/custom/duck-duck-go-search-agent"
@@ -214,6 +215,9 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     },
     urlrevieweragent: ({ children, ...props }: any) => {
       return <UrlReviewerAgent text={children} modelName={props["data-model"]}></UrlReviewerAgent>
+    },
+    bashagent: ({ children, ...props }: any) => {
+      return <BashAgent text={children} modelName={props["data-model"]}></BashAgent>
     },
     h1: withClass("h1", "text-2xl font-semibold"),
     h2: withClass("h2", "font-semibold text-xl"),

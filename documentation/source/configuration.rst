@@ -84,6 +84,9 @@ The configuration generator supports all built-in YAAAF agents:
    * - **url_reviewer**
      - Extracts information from web search results
      - None
+   * - **bash**
+     - Executes bash commands for filesystem operations
+     - User confirmation required
 
 Source Types
 ~~~~~~~~~~~~
@@ -329,7 +332,8 @@ A comprehensive setup with multiple agents and sources:
        "reviewer",
        "websearch",
        "brave_search",
-       "url_reviewer"
+       "url_reviewer",
+       "bash"
      ],
      "sources": [
        {

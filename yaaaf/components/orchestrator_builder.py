@@ -11,6 +11,7 @@ from yaaaf.components.agents.user_input_agent import UserInputAgent
 from yaaaf.components.agents.visualization_agent import VisualizationAgent
 from yaaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
 from yaaaf.components.agents.brave_search_agent import BraveSearchAgent
+from yaaaf.components.agents.bash_agent import BashAgent
 from yaaaf.components.client import OllamaClient
 from yaaaf.components.sources.sqlite_source import SqliteSource
 from yaaaf.components.sources.rag_source import RAGSource
@@ -31,6 +32,7 @@ class OrchestratorBuilder:
             "url": URLAgent,
             "url_reviewer": UrlReviewerAgent,
             "user_input": UserInputAgent,
+            "bash": BashAgent,
         }
 
     def _load_text_from_file(self, file_path: str) -> str:

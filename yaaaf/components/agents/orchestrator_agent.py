@@ -71,7 +71,7 @@ class OrchestratorAgent(BaseAgent):
                     Messages().add_user_utterance(instruction),
                     notes=notes,
                 )
-                answer = self._add_relevant_information(answer)
+                answer = self._make_output_visible(answer)
 
                 if notes is not None:
                     artefacts = get_artefacts_from_utterance_content(answer)
@@ -190,7 +190,8 @@ Orchestrator agent: This agent orchestrates the agents.
 
         return df_clean.to_markdown(index=False)
 
-    def _add_relevant_information(self, answer: str) -> str:
+    def _make_output_visible(self, answer: str) -> str:
+        """Make the output visible by printing or visualising the content of artefacts"""
         if "<artefact type='image'>" in answer:
             image_artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
             answer = f"<imageoutput>{image_artefact.id}</imageoutput>" + "\n" + answer

@@ -18,7 +18,8 @@
     "brave_search",
     "url",
     "url_reviewer",
-    "user_input"
+    "user_input",
+    "bash"
   ],
   "sources": [
     {

@@ -98,6 +98,7 @@ python -m yaaaf frontend 3001
 | **MleAgent** | Machine learning | `<mleagent>` | sklearn model training & analysis |
 | **ReviewerAgent** | Data analysis | `<revieweragent>` | Extract insights from artifacts |
 | **ToolAgent** | External tools | `<toolagent>` | MCP (Model Context Protocol) integration |
+| **BashAgent** | Filesystem operations | `<bashagent>` | File reading, writing, directory operations (with user confirmation) |
 
 ## 💡 Example Usage
 
@@ -195,7 +196,8 @@ YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM pr
     },
     "reviewer",
     "websearch",
-    "url_reviewer"
+    "url_reviewer",
+    "bash"
   ],
   "sources": [
     {

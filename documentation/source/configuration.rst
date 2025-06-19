@@ -163,11 +163,42 @@ The ``client`` section configures the LLM connection:
 Agents Configuration
 ^^^^^^^^^^^^^^^^^^^^
 
-The ``agents`` array lists enabled agents by name:
+The ``agents`` array lists enabled agents. Each agent can be specified as a simple string name or as an object with custom model settings:
+
+**Simple Agent Names:**
 
 .. code-block:: json
 
    "agents": ["reflection", "sql", "rag"]
+
+**Per-Agent Model Configuration:**
+
+.. code-block:: json
+
+   "agents": [
+     "reflection",
+     {
+       "name": "visualization",
+       "model": "qwen2.5-coder:32b",
+       "temperature": 0.1
+     },
+     "sql",
+     {
+       "name": "rag",
+       "model": "qwen2.5:14b",
+       "temperature": 0.8,
+       "max_tokens": 4096
+     }
+   ]
+
+**Per-Agent Settings:**
+
+* **name**: Agent identifier (required when using object format)
+* **model**: Override model for this specific agent (optional)
+* **temperature**: Override temperature for this agent (optional)  
+* **max_tokens**: Override max tokens for this agent (optional)
+
+Agents without explicit configuration will use the default client settings as fallback.
 
 Sources Configuration  
 ^^^^^^^^^^^^^^^^^^^^
@@ -283,9 +314,18 @@ A comprehensive setup with multiple agents and sources:
      },
      "agents": [
        "reflection",
-       "visualization",
+       {
+         "name": "visualization",
+         "model": "qwen2.5-coder:32b",
+         "temperature": 0.1
+       },
        "sql",
-       "rag",
+       {
+         "name": "rag", 
+         "model": "qwen2.5:14b",
+         "temperature": 0.8,
+         "max_tokens": 4096
+       },
        "reviewer",
        "websearch",
        "brave_search",

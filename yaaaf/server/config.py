@@ -28,10 +28,17 @@ class APISettings(BaseSettings):
     brave_search_api_key: str | None = None
 
 
+class AgentSettings(BaseSettings):
+    name: str
+    model: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+
+
 class Settings(BaseSettings):
     client: ClientSettings
     sources: List[SourceSettings] = []
-    agents: List[str] = []
+    agents: List[str | AgentSettings] = []
     safety_filter: SafetyFilterSettings = SafetyFilterSettings()
     api_keys: APISettings = APISettings()
 

@@ -181,8 +181,18 @@ YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM pr
   },
   "agents": [
     "reflection",
-    "visualization",
+    {
+      "name": "visualization",
+      "model": "qwen2.5-coder:32b",
+      "temperature": 0.1
+    },
     "sql",
+    {
+      "name": "rag",
+      "model": "qwen2.5:14b", 
+      "temperature": 0.8,
+      "max_tokens": 4096
+    },
     "reviewer",
     "websearch",
     "url_reviewer"
@@ -196,6 +206,12 @@ YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM pr
   ]
 }
 ```
+
+**Per-Agent Model Configuration:**
+- **Simple format**: `"agent_name"` uses default client settings
+- **Object format**: `{"name": "agent_name", "model": "...", "temperature": 0.1}` overrides specific parameters
+- **Fallback**: Any unspecified parameters use the default client configuration
+- **Examples**: Use specialized models for specific tasks (e.g., coding models for visualization, larger models for RAG)
 
 ## 📚 Documentation
 

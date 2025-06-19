@@ -51,7 +51,7 @@ class OrchestratorAgent(BaseAgent):
             if notes is not None:
                 artefacts = get_artefacts_from_utterance_content(answer)
                 # Get model name from client if available
-                model_name = getattr(self._client, 'model', None)
+                model_name = getattr(self._client, "model", None)
                 note = Note(
                     message=Note.clean_agent_tags(answer),
                     artefact_id=artefacts[0].id if artefacts else None,
@@ -79,7 +79,11 @@ class OrchestratorAgent(BaseAgent):
                     final_agent_name = extracted_agent_name or agent_name
 
                     # Get model name from the agent's client if available
-                    agent_model_name = getattr(agent_to_call._client, 'model', None) if agent_to_call else None
+                    agent_model_name = (
+                        getattr(agent_to_call._client, "model", None)
+                        if agent_to_call
+                        else None
+                    )
                     note = Note(
                         message=Note.clean_agent_tags(answer),
                         artefact_id=artefacts[0].id if artefacts else None,
@@ -99,7 +103,7 @@ class OrchestratorAgent(BaseAgent):
         if not self.is_complete(answer) and step_index == self._max_steps - 1:
             answer += f"\nThe Orchestrator agent has finished its maximum number of steps. {task_completed_tag}"
             if notes is not None:
-                model_name = getattr(self._client, 'model', None)
+                model_name = getattr(self._client, "model", None)
                 notes.append(
                     Note(
                         message=f"The Orchestrator agent has finished its maximum number of steps. {task_completed_tag}",

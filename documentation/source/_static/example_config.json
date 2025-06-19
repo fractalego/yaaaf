@@ -6,9 +6,18 @@
   },
   "agents": [
     "reflection",
-    "visualization",
+    {
+      "name": "visualization",
+      "model": "qwen2.5-coder:32b",
+      "temperature": 0.1
+    },
     "sql", 
-    "rag",
+    {
+      "name": "rag",
+      "model": "qwen2.5:14b",
+      "temperature": 0.8,
+      "max_tokens": 4096
+    },
     "reviewer"
   ],
   "sources": [

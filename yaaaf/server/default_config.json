@@ -6,7 +6,11 @@
   },
   "agents": [
     "reflection",
-    "visualization",
+    {
+      "name": "visualization",
+      "model": "qwen2.5-coder:32b",
+      "temperature": 0.1
+    },
     "sql",
     "rag",
     "reviewer",

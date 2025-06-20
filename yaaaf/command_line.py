@@ -11,7 +11,11 @@ def print_help():
     print("\n")
     print("These are the available commands:")
     print("> yaaaf backend [port]: start the backend server (default port: 4000)")
-    print("> yaaaf frontend [port]: start the frontend server (default port: 3000)")
+    print(
+        "> yaaaf frontend [port] [https]: start the frontend server (default port: 3000)"
+    )
+    print("    - Use 'https' as second or third argument to enable HTTPS")
+    print("    - Examples: 'yaaaf frontend https', 'yaaaf frontend 3001 https'")
     print("> yaaaf config: create a local config.json file interactively")
     print()
 
@@ -49,17 +53,26 @@ def process_cli():
                 run_server(host="0.0.0.0", port=port)
 
             case "frontend":
-                # Use default port or parse provided port
-                if len(arguments) >= 3:
-                    try:
-                        port = int(arguments[2])
-                    except ValueError:
-                        print("Invalid port number. Must be an integer.\n")
-                        print_help()
-                        return
-                else:
-                    port = 3000
-                run_frontend(port=port)
+                # Parse port and https arguments
+                port = 3000
+                use_https = False
+
+                # Check arguments for port and https
+                for i in range(2, len(arguments)):
+                    arg = arguments[i]
+                    if arg.lower() == "https":
+                        use_https = True
+                    else:
+                        try:
+                            port = int(arg)
+                        except ValueError:
+                            print(
+                                f"Invalid argument '{arg}'. Expected port number or 'https'.\n"
+                            )
+                            print_help()
+                            return
+
+                run_frontend(port=port, use_https=use_https)
 
             case "config":
                 generator = ConfigGenerator()

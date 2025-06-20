@@ -115,12 +115,25 @@ This starts the backend server on the default port 4000.
 
 This starts the frontend server on the default port 3000.
 
-**Custom ports**:
+**HTTPS Support**:
 
 .. code-block:: bash
 
-   python -m yaaaf backend 8080    # Backend on port 8080
-   python -m yaaaf frontend 3001   # Frontend on port 3001
+   python -m yaaaf frontend https
+
+This starts the frontend server with HTTPS using self-signed certificates.
+
+**Custom ports and HTTPS**:
+
+.. code-block:: bash
+
+   python -m yaaaf backend 8080         # Backend on port 8080
+   python -m yaaaf frontend 3001        # Frontend on port 3001
+   python -m yaaaf frontend 3001 https  # Frontend with HTTPS on port 3001
+   python -m yaaaf frontend https       # Frontend with HTTPS on port 3000
+
+.. note::
+   When using HTTPS, self-signed certificates are automatically generated. You may see a security warning in your browser on first access. This is normal for development use.
 
 Manual Setup
 ~~~~~~~~~~~~
@@ -185,7 +198,7 @@ First Steps
 
 Once both servers are running:
 
-1. **Open your browser** to ``http://localhost:3000``
+1. **Open your browser** to ``http://localhost:3000`` (or ``https://localhost:3000`` if using HTTPS)
 2. **Start a conversation** with the AI system
 3. **Try different queries**:
 

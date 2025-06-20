@@ -69,15 +69,24 @@ python -m yaaaf backend
 python -m yaaaf frontend
 ```
 
-**Or specify custom ports**:
+**Start with HTTPS** (using self-signed certificates):
 ```bash
-python -m yaaaf backend 8080
-python -m yaaaf frontend 3001
+python -m yaaaf frontend https
 ```
+
+**Custom ports and HTTPS options**:
+```bash
+python -m yaaaf backend 8080         # Backend on port 8080
+python -m yaaaf frontend 3001        # Frontend HTTP on port 3001
+python -m yaaaf frontend 3001 https  # Frontend HTTPS on port 3001
+python -m yaaaf frontend https       # Frontend HTTPS on port 3000
+```
+
+> **Note:** HTTPS mode automatically generates self-signed certificates for development. You may see security warnings in your browser.
 
 ### First Steps
 
-1. Open your browser to `http://localhost:3000`
+1. Open your browser to `http://localhost:3000` (or `https://localhost:3000` if using HTTPS)
 2. Start chatting with the AI system
 3. Try these example queries:
    - "How many records are in the database?"

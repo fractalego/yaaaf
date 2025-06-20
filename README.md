@@ -84,6 +84,28 @@ python -m yaaaf frontend https       # Frontend HTTPS on port 3000
 
 > **Note:** HTTPS mode automatically generates self-signed certificates for development. You may see security warnings in your browser.
 
+**Using Custom SSL Certificates:**
+
+Set environment variables to use your own certificates:
+```bash
+export YAAAF_CERT_PATH=/path/to/your/certificate.pem
+export YAAAF_KEY_PATH=/path/to/your/private-key.pem
+python -m yaaaf frontend https
+```
+
+**Programmatic Usage:**
+```python
+from yaaaf.client.run import run_frontend
+
+# Custom certificates
+run_frontend(
+    port=3000, 
+    use_https=True, 
+    cert_path="/path/to/cert.pem",
+    key_path="/path/to/key.pem"
+)
+```
+
 ### First Steps
 
 1. Open your browser to `http://localhost:3000` (or `https://localhost:3000` if using HTTPS)

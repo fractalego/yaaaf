@@ -114,8 +114,12 @@ class VisualizationAgent(BaseAgent):
         result = f"The result is in this artefact <artefact type='image'>{image_id}</artefact>"
 
         if notes is not None:
+            model_name = getattr(self._client, "model", None)
             note = Note(
-                message=result, artefact_id=image_id, agent_name=self.get_name()
+                message=result,
+                artefact_id=image_id,
+                agent_name=self.get_name(),
+                model_name=model_name,
             )
             notes.append(note)
 

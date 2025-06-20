@@ -139,10 +139,12 @@ class BashAgent(BaseAgent):
 
                 # Add command to notes for visibility
                 if notes is not None:
+                    model_name = getattr(self._client, "model", None)
                     note = Note(
                         message=f"Proposed bash command:\n```bash\n{bash_command}\n```",
                         artefact_id=None,
                         agent_name=self.get_name(),
+                        model_name=model_name,
                     )
                     notes.append(note)
 
@@ -194,10 +196,12 @@ class BashAgent(BaseAgent):
 
         # Add execution result to notes
         if notes is not None:
+            model_name = getattr(self._client, "model", None)
             note = Note(
                 message=result_message,
                 artefact_id=None,
                 agent_name=self.get_name(),
+                model_name=model_name,
             )
             notes.append(note)
 

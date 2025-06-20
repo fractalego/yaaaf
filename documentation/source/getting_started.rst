@@ -135,6 +135,30 @@ This starts the frontend server with HTTPS using self-signed certificates.
 .. note::
    When using HTTPS, self-signed certificates are automatically generated. You may see a security warning in your browser on first access. This is normal for development use.
 
+**Custom SSL Certificates**:
+
+If you have your own SSL certificates, you can specify them using environment variables:
+
+.. code-block:: bash
+
+   export YAAAF_CERT_PATH=/path/to/your/certificate.pem
+   export YAAAF_KEY_PATH=/path/to/your/private-key.pem
+   python -m yaaaf frontend https
+
+Or use the programmatic interface:
+
+.. code-block:: python
+
+   from yaaaf.client.run import run_frontend
+   
+   # Use custom certificates
+   run_frontend(
+       port=3000, 
+       use_https=True, 
+       cert_path="/path/to/cert.pem",
+       key_path="/path/to/key.pem"
+   )
+
 Manual Setup
 ~~~~~~~~~~~~
 

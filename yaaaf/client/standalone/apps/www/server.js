@@ -33,14 +33,36 @@ if (
   keepAliveTimeout = undefined
 }
 
-// Function to create self-signed certificate if needed
-function createSelfSignedCertificate() {
+// Function to load or create SSL certificates
+function loadOrCreateCertificates() {
+  // Check for custom certificate paths from environment variables
+  const customCertPath = process.env.YAAAF_CERT_PATH
+  const customKeyPath = process.env.YAAAF_KEY_PATH
+  
+  // If custom paths are provided, use them
+  if (customCertPath && customKeyPath) {
+    console.log('Using custom SSL certificates')
+    console.log(`Certificate: ${customCertPath}`)
+    console.log(`Private Key: ${customKeyPath}`)
+    
+    try {
+      return {
+        cert: fs.readFileSync(customCertPath),
+        key: fs.readFileSync(customKeyPath)
+      }
+    } catch (error) {
+      console.error('Failed to read custom SSL certificates:', error.message)
+      return null
+    }
+  }
+  
+  // Default paths for auto-generated certificates
   const certPath = path.join(__dirname, 'cert.pem')
   const keyPath = path.join(__dirname, 'key.pem')
   
-  // Check if certificates already exist
+  // Check if auto-generated certificates already exist
   if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
-    console.log('Using existing SSL certificates')
+    console.log('Using existing auto-generated SSL certificates')
     return {
       cert: fs.readFileSync(certPath),
       key: fs.readFileSync(keyPath)
@@ -74,11 +96,13 @@ function createSelfSignedCertificate() {
 // Prepare HTTPS options if needed
 let httpsOptions = null
 if (useHttps) {
-  httpsOptions = createSelfSignedCertificate()
+  httpsOptions = loadOrCreateCertificates()
   if (httpsOptions) {
     console.log(`Starting HTTPS server on port ${currentPort}`)
     console.log(`Access your application at: https://localhost:${currentPort}`)
-    console.log('Note: You may see a security warning due to self-signed certificate')
+    if (!process.env.YAAAF_CERT_PATH) {
+      console.log('Note: You may see a security warning due to self-signed certificate')
+    }
   } else {
     console.log('HTTPS setup failed, starting HTTP server instead')
   }

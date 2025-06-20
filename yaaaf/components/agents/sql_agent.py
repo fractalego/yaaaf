@@ -53,10 +53,12 @@ class SqlAgent(BaseAgent):
             sql_query = get_first_text_between_tags(answer, self._output_tag, "```")
             if sql_query:
                 if notes is not None:
+                    model_name = getattr(self._client, "model", None)
                     note = Note(
                         message=f"```SQL\n{sql_query}\n```",
                         artefact_id=None,
                         agent_name=self.get_name(),
+                        model_name=model_name,
                     )
                     notes.append(note)
                 current_output = self._source.get_data(sql_query)

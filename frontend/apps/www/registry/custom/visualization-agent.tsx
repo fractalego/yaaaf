@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+
 import { ModelIndicator } from "./model-indicator"
 
 function VisualizationAgent(element: { text: string; modelName?: string }) {
@@ -29,10 +30,12 @@ function VisualizationAgent(element: { text: string; modelName?: string }) {
             <path d="M3 3v16a2 2 0 0 0 2 2h16" />
           </svg>
         </div>
-        <span className="flex-1 text-xs text-neutral-600 dark:text-neutral-400 opacity-70 font-mono">Visualization Agent</span>
+        <span className="flex-1 text-xs text-neutral-600 dark:text-neutral-400 opacity-70 font-mono">
+          Visualization Agent
+        </span>
         {element.modelName && (
-          <ModelIndicator 
-            modelName={element.modelName} 
+          <ModelIndicator
+            modelName={element.modelName}
             variant="compact"
             className="text-neutral-600 dark:text-neutral-400"
           />

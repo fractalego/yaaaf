@@ -45,6 +45,9 @@ reflection_agent_prompt_template = PromptTemplate(
     prompt="""
 Your task is to think step by step about the actions to take.
 Think about the instructions and creat an action plan to follow them. Be concise and clear.
+When you write the action plan, mention the names of the agents and tools you will use by exact names.
+These are the agents and tools you can use:
+{agents_and_sources_and_tools_list}
 When you are satisfied with the instructions, you need to output the actions plan between the markdown tags ```text ... ```
 """
 )

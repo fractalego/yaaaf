@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Brain, Cpu } from "lucide-react"
+
 import { cn } from "@/lib/utils"
 
 interface ModelIndicatorProps {
@@ -11,22 +12,22 @@ interface ModelIndicatorProps {
   variant?: "inline" | "badge" | "compact"
 }
 
-function ModelIndicator({ 
-  modelName, 
-  agentName, 
+function ModelIndicator({
+  modelName,
+  agentName,
   className,
-  variant = "inline" 
+  variant = "inline",
 }: ModelIndicatorProps) {
   if (!modelName) {
     return null
   }
 
   const baseClasses = "flex items-center gap-1 text-xs text-muted-foreground"
-  
+
   const variantClasses = {
     inline: "opacity-70",
     badge: "bg-muted px-2 py-1 rounded-md border",
-    compact: "opacity-60"
+    compact: "opacity-60",
   }
 
   return (
@@ -35,9 +36,7 @@ function ModelIndicator({
       <span className="font-mono">
         {modelName}
         {agentName && variant !== "compact" && (
-          <span className="text-muted-foreground/70 ml-1">
-            ({agentName})
-          </span>
+          <span className="text-muted-foreground/70 ml-1">({agentName})</span>
         )}
       </span>
     </div>

@@ -167,16 +167,30 @@ function childrenTakeAllStringContents(element: any): string {
 function getComponents(onArtifactClick?: (artifactId: string) => void) {
   return {
     sqlagent: ({ children, ...props }: any) => {
-      return <SqlAgent text={children} modelName={props["data-model"]}></SqlAgent>
+      return (
+        <SqlAgent text={children} modelName={props["data-model"]}></SqlAgent>
+      )
     },
     visualizationagent: ({ children, ...props }: any) => {
-      return <VisualizationAgent text={children} modelName={props["data-model"]}></VisualizationAgent>
+      return (
+        <VisualizationAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></VisualizationAgent>
+      )
     },
     mleagent: ({ children, ...props }: any) => {
-      return <MleAgent text={children} modelName={props["data-model"]}></MleAgent>
+      return (
+        <MleAgent text={children} modelName={props["data-model"]}></MleAgent>
+      )
     },
     revieweragent: ({ children, ...props }: any) => {
-      return <ReviewerAgent text={children} modelName={props["data-model"]}></ReviewerAgent>
+      return (
+        <ReviewerAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></ReviewerAgent>
+      )
     },
     artefact: ({ children }: any) => {
       return (
@@ -187,7 +201,12 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
       return <ImageOutput id={children}></ImageOutput>
     },
     reflectionagent: ({ children, ...props }: any) => {
-      return <ReflectionAgent text={children} modelName={props["data-model"]}></ReflectionAgent>
+      return (
+        <ReflectionAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></ReflectionAgent>
+      )
     },
     taskcompleted: ({ children }: any) => {
       return <Complete />
@@ -196,28 +215,59 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
       return <Paused />
     },
     duckduckgosearchagent: ({ children, ...props }: any) => {
-      return <DuckDuckGoSearchAgent text={children} modelName={props["data-model"]}></DuckDuckGoSearchAgent>
+      return (
+        <DuckDuckGoSearchAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></DuckDuckGoSearchAgent>
+      )
     },
     bravesearchagent: ({ children, ...props }: any) => {
-      return <BraveSearchAgent text={children} modelName={props["data-model"]}></BraveSearchAgent>
+      return (
+        <BraveSearchAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></BraveSearchAgent>
+      )
     },
     urlretrieveragent: ({ children, ...props }: any) => {
-      return <UrlRetrieverAgent text={children} modelName={props["data-model"]}></UrlRetrieverAgent>
+      return (
+        <UrlRetrieverAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></UrlRetrieverAgent>
+      )
     },
     ragagent: ({ children, ...props }: any) => {
-      return <RagAgent text={children} modelName={props["data-model"]}></RagAgent>
+      return (
+        <RagAgent text={children} modelName={props["data-model"]}></RagAgent>
+      )
     },
     urlagent: ({ children, ...props }: any) => {
-      return <UrlAgent text={children} modelName={props["data-model"]}></UrlAgent>
+      return (
+        <UrlAgent text={children} modelName={props["data-model"]}></UrlAgent>
+      )
     },
     userinputagent: ({ children, ...props }: any) => {
-      return <UserInputAgent text={children} modelName={props["data-model"]}></UserInputAgent>
+      return (
+        <UserInputAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></UserInputAgent>
+      )
     },
     urlrevieweragent: ({ children, ...props }: any) => {
-      return <UrlReviewerAgent text={children} modelName={props["data-model"]}></UrlReviewerAgent>
+      return (
+        <UrlReviewerAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></UrlReviewerAgent>
+      )
     },
     bashagent: ({ children, ...props }: any) => {
-      return <BashAgent text={children} modelName={props["data-model"]}></BashAgent>
+      return (
+        <BashAgent text={children} modelName={props["data-model"]}></BashAgent>
+      )
     },
     h1: withClass("h1", "text-2xl font-semibold"),
     h2: withClass("h2", "font-semibold text-xl"),

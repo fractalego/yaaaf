@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+
 import { ModelIndicator } from "./model-indicator"
 
 function DuckDuckGoSearchAgent(element: { text: string; modelName?: string }) {
@@ -28,10 +29,12 @@ function DuckDuckGoSearchAgent(element: { text: string; modelName?: string }) {
             ></path>
           </svg>
         </div>
-        <span className="flex-1 text-xs text-gray-600 dark:text-gray-400 opacity-70 font-mono">Web Search Agent</span>
+        <span className="flex-1 text-xs text-gray-600 dark:text-gray-400 opacity-70 font-mono">
+          Web Search Agent
+        </span>
         {element.modelName && (
-          <ModelIndicator 
-            modelName={element.modelName} 
+          <ModelIndicator
+            modelName={element.modelName}
             variant="compact"
             className="text-gray-600 dark:text-gray-400"
           />

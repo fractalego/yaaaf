@@ -116,6 +116,62 @@ class OrchestratorBuilder:
             return agent_config.name
         return agent_config
 
+    def _generate_agents_sources_tools_list(self) -> str:
+        """Generate a comprehensive list of available agents, sources, and tools for the ReflectionAgent."""
+        sections = []
+
+        # Agents section
+        agents_info = ["**Available Agents:**"]
+        for agent_name, agent_class in self._agents_map.items():
+            # Skip reflection to avoid circular reference
+            if agent_name != "reflection":
+                try:
+                    # Create a temporary instance to get description
+                    temp_client = OllamaClient(
+                        model="temp", temperature=0.1, max_tokens=100
+                    )
+
+                    # Handle special cases that need additional parameters
+                    if agent_name == "sql":
+                        temp_agent = agent_class(
+                            temp_client, SqliteSource("temp", ":memory:")
+                        )
+                    elif agent_name == "rag":
+                        temp_agent = agent_class(temp_client, [])
+                    else:
+                        temp_agent = agent_class(temp_client)
+
+                    description = temp_agent.get_description().strip()
+                    agents_info.append(f"• {agent_name}: {description}")
+                except Exception:
+                    # Fallback description if instantiation fails
+                    agents_info.append(
+                        f"• {agent_name}: {agent_name.replace('_', ' ').title()} agent"
+                    )
+
+        sections.append("\n".join(agents_info))
+
+        # Sources section
+        if self.config.sources:
+            sources_info = ["**Available Data Sources:**"]
+            for source in self.config.sources:
+                source_desc = f"• {source.name} ({source.type}): {source.path}"
+                if hasattr(source, "description") and source.description:
+                    source_desc += f" - {source.description}"
+                sources_info.append(source_desc)
+            sections.append("\n".join(sources_info))
+
+        # Tools section (MCP tools if available)
+        tools_info = ["**Available Tools:**"]
+        tools_info.append("• File system operations (via bash agent)")
+        tools_info.append("• Data visualization (matplotlib charts)")
+        tools_info.append("• Web search capabilities")
+        tools_info.append("• SQL database queries")
+        tools_info.append("• Text analysis and processing")
+        sections.append("\n".join(tools_info))
+
+        return "\n\n".join(sections)
+
     def build(self):
         # Create default client for orchestrator
         orchestrator_client = OllamaClient(
@@ -129,6 +185,9 @@ class OrchestratorBuilder:
         rag_sources = self._create_rag_sources()
 
         orchestrator = OrchestratorAgent(orchestrator_client)
+
+        # Generate agents/sources/tools list for ReflectionAgent
+        agents_sources_tools_list = self._generate_agents_sources_tools_list()
 
         for agent_config in self.config.agents:
             agent_name = self._get_agent_name(agent_config)
@@ -151,7 +210,14 @@ class OrchestratorBuilder:
                         client=agent_client, sources=rag_sources
                     )
                 )
-            elif agent_name not in ["sql", "rag"]:
+            elif agent_name == "reflection":
+                orchestrator.subscribe_agent(
+                    self._agents_map[agent_name](
+                        client=agent_client,
+                        agents_and_sources_and_tools_list=agents_sources_tools_list,
+                    )
+                )
+            elif agent_name not in ["sql", "rag", "reflection"]:
                 orchestrator.subscribe_agent(
                     self._agents_map[agent_name](client=agent_client)
                 )

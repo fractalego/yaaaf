@@ -16,12 +16,19 @@ class ReflectionAgent(BaseAgent):
     _stop_sequences = []
     _max_steps = 5
 
-    def __init__(self, client: BaseClient) -> None:
+    def __init__(
+        self, client: BaseClient, agents_and_sources_and_tools_list: str = ""
+    ) -> None:
         self._client = client
+        self._agents_and_sources_and_tools_list = agents_and_sources_and_tools_list
 
     @handle_exceptions
     async def query(self, messages: Messages, notes: Optional[List[str]] = None) -> str:
-        messages = messages.add_system_prompt(self._system_prompt.complete())
+        messages = messages.add_system_prompt(
+            self._system_prompt.complete(
+                agents_and_sources_and_tools_list=self._agents_and_sources_and_tools_list
+            )
+        )
         current_output: str = "No output"
         for _ in range(self._max_steps):
             answer = await self._client.predict(
@@ -48,7 +55,6 @@ class ReflectionAgent(BaseAgent):
     def get_description(self) -> str:
         return f"""
 Self-reflection agent: This agent thinks step by step about the actions to take.
-Use it when you need to think about the task.
-Inform the agent about the tools at your disposal (SQL and Visualization).
+Use it when you need to think about the task and plan the next steps.
 To call this agent write {self.get_opening_tag()} THINGS TO THINK ABOUT {self.get_closing_tag()}
         """

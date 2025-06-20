@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+
 import { ModelIndicator } from "./model-indicator"
 
 function ReflectionAgent(element: { text: string; modelName?: string }) {
@@ -25,10 +26,12 @@ function ReflectionAgent(element: { text: string; modelName?: string }) {
             <circle cx="18" cy="5" r="3" />
           </svg>
         </div>
-        <span className="flex-1 text-xs text-slate-600 dark:text-slate-400 opacity-70 font-mono">Reflection Agent</span>
+        <span className="flex-1 text-xs text-slate-600 dark:text-slate-400 opacity-70 font-mono">
+          Reflection Agent
+        </span>
         {element.modelName && (
-          <ModelIndicator 
-            modelName={element.modelName} 
+          <ModelIndicator
+            modelName={element.modelName}
             variant="compact"
             className="text-slate-600 dark:text-slate-400"
           />

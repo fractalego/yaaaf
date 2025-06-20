@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+
 import { ModelIndicator } from "./model-indicator"
 
 function SqlAgent(element: { text: string; modelName?: string }) {
@@ -25,10 +26,12 @@ function SqlAgent(element: { text: string; modelName?: string }) {
             <path d="M3 12A9 3 0 0 0 21 12" />
           </svg>
         </div>
-        <span className="flex-1 text-xs text-slate-600 dark:text-slate-400 opacity-70 font-mono">SQL Agent</span>
+        <span className="flex-1 text-xs text-slate-600 dark:text-slate-400 opacity-70 font-mono">
+          SQL Agent
+        </span>
         {element.modelName && (
-          <ModelIndicator 
-            modelName={element.modelName} 
+          <ModelIndicator
+            modelName={element.modelName}
             variant="compact"
             className="text-slate-600 dark:text-slate-400"
           />

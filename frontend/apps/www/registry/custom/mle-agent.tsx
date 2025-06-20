@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+
 import { ModelIndicator } from "./model-indicator"
 
 function MleAgent(element: { text: string; modelName?: string }) {
@@ -35,10 +36,12 @@ function MleAgent(element: { text: string; modelName?: string }) {
             <circle cx="20" cy="8" r=".5" />
           </svg>
         </div>
-        <span className="flex-1 text-xs text-gray-600 dark:text-gray-400 opacity-70 font-mono">ML Engineering Agent</span>
+        <span className="flex-1 text-xs text-gray-600 dark:text-gray-400 opacity-70 font-mono">
+          ML Engineering Agent
+        </span>
         {element.modelName && (
-          <ModelIndicator 
-            modelName={element.modelName} 
+          <ModelIndicator
+            modelName={element.modelName}
             variant="compact"
             className="text-gray-600 dark:text-gray-400"
           />

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+
 import { ModelIndicator } from "./model-indicator"
 
 function BashAgent(element: { text: string; modelName?: string }) {
@@ -24,10 +25,12 @@ function BashAgent(element: { text: string; modelName?: string }) {
             <line x1="12" x2="20" y1="19" y2="19" />
           </svg>
         </div>
-        <span className="flex-1 text-xs text-green-600 dark:text-green-400 opacity-70 font-mono">Bash Agent</span>
+        <span className="flex-1 text-xs text-green-600 dark:text-green-400 opacity-70 font-mono">
+          Bash Agent
+        </span>
         {element.modelName && (
-          <ModelIndicator 
-            modelName={element.modelName} 
+          <ModelIndicator
+            modelName={element.modelName}
             variant="compact"
             className="text-green-600 dark:text-green-400"
           />

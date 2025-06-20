@@ -123,7 +123,9 @@ function formatNoteToString(note: Note): string {
     // Combine markdown content with the rest of the message
     if (messageWithoutMarkdown) {
       if (note.agent_name) {
-        const modelInfo = note.model_name ? ` data-model="${note.model_name}"` : ""
+        const modelInfo = note.model_name
+          ? ` data-model="${note.model_name}"`
+          : ""
         result =
           markdownContent +
           "\n\n" +
@@ -138,7 +140,9 @@ function formatNoteToString(note: Note): string {
   } else {
     // No markdown tags, use original logic
     if (note.agent_name) {
-      const modelInfo = note.model_name ? ` data-model="${note.model_name}"` : ""
+      const modelInfo = note.model_name
+        ? ` data-model="${note.model_name}"`
+        : ""
       result = `<${note.agent_name}${modelInfo}>${note.message}</${note.agent_name}>`
     } else {
       result = note.message

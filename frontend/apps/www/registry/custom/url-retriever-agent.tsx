@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+
 import { ModelIndicator } from "./model-indicator"
 
 function UrlRetrieverAgent(element: { text: string; modelName?: string }) {
@@ -25,10 +26,12 @@ function UrlRetrieverAgent(element: { text: string; modelName?: string }) {
             <path d="m21 21-4.3-4.3" />
           </svg>
         </div>
-        <span className="flex-1 text-xs text-stone-600 dark:text-stone-400 opacity-70 font-mono">URL Retriever Agent</span>
+        <span className="flex-1 text-xs text-stone-600 dark:text-stone-400 opacity-70 font-mono">
+          URL Retriever Agent
+        </span>
         {element.modelName && (
-          <ModelIndicator 
-            modelName={element.modelName} 
+          <ModelIndicator
+            modelName={element.modelName}
             variant="compact"
             className="text-stone-600 dark:text-stone-400"
           />

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+
 import { ModelIndicator } from "./model-indicator"
 
 function RagAgent(element: { text: string; modelName?: string }) {
@@ -28,10 +29,12 @@ function RagAgent(element: { text: string; modelName?: string }) {
             ></path>
           </svg>
         </div>
-        <span className="flex-1 text-xs text-slate-600 dark:text-slate-400 opacity-70 font-mono">RAG Agent</span>
+        <span className="flex-1 text-xs text-slate-600 dark:text-slate-400 opacity-70 font-mono">
+          RAG Agent
+        </span>
         {element.modelName && (
-          <ModelIndicator 
-            modelName={element.modelName} 
+          <ModelIndicator
+            modelName={element.modelName}
             variant="compact"
             className="text-slate-600 dark:text-slate-400"
           />

@@ -96,9 +96,16 @@ class RAGAgent(BaseAgent):
             f"The result is in this artefact <artefact type='table'>{rag_id}</artefact>"
         )
 
+    @staticmethod
+    def get_info() -> str:
+        """Get a brief high-level description of what this agent does."""
+        return (
+            "This agent queries the RAG sources and retrieves the relevant information"
+        )
+
     def get_description(self) -> str:
-        return """
-RAG agent: This agent queries the RAG sources and retrieves the relevant information.
+        return f"""
+RAG agent: {self.get_info()}.
 Each source is a folder containing a list of documents.
 This agent accepts a query in plain English and returns the relevant documents from the sources.
 These documents provide the information needed to answer the user's question.

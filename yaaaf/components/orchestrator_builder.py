@@ -123,31 +123,8 @@ class OrchestratorBuilder:
         # Agents section
         agents_info = ["**Available Agents:**"]
         for agent_name, agent_class in self._agents_map.items():
-            # Skip reflection to avoid circular reference
             if agent_name != "reflection":
-                try:
-                    # Create a temporary instance to get description
-                    temp_client = OllamaClient(
-                        model="temp", temperature=0.1, max_tokens=100
-                    )
-
-                    # Handle special cases that need additional parameters
-                    if agent_name == "sql":
-                        temp_agent = agent_class(
-                            temp_client, SqliteSource("temp", ":memory:")
-                        )
-                    elif agent_name == "rag":
-                        temp_agent = agent_class(temp_client, [])
-                    else:
-                        temp_agent = agent_class(temp_client)
-
-                    description = temp_agent.get_description().strip()
-                    agents_info.append(f"• {agent_name}: {description}")
-                except Exception:
-                    # Fallback description if instantiation fails
-                    agents_info.append(
-                        f"• {agent_name}: {agent_name.replace('_', ' ').title()} agent"
-                    )
+                agents_info.append(f"• {agent_name}: {agent_class.get_info()}")
 
         sections.append("\n".join(agents_info))
 
@@ -156,8 +133,6 @@ class OrchestratorBuilder:
             sources_info = ["**Available Data Sources:**"]
             for source in self.config.sources:
                 source_desc = f"• {source.name} ({source.type}): {source.path}"
-                if hasattr(source, "description") and source.description:
-                    source_desc += f" - {source.description}"
                 sources_info.append(source_desc)
             sections.append("\n".join(sources_info))
 

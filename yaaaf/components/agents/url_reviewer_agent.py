@@ -80,9 +80,13 @@ class UrlReviewerAgent(BaseAgent):
         )
         return f"The result is in this artefact <artefact type='paragraphs-table'>{hash_id}</artefact>"
 
+    @staticmethod
+    def get_info() -> str:
+        return "This agent is given the relevant artefact table of web search results and retrieves the relevant information from these results."
+
     def get_description(self) -> str:
         return f"""
-Url Retriever agent: This agent is given the relevant artefact table of web search results and retrieves the relevant information from these results.
+Url Retriever agent: {self.get_info()}
 To call this agent write {self.get_opening_tag()} ENGLISH QUERY AND ARTEFACTS THAT DESCRIBE WHAT TO RETRIEVE FROM THE WEB SEARCH RESULTS {self.get_closing_tag()}
 This agent is called when you need to better look into the content of a url.
 The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (only websearch results.

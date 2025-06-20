@@ -104,9 +104,13 @@ class MleAgent(BaseAgent):
             f"Additionally, the model returned the output {code_result}.\n"
         )
 
+    @staticmethod
+    def get_info() -> str:
+        return "This agent is given the relevant table, quickly trains a small sklearn model and saves it in a joblib file."
+
     def get_description(self) -> str:
         return f"""
-Visualization agent: This agent is given the relevant table, quickly trains a small sklearn model and saves it in a joblib file.
+Visualization agent: {self.get_info()}
 You can use linear interpolation, polynomial regression, SVM, logistic regression, decision trees, random forests.
 To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEFACTS THAT DESCRIBE WHAT TO APPLY THE SKLEARN MODEL TO {self.get_closing_tag()}
 The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).

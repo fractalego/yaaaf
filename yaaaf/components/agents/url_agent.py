@@ -194,9 +194,13 @@ class URLAgent(BaseAgent):
             # Return text directly
             return current_output.replace(task_completed_tag, "")
 
+    @staticmethod
+    def get_info() -> str:
+        return "This agent fetches content from URLs and analyzes it based on instructions."
+
     def get_description(self) -> str:
         return f"""
-URL Analysis agent: This agent fetches content from URLs and analyzes it based on instructions.
+URL Analysis agent: {self.get_info()}
 This agent can extract information from web pages or find relevant URLs within the content.
 To call this agent write {self.get_opening_tag()} URL_TO_ANALYZE INSTRUCTION_FOR_ANALYSIS {self.get_closing_tag()}
 The agent will either return:

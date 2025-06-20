@@ -84,9 +84,14 @@ class DuckDuckGoSearchAgent(BaseAgent):
         )
         return f"The result is in this artifact <artefact type='websearch-result'>{web_search_id}</artefact>."
 
+    @staticmethod
+    def get_info() -> str:
+        """Get a brief high-level description of what this agent does."""
+        return "This agent calls a web search engine and outputs the results"
+
     def get_description(self) -> str:
         return f"""
-Web Search agent: This agent calls a web search engine and outputs the results.
+Web Search agent: {self.get_info()}.
 This agent provides an interface to web search engine.
 To call this agent write {self.get_opening_tag()} INFORMATION TO RETRIEVE {self.get_closing_tag()}
 Just write in clear and brief English the information you need to retrieve between these tags. 

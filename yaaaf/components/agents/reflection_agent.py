@@ -52,9 +52,14 @@ class ReflectionAgent(BaseAgent):
 
         return current_output.replace(task_completed_tag, "")
 
+    @staticmethod
+    def get_info() -> str:
+        """Get a brief high-level description of what this agent does."""
+        return "This agent thinks step by step about the actions to take"
+
     def get_description(self) -> str:
         return f"""
-Self-reflection agent: This agent thinks step by step about the actions to take.
-Use it when you need to think about the task and plan the next steps.
+Self-reflection agent: {self.get_info()}.
+Always call this agent first to think about the task and plan the next steps.
 To call this agent write {self.get_opening_tag()} THINGS TO THINK ABOUT {self.get_closing_tag()}
         """

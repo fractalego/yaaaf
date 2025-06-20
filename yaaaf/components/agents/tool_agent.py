@@ -107,9 +107,13 @@ class ToolAgent(BaseAgent):
         )
         return f"The result is in this artefact <artefact type='called-tools-table'>{tool_id}</artefact>"
 
+    @staticmethod
+    def get_info() -> str:
+        return "This agent uses MCP (Model Context Protocol) tools to perform various operations."
+
     def get_description(self) -> str:
-        return """
-Tool agent: This agent uses MCP (Model Context Protocol) tools to perform various operations.
+        return f"""
+Tool agent: {self.get_info()}
 Each tool group contains a collection of tools that can be called with specific arguments.
 This agent accepts a query in plain English and uses the appropriate tools to gather information or perform actions.
 The tools provide the capabilities needed to answer the user's question or complete the requested task.

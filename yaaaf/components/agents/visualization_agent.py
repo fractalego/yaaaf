@@ -125,9 +125,16 @@ class VisualizationAgent(BaseAgent):
 
         return result
 
+    @staticmethod
+    def get_info() -> str:
+        """Get a brief high-level description of what this agent does."""
+        return (
+            "This agent is given the relevant artefact table and visualizes the results"
+        )
+
     def get_description(self) -> str:
         return f"""
-Visualization agent: This agent is given the relevant artefact table and visualizes the results.
+Visualization agent: {self.get_info()}.
 To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEFACTS THAT DESCRIBE WHAT TO PLOT {self.get_closing_tag()}
 The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).
 The information about what to plot will be then used by the agent.

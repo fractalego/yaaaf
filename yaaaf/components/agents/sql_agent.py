@@ -86,9 +86,14 @@ class SqlAgent(BaseAgent):
         )
         return f"The result is in this artifact <artefact type='table'>{table_id}</artefact>."
 
+    @staticmethod
+    def get_info() -> str:
+        """Get a brief high-level description of what this agent does."""
+        return "This agent calls the relevant sql table and outputs the results"
+
     def get_description(self) -> str:
         return f"""
-SQL agent: This agent calls the relevant sql table and outputs the results.
+SQL agent: {self.get_info()}.
 This agent provides an interface to a dataset through SQL queries. It includes table information and column names.
 To call this agent write {self.get_opening_tag()} INFORMATION TO RETRIEVE {self.get_closing_tag()}
 Do not write an SQL formula. Just write in clear and brief English the information you need to retrieve.

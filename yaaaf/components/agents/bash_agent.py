@@ -208,9 +208,14 @@ class BashAgent(BaseAgent):
         result_message += task_completed_tag
         return result_message
 
+    @staticmethod
+    def get_info() -> str:
+        """Get a brief high-level description of what this agent does."""
+        return "This agent can execute bash commands for filesystem operations"
+
     def get_description(self) -> str:
         return f"""
-Bash agent: This agent can execute bash commands for filesystem operations like reading files, listing directories, and writing content.
+Bash agent: {self.get_info()} like reading files, listing directories, and writing content.
 Use this agent when you need to:
 - List directory contents (ls, find)
 - Read file contents (cat, head, tail)

@@ -15,8 +15,13 @@ class BaseAgent:
     def get_name(self) -> str:
         return self.__class__.__name__.lower()
 
+    @staticmethod
+    def get_info() -> str:
+        """Get a brief high-level description of what this agent does."""
+        return "Base agent with no specific functionality"
+
     def get_description(self) -> str:
-        return "This is just a Base agent. All it does is to say 'Unknown agent'."
+        return f"{self.get_info()}. This is just a Base agent. All it does is to say 'Unknown agent'."
 
     def get_opening_tag(self) -> str:
         return f"<{self.get_name()}>"

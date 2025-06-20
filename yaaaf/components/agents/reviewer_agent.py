@@ -85,9 +85,14 @@ class ReviewerAgent(BaseAgent):
 
         return code_result
 
+    @staticmethod
+    def get_info() -> str:
+        """Get a brief high-level description of what this agent does."""
+        return "This agent is given the relevant artefact table and searches for a specific piece of information"
+
     def get_description(self) -> str:
         return f"""
-Reviewer agent: This agent is given the relevant artefact table and searches for a specific piece of information.
+Reviewer agent: {self.get_info()}.
 To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEFACTS THAT DESCRIBE WHAT TO RETRIEVE FROM THE DATA {self.get_closing_tag()}
 This agent is called when you need to check if the output of the sql agent answers the overarching goal.
 The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).

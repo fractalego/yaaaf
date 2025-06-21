@@ -11,7 +11,6 @@ from yaaaf.server.routes import (
     get_all_utterances,
     get_query_suggestions,
     stream_utterances,
-    cancel_stream,
 )
 from yaaaf.server.server_settings import server_settings
 
@@ -22,7 +21,6 @@ app.add_middleware(
 app.add_api_route("/create_stream", endpoint=create_stream, methods=["POST"])
 app.add_api_route("/get_utterances", endpoint=get_all_utterances, methods=["POST"])
 app.add_api_route("/stream_utterances", endpoint=stream_utterances, methods=["POST"])
-app.add_api_route("/cancel_stream", endpoint=cancel_stream, methods=["POST"])
 app.add_api_route("/get_artefact", endpoint=get_artifact, methods=["POST"])
 app.add_api_route("/get_image", endpoint=get_image, methods=["POST"])
 app.add_api_route(

@@ -182,18 +182,6 @@ export async function POST(req: Request) {
           } catch (lockError) {
             console.warn('Frontend: Error releasing reader lock:', lockError)
           }
-          
-          // Cancel the backend stream when frontend stops
-          try {
-            await fetch('http://localhost:4000/cancel_stream', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ stream_id })
-            })
-            console.log(`Frontend: Cancelled backend stream ${stream_id}`)
-          } catch (cancelError) {
-            console.warn('Frontend: Error cancelling backend stream:', cancelError)
-          }
         }
 
         // Streaming ended normally (not due to timeout)

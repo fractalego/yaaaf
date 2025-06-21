@@ -24,10 +24,6 @@ class NewUtteranceArguments(BaseModel):
     stream_id: str
 
 
-class CancelStreamArguments(BaseModel):
-    stream_id: str
-
-
 class ArtefactArguments(BaseModel):
     artefact_id: str
 
@@ -110,19 +106,6 @@ def get_query_suggestions(query: str) -> List[str]:
         raise
 
 
-def cancel_stream(arguments: CancelStreamArguments):
-    """Cancel an active stream"""
-    try:
-        from yaaaf.server.accessories import cancel_stream as cancel_stream_func
-
-        cancel_stream_func(arguments.stream_id)
-        _logger.info(f"Routes: Successfully cancelled stream {arguments.stream_id}")
-        return {"status": "cancelled", "stream_id": arguments.stream_id}
-    except Exception as e:
-        _logger.error(f"Routes: Failed to cancel stream {arguments.stream_id}: {e}")
-        raise
-
-
 async def stream_utterances(arguments: NewUtteranceArguments):
     """Real-time streaming endpoint for utterances"""
 
@@ -133,62 +116,47 @@ async def stream_utterances(arguments: NewUtteranceArguments):
         consecutive_empty_checks = 0
         max_empty_checks = 10  # Send keep-alive after 5 seconds of no data
 
-        try:
-            for i in range(max_iterations):
-                try:
-                    notes = get_utterances(stream_id)
-                    new_notes = notes[current_index:]
-                    current_index += len(new_notes)
+        for i in range(max_iterations):
+            try:
+                notes = get_utterances(stream_id)
+                new_notes = notes[current_index:]
+                current_index += len(new_notes)
 
-                    if new_notes:
-                        # Reset empty check counter when we have data
+                if new_notes:
+                    # Reset empty check counter when we have data
+                    consecutive_empty_checks = 0
+
+                    for note in new_notes:
+                        # Send each note as SSE
+                        import json
+
+                        note_data = {
+                            "message": note.message,
+                            "artefact_id": note.artefact_id,
+                            "agent_name": note.agent_name,
+                            "model_name": note.model_name,
+                        }
+                        yield f"data: {json.dumps(note_data)}\n\n"
+
+                        # Check for completion
+                        if "taskcompleted" in note.message:
+                            return
+                else:
+                    # No new data, increment empty check counter
+                    consecutive_empty_checks += 1
+
+                    # Send keep-alive message every 5 seconds when no data
+                    if consecutive_empty_checks >= max_empty_checks:
+                        yield ": keep-alive\n\n"  # SSE comment for keep-alive
                         consecutive_empty_checks = 0
 
-                        for note in new_notes:
-                            # Send each note as SSE
-                            import json
+                # Shorter delay for more responsive streaming
+                await asyncio.sleep(0.5)
 
-                            note_data = {
-                                "message": note.message,
-                                "artefact_id": note.artefact_id,
-                                "agent_name": note.agent_name,
-                                "model_name": note.model_name,
-                            }
-                            yield f"data: {json.dumps(note_data)}\n\n"
-
-                            # Check for completion
-                            if "taskcompleted" in note.message:
-                                return
-                    else:
-                        # No new data, increment empty check counter
-                        consecutive_empty_checks += 1
-
-                        # Send keep-alive message every 5 seconds when no data
-                        if consecutive_empty_checks >= max_empty_checks:
-                            yield ": keep-alive\n\n"  # SSE comment for keep-alive
-                            consecutive_empty_checks = 0
-
-                    # Shorter delay for more responsive streaming
-                    await asyncio.sleep(0.5)
-
-                except Exception as e:
-                    _logger.error(f"Routes: Error in streaming for {stream_id}: {e}")
-                    yield f'data: {{"error": "Stream error: {str(e)}"}}\n\n'
-                    return
-        except (GeneratorExit, asyncio.CancelledError) as e:
-            # Client disconnected or stream was cancelled
-            _logger.info(f"Routes: Client disconnected for stream {stream_id}: {e}")
-            from yaaaf.server.accessories import cancel_stream
-
-            cancel_stream(stream_id)
-            return
-        except Exception as e:
-            _logger.error(f"Routes: Unexpected error in stream {stream_id}: {e}")
-            from yaaaf.server.accessories import cancel_stream
-
-            cancel_stream(stream_id)
-            yield f'data: {{"error": "Stream error: {str(e)}"}}\n\n'
-            return
+            except Exception as e:
+                _logger.error(f"Routes: Error in streaming for {stream_id}: {e}")
+                yield f'data: {{"error": "Stream error: {str(e)}"}}\n\n'
+                return
 
     return StreamingResponse(
         generate_stream(),

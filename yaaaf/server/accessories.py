@@ -4,6 +4,7 @@ from typing import Dict, List
 from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaaf.components.data_types import Note
 from yaaaf.components.safety_filter import SafetyFilter
+from yaaaf.components.client import OllamaConnectionError, OllamaResponseError
 from yaaaf.server.config import get_config
 
 _path = os.path.dirname(os.path.realpath(__file__))
@@ -32,17 +33,55 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
             return
 
         await orchestrator.query(messages=messages, notes=notes)
-    except Exception as e:
-        _logger.error(f"Accessories: Failed to compute for stream {stream_id}: {e}")
-        # Store error message in notes for frontend
+    except OllamaConnectionError as e:
+        error_message = f"🔌 **Connection Error**: {e}"
+        _logger.error(
+            f"Accessories: Ollama connection failed for stream {stream_id}: {e}"
+        )
+
+        # Create user-friendly error note for frontend
         error_note = Note(
-            message=f"Error during computation: {e}",
+            message=error_message,
             artefact_id=None,
             agent_name="system",
+            model_name=None,
         )
         if stream_id in _stream_id_to_messages:
             _stream_id_to_messages[stream_id].append(error_note)
-        raise
+
+        # Don't re-raise to prevent server error; error is already in notes
+
+    except OllamaResponseError as e:
+        error_message = f"⚠️ **Ollama Error**: {e}"
+        _logger.error(f"Accessories: Ollama response error for stream {stream_id}: {e}")
+
+        # Create user-friendly error note for frontend
+        error_note = Note(
+            message=error_message,
+            artefact_id=None,
+            agent_name="system",
+            model_name=None,
+        )
+        if stream_id in _stream_id_to_messages:
+            _stream_id_to_messages[stream_id].append(error_note)
+
+        # Don't re-raise to prevent server error; error is already in notes
+
+    except Exception as e:
+        error_message = f"❌ **System Error**: An unexpected error occurred: {e}"
+        _logger.error(f"Accessories: Failed to compute for stream {stream_id}: {e}")
+
+        # Store error message in notes for frontend
+        error_note = Note(
+            message=error_message,
+            artefact_id=None,
+            agent_name="system",
+            model_name=None,
+        )
+        if stream_id in _stream_id_to_messages:
+            _stream_id_to_messages[stream_id].append(error_note)
+
+        # Don't re-raise to prevent server error; error is already in notes
 
 
 def get_utterances(stream_id):

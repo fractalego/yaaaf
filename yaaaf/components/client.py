@@ -2,6 +2,7 @@ import requests
 import json
 import logging
 from pathlib import Path
+from requests.exceptions import ConnectionError, Timeout, RequestException
 
 from typing import Optional, List, TYPE_CHECKING
 
@@ -11,6 +12,31 @@ if TYPE_CHECKING:
     from yaaaf.components.data_types import Messages
 
 _logger = logging.getLogger(__name__)
+
+
+class OllamaConnectionError(Exception):
+    """Exception raised when there's a connection error to Ollama."""
+
+    def __init__(self, host: str, model: str, original_error: Exception):
+        self.host = host
+        self.model = model
+        self.original_error = original_error
+        super().__init__(
+            f"Failed to connect to Ollama at {host} for model '{model}': {original_error}"
+        )
+
+
+class OllamaResponseError(Exception):
+    """Exception raised when Ollama returns an error response."""
+
+    def __init__(self, host: str, model: str, status_code: int, response_text: str):
+        self.host = host
+        self.model = model
+        self.status_code = status_code
+        self.response_text = response_text
+        super().__init__(
+            f"Ollama error at {host} for model '{model}': HTTP {status_code} - {response_text}"
+        )
 
 
 class BaseClient:
@@ -131,8 +157,10 @@ class OllamaClient(BaseClient):
     async def predict(
         self, messages: "Messages", stop_sequences: Optional[List[str]] = None
     ) -> str:
-        _logger.debug(f"Making request to Ollama instance at {self.host} with model '{self.model}'")
-        
+        _logger.debug(
+            f"Making request to Ollama instance at {self.host} with model '{self.model}'"
+        )
+
         headers = {"Content-Type": "application/json"}
         data = {
             "model": self.model,
@@ -144,12 +172,42 @@ class OllamaClient(BaseClient):
             },
             "stream": False,
         }
-        response = requests.post(
-            f"{self.host}/api/chat", headers=headers, data=json.dumps(data)
-        )
+
+        try:
+            response = requests.post(
+                f"{self.host}/api/chat",
+                headers=headers,
+                data=json.dumps(data),
+                timeout=30,  # 30 second timeout
+            )
+        except ConnectionError as e:
+            error_msg = f"Connection refused to Ollama at {self.host}. Please ensure Ollama is running and accessible."
+            _logger.error(error_msg)
+            raise OllamaConnectionError(self.host, self.model, e)
+        except Timeout as e:
+            error_msg = f"Timeout connecting to Ollama at {self.host}. The server may be overloaded or unreachable."
+            _logger.error(error_msg)
+            raise OllamaConnectionError(self.host, self.model, e)
+        except RequestException as e:
+            error_msg = f"Network error connecting to Ollama at {self.host}: {e}"
+            _logger.error(error_msg)
+            raise OllamaConnectionError(self.host, self.model, e)
+
         if response.status_code == 200:
             _logger.debug(f"Successfully received response from {self.host}")
-            return strip_thought_tokens(json.loads(response.text)["message"]["content"])
+            try:
+                response_data = json.loads(response.text)
+                return strip_thought_tokens(response_data["message"]["content"])
+            except (json.JSONDecodeError, KeyError) as e:
+                error_msg = f"Invalid response format from Ollama at {self.host}: {e}"
+                _logger.error(error_msg)
+                raise OllamaResponseError(
+                    self.host, self.model, response.status_code, str(e)
+                )
         else:
-            _logger.error(f"Error response from {self.host}: {response.status_code}, {response.text}")
-            raise Exception(f"Error: {response.status_code}, {response.text}")
+            _logger.error(
+                f"Error response from {self.host}: {response.status_code}, {response.text}"
+            )
+            raise OllamaResponseError(
+                self.host, self.model, response.status_code, response.text
+            )

@@ -9,7 +9,7 @@ export const get_artefact_url = `http://localhost:${port}/get_artefact`
 export const complete_tag = "<taskcompleted/>"
 export const paused_tag = "<taskpaused/>"
 export const query_suggestions: string =
-  "who is the president,what is the capital of France,how to cook pasta,what is the weather today,how to learn programming"
+  "who is the prime minister of Italy,what is the capital of France,how to cook pasta,what is the weather today,how to learn programming"
 
 // Info button configuration
 export const info_button_title = process.env.YAAAF_INFO_TITLE || "About YAAAF"
@@ -20,7 +20,7 @@ export const info_button_message =
 🤖 Modular Agent System
 Specialized agents for SQL, visualization, web search, ML, and more
 
-⚡ Real-time Streaming  
+⚡ Real-time Streaming
 Live updates with structured responses and agent attribution
 
 📊 Artifact Management
@@ -29,7 +29,7 @@ Centralized storage for generated content (tables, images, models)
 🏷️ Tag-Based Routing
 Use HTML-like tags for intuitive agent selection:
 • <sqlagent> for database queries
-• <visualizationagent> for charts and graphs  
+• <visualizationagent> for charts and graphs
 • <websearchagent> for web searches
 • <bashagent> for filesystem operations
 

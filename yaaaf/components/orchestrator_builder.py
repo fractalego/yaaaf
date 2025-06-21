@@ -103,10 +103,12 @@ class OrchestratorBuilder:
             )
             host = agent_config.host or self.config.client.host
             agent_name = agent_config.name
-            
+
             # Log agent-specific configuration
             if agent_config.host:
-                _logger.info(f"Agent '{agent_name}' configured with custom host: {host}")
+                _logger.info(
+                    f"Agent '{agent_name}' configured with custom host: {host}"
+                )
             else:
                 _logger.info(f"Agent '{agent_name}' using default host: {host}")
         else:
@@ -116,7 +118,7 @@ class OrchestratorBuilder:
             max_tokens = self.config.client.max_tokens
             host = self.config.client.host
             agent_name = agent_config
-            
+
             _logger.info(f"Agent '{agent_name}' using default host: {host}")
 
         return OllamaClient(
@@ -165,8 +167,10 @@ class OrchestratorBuilder:
 
     def build(self):
         # Log orchestrator configuration
-        _logger.info(f"Building orchestrator with default client host: {self.config.client.host}")
-        
+        _logger.info(
+            f"Building orchestrator with default client host: {self.config.client.host}"
+        )
+
         # Create default client for orchestrator
         orchestrator_client = OllamaClient(
             model=self.config.client.model,

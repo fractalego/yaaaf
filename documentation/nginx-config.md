@@ -43,7 +43,30 @@ server {
     gzip_min_length 1024;
     gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
 
-    # Proxy to YAAAF frontend
+    # Special handling for SSE streaming chat API
+    location /api/chat {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Cache-Control 'no-cache';
+        proxy_set_header Connection '';
+        
+        # Critical for SSE streaming
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1200s;  # 20 minutes for long AI responses
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        
+        # Disable nginx response buffering for real-time streaming
+        proxy_max_temp_file_size 0;
+        proxy_request_buffering off;
+    }
+
+    # Proxy to YAAAF frontend (other routes)
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -55,10 +78,10 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
         
-        # Timeouts
-        proxy_connect_timeout 30s;
-        proxy_send_timeout 30s;
-        proxy_read_timeout 30s;
+        # Longer timeouts for frontend
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 300s;  # 5 minutes instead of 30 seconds
     }
 
     # Proxy to YAAAF backend API
@@ -190,6 +213,31 @@ sudo tail -f /var/log/nginx/access.log
 curl http://localhost:3000  # Frontend
 curl http://localhost:4000  # Backend
 ```
+
+### Streaming Issues
+
+If messages appear in logs but not in browser after page reload:
+
+1. **Check nginx buffering settings** - ensure `/api/chat` location has `proxy_buffering off`
+2. **Verify timeout settings** - `proxy_read_timeout` should be at least 1200s for long AI responses
+3. **Test SSE directly**:
+```bash
+curl -N -H "Accept: text/event-stream" -H "Cache-Control: no-cache" \
+  https://your-domain.com/api/chat \
+  -d '{"messages":[{"role":"user","content":"test"}],"session_id":"test"}'
+```
+
+4. **Check browser developer tools** - Network tab should show streaming response
+5. **Reload nginx configuration** after changes:
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### Common nginx streaming problems:
+- **proxy_buffering on**: Messages get buffered and delivered all at once
+- **Short timeouts**: Connections drop after 30-90 seconds
+- **Missing Content-Type**: Browser doesn't recognize SSE stream
+- **Cache headers**: Responses get cached instead of streamed
 
 ### Firewall configuration
 ```bash

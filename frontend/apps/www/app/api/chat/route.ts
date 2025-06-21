@@ -3,7 +3,6 @@ import { createDataStreamResponse } from "ai"
 import {
   complete_tag,
   create_stream_url,
-  get_utterances_url,
   stream_utterances_url,
   paused_tag,
 } from "@/app/settings"
@@ -15,6 +14,11 @@ interface Note {
   agent_name: string | null
   model_name: string | null
 }
+
+// Increase the max duration for this API route
+export const maxDuration = 900; // 15 minutes
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   const { messages, session_id } = await req.json()
@@ -69,6 +73,7 @@ export async function POST(req: Request) {
         let lastActivityTime = Date.now()
         let lastMessageTime = Date.now()
         let stillWorkingShown = false
+        let messageCount = 0
 
         try {
           while (true) {
@@ -84,6 +89,7 @@ export async function POST(req: Request) {
             // Process complete SSE messages
             let lines = buffer.split('\n')
             buffer = lines.pop() || "" // Keep incomplete line in buffer
+
 
             for (const line of lines) {
               // Handle SSE keep-alive comments (lines starting with ':')
@@ -118,12 +124,21 @@ export async function POST(req: Request) {
                   utterance = utterance.replaceAll('"', "&quot;")
                   utterance = utterance.replaceAll("\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
                   
+                  messageCount++
+                  
                   console.log(
-                    `Frontend: Processing real-time utterance from ${note.agent_name} (${note.model_name}):`,
-                    utterance
+                    `Frontend: Message #${messageCount} - Processing utterance from ${note.agent_name} (${note.model_name})`
                   )
                   
-                  dataStream.write(`0:"${utterance}<br/><br/>"\n`)
+                  try {
+                    dataStream.write(`0:"${utterance}<br/><br/>"\n`)
+                    console.log(`Frontend: Message #${messageCount} - Successfully wrote to dataStream`)
+                  } catch (writeError) {
+                    console.error(`Frontend: Message #${messageCount} - Error writing to dataStream:`, writeError)
+                    console.error('Frontend: DataStream appears to be unresponsive - ending stream')
+                    throw writeError
+                  }
+                  
                   lastMessageTime = Date.now() // Reset message timer
                   stillWorkingShown = false // Reset still working flag
                   
@@ -168,6 +183,9 @@ export async function POST(req: Request) {
             console.warn('Frontend: Error releasing reader lock:', lockError)
           }
         }
+        
+        // Streaming ended normally (not due to timeout)
+        console.log('Frontend: Streaming ended normally')
       } catch (streamError) {
         console.error(`Frontend: Streaming error for ${stream_id}:`, streamError)
         dataStream.write(`0:"<em>Streaming error: ${streamError}</em><br/><br/>"\n`)
@@ -259,39 +277,3 @@ function formatNoteToString(note: Note): string {
   return result
 }
 
-async function getUtterances(stream_id: string): Promise<Array<Note>> {
-  const url = get_utterances_url
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        stream_id,
-      }),
-    })
-    if (response.ok) {
-      return await response.json()
-    } else {
-      console.error(
-        `Frontend: Get utterances failed with status ${response.status}: ${response.statusText}`
-      )
-      throw new Error(`Error: ${response.statusText}`)
-    }
-  } catch (error) {
-    console.error(
-      `Frontend: Error fetching utterances for ${stream_id}:`,
-      error
-    )
-    return [
-      {
-        message: `Error in getting utterances: ${error}`,
-        artefact_id: null,
-        agent_name: "System",
-        model_name: null,
-      },
-    ]
-  }
-}

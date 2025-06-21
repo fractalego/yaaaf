@@ -65,7 +65,7 @@ def _get_simple_config() -> Settings:
             "create.*?(virus|malware)",
             "bypass.*?(security|safety)",
         ],
-        custom_message="I cannot answer that",
+        custom_message="I cannot answer that <taskcompleted/>",
     )
     api_settings: APISettings = APISettings(brave_search_api_key=None)
     config: Settings = Settings(

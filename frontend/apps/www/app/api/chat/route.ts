@@ -4,6 +4,7 @@ import {
   complete_tag,
   create_stream_url,
   get_utterances_url,
+  stream_utterances_url,
   paused_tag,
 } from "@/app/settings"
 
@@ -22,48 +23,104 @@ export async function POST(req: Request) {
     // @ts-ignore
     delete item["parts"]
   })
+  
   try {
     await createStream(stream_id, messages)
   } catch (error) {
     console.error(`Frontend: Failed to create stream ${stream_id}:`, error)
     // Continue with streaming even if initial creation had issues
   }
+
   const result = createDataStreamResponse({
     async execute(dataStream) {
       dataStream.write('0:"Thinking... <br/><br/>"\n')
 
-      let stopIterations: boolean = false
-      let current_index = 0
-      const max_time_in_chat = 360000 // seconds, see timeout below
-      for (let i = 0; i < max_time_in_chat; i++) {
-        const notes: Array<Note> = await getUtterances(stream_id)
-        const new_notes = notes.slice(current_index)
-        current_index += new_notes.length
-        new_notes.forEach((note: Note) => {
-          // Convert Note to formatted string
-          let utterance = formatNoteToString(note)
-          if (utterance.indexOf(complete_tag) !== -1) {
-            stopIterations = true
-          }
-          // Check if task is paused and needs user input
-          if (utterance.indexOf(paused_tag) !== -1) {
-            stopIterations = true
-            // Add visual indicator that input is needed (keep the tag for spinner logic)
-            utterance += " 🤔 <em>(Waiting for your response...)</em>"
-          }
-          utterance = utterance.replaceAll("\n", "<br/>")
-          utterance = utterance.replaceAll('"', "&quot;")
-          utterance = utterance.replaceAll("\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
-          console.log(
-            `Frontend: Processing utterance from ${note.agent_name} (${note.model_name}):`,
-            utterance
-          )
-          dataStream.write(`0:"${utterance}<br/><br/>"\n`)
+      try {
+        // Use real streaming instead of polling
+        const response = await fetch(stream_utterances_url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "text/plain",
+            "Cache-Control": "no-cache",
+          },
+          body: JSON.stringify({
+            stream_id,
+          }),
         })
-        if (stopIterations) {
-          break
+
+        if (!response.ok) {
+          throw new Error(`Stream failed: ${response.statusText}`)
         }
-        await new Promise((r) => setTimeout(r, 1000))
+
+        const reader = response.body?.getReader()
+        if (!reader) {
+          throw new Error("No reader available")
+        }
+
+        const decoder = new TextDecoder()
+        let buffer = ""
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            buffer += decoder.decode(value, { stream: true })
+            
+            // Process complete SSE messages
+            let lines = buffer.split('\n')
+            buffer = lines.pop() || "" // Keep incomplete line in buffer
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const jsonData = line.slice(6) // Remove 'data: ' prefix
+                  if (jsonData.trim() === '') continue // Skip empty data
+                  
+                  const note: Note = JSON.parse(jsonData)
+                  
+                  // Convert Note to formatted string
+                  let utterance = formatNoteToString(note)
+                  let stopIterations = false
+                  
+                  if (utterance.indexOf(complete_tag) !== -1) {
+                    stopIterations = true
+                  }
+                  
+                  // Check if task is paused and needs user input
+                  if (utterance.indexOf(paused_tag) !== -1) {
+                    stopIterations = true
+                    utterance += " 🤔 <em>(Waiting for your response...)</em>"
+                  }
+                  
+                  utterance = utterance.replaceAll("\n", "<br/>")
+                  utterance = utterance.replaceAll('"', "&quot;")
+                  utterance = utterance.replaceAll("\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
+                  
+                  console.log(
+                    `Frontend: Processing real-time utterance from ${note.agent_name} (${note.model_name}):`,
+                    utterance
+                  )
+                  
+                  dataStream.write(`0:"${utterance}<br/><br/>"\n`)
+                  
+                  if (stopIterations) {
+                    reader.releaseLock()
+                    return
+                  }
+                } catch (parseError) {
+                  console.error('Frontend: Error parsing SSE data:', parseError)
+                }
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock()
+        }
+      } catch (streamError) {
+        console.error(`Frontend: Streaming error for ${stream_id}:`, streamError)
+        dataStream.write(`0:"<em>Streaming error: ${streamError}</em><br/><br/>"\n`)
       }
     },
   })

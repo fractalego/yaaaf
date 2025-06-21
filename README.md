@@ -69,46 +69,26 @@ python -m yaaaf backend
 python -m yaaaf frontend
 ```
 
-**Start with HTTPS** (using self-signed certificates):
-```bash
-python -m yaaaf frontend https
-```
-
-**Custom ports and HTTPS options**:
+**Custom ports**:
 ```bash
 python -m yaaaf backend 8080         # Backend on port 8080
-python -m yaaaf frontend 3001        # Frontend HTTP on port 3001
-python -m yaaaf frontend 3001 https  # Frontend HTTPS on port 3001
-python -m yaaaf frontend https       # Frontend HTTPS on port 3000
+python -m yaaaf frontend 3001        # Frontend on port 3001
 ```
 
-> **Note:** HTTPS mode automatically generates self-signed certificates for development. You may see security warnings in your browser.
+**HTTPS Support**:
+HTTPS mode is currently not fully supported in the standalone distribution. For HTTPS in production, use a reverse proxy like nginx:
 
-**Using Custom SSL Certificates:**
-
-Set environment variables to use your own certificates:
 ```bash
-export YAAAF_CERT_PATH=/path/to/your/certificate.pem
-export YAAAF_KEY_PATH=/path/to/your/private-key.pem
-python -m yaaaf frontend https
+# Start YAAAF on HTTP
+python -m yaaaf frontend 3000
+
+# Configure nginx with SSL to proxy to port 3000
 ```
 
-**Programmatic Usage:**
-```python
-from yaaaf.client.run import run_frontend
-
-# Custom certificates
-run_frontend(
-    port=3000, 
-    use_https=True, 
-    cert_path="/path/to/cert.pem",
-    key_path="/path/to/key.pem"
-)
-```
 
 ### First Steps
 
-1. Open your browser to `http://localhost:3000` (or `https://localhost:3000` if using HTTPS)
+1. Open your browser to `http://localhost:3000`
 2. Start chatting with the AI system
 3. Try these example queries:
    - "How many records are in the database?"

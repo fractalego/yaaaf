@@ -67,6 +67,8 @@ export async function POST(req: Request) {
         const decoder = new TextDecoder()
         let buffer = ""
         let lastActivityTime = Date.now()
+        let lastMessageTime = Date.now()
+        let stillWorkingShown = false
 
         try {
           while (true) {
@@ -87,6 +89,7 @@ export async function POST(req: Request) {
               // Handle SSE keep-alive comments (lines starting with ':')
               if (line.startsWith(':')) {
                 console.log('Frontend: Received keep-alive signal')
+                lastActivityTime = Date.now() // Reset activity timer on keep-alive
                 continue
               }
               
@@ -121,26 +124,49 @@ export async function POST(req: Request) {
                   )
                   
                   dataStream.write(`0:"${utterance}<br/><br/>"\n`)
+                  lastMessageTime = Date.now() // Reset message timer
+                  stillWorkingShown = false // Reset still working flag
                   
                   if (stopIterations) {
                     console.log('Frontend: Task completed, ending stream')
-                    reader.releaseLock()
-                    return
+                    break // Use break instead of return to ensure proper cleanup
                   }
                 } catch (parseError) {
                   console.error('Frontend: Error parsing SSE data:', parseError, 'Line:', line)
+                  // Continue processing other lines instead of breaking
                 }
               }
             }
             
-            // Check for connection timeout (no activity for 2 minutes)
-            if (Date.now() - lastActivityTime > 120000) {
-              console.warn('Frontend: Stream timeout - no activity for 2 minutes')
+            // Check for completion flag to exit cleanly
+            if (lines.some(line => line.includes('taskcompleted'))) {
+              console.log('Frontend: Task completed detected, ending stream')
+              break
+            }
+            
+            // Show "still working" message if no real messages for 2 minutes but connection is alive
+            const timeSinceLastMessage = Date.now() - lastMessageTime
+            if (timeSinceLastMessage > 120000 && !stillWorkingShown) {
+              dataStream.write(`0:"<em>🔄 Still working on your request...</em><br/><br/>"\n`)
+              stillWorkingShown = true
+              console.log('Frontend: Showed still working indicator')
+            }
+            
+            // Check for connection timeout (no activity for 10 minutes)
+            if (Date.now() - lastActivityTime > 600000) {
+              console.warn('Frontend: Stream timeout - no activity for 10 minutes')
               break
             }
           }
+        } catch (readerError) {
+          console.error('Frontend: Reader error:', readerError)
+          throw readerError
         } finally {
-          reader.releaseLock()
+          try {
+            reader.releaseLock()
+          } catch (lockError) {
+            console.warn('Frontend: Error releasing reader lock:', lockError)
+          }
         }
       } catch (streamError) {
         console.error(`Frontend: Streaming error for ${stream_id}:`, streamError)

@@ -35,9 +35,7 @@ export function InfoButton({
           variant={variant}
           size={size}
           className={cn(
-            "h-8 w-8 rounded-full",
-            "hover:bg-accent hover:text-accent-foreground",
-            "transition-colors duration-200",
+            "h-8 w-8 rounded-full transition-colors duration-200 hover:bg-accent hover:text-accent-foreground",
             className
           )}
           aria-label="Show information"
@@ -55,7 +53,7 @@ export function InfoButton({
         </DialogHeader>
 
         <div className="mt-4">
-          <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+          <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
             {message}
           </div>
         </div>

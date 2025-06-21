@@ -50,7 +50,7 @@ export default function ChatDemo() {
         >
           <div className="mx-auto flex h-full w-full max-w-4xl flex-col">
             {/* Header with Info Button */}
-            <div className="flex items-center justify-between p-4 border-b border-border/50">
+            <div className="flex items-center justify-between border-b border-border/50 p-4">
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-semibold text-foreground">
                   YAAAF Chat

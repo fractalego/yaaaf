@@ -4,16 +4,17 @@ include license.txt
 include CLAUDE.md
 
 # Include the default configuration
-include yaaf/server/default_config.json
+include yaaaf/server/default_config.json
 
-# Include all Python files in the yaaf package
-recursive-include yaaf *.py
+# Include all Python files in the yaaaf package
+recursive-include yaaaf *.py
 
 # Include any data files needed
-recursive-include yaaf/server *.json
-recursive-include yaaf/components *.py
-recursive-include yaaf/connectors *.py
-recursive-include yaaf/client *.py
+recursive-include yaaaf/server *.json
+recursive-include yaaaf/components *.py
+recursive-include yaaaf/connectors *.py
+recursive-include yaaaf/client *.py
+recursive-include yaaaf/client/standalone *
 
 # Exclude test files and development artifacts
 exclude tests/*

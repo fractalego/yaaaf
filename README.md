@@ -310,6 +310,11 @@ pnpm test
 - Tailwind CSS
 - pnpm
 
+**Package Distribution:**
+- The yaaaf wheel includes a complete standalone frontend (`yaaaf/client/standalone/`)
+- No additional frontend setup required for basic usage
+- Frontend source code available in `frontend/` for development
+
 ## 📄 License
 
 MIT License (MIT)

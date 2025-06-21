@@ -70,7 +70,7 @@ YAAAF (Yet Another Autonomous Agents Framework) is a modular framework for build
 - `yaaaf/components/data_types.py`: Core message/conversation structures
 - `yaaaf/server/routes.py`: API endpoints for chat streaming and artifacts
 - `frontend/apps/www/components/ui/chat.tsx`: Main chat interface component
-- `tests/`: Unit tests for all major components
+- `tests/`: Unit tests for all major components. All the tests go into this folder.
 
 ## Development Notes
 

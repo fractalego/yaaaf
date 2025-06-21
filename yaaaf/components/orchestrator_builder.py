@@ -1,4 +1,5 @@
 import os
+import logging
 from typing import List
 from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaaf.components.agents.reflection_agent import ReflectionAgent
@@ -16,6 +17,8 @@ from yaaaf.components.client import OllamaClient
 from yaaaf.components.sources.sqlite_source import SqliteSource
 from yaaaf.components.sources.rag_source import RAGSource
 from yaaaf.server.config import Settings, AgentSettings
+
+_logger = logging.getLogger(__name__)
 
 
 class OrchestratorBuilder:
@@ -98,16 +101,29 @@ class OrchestratorBuilder:
                 if agent_config.max_tokens is not None
                 else self.config.client.max_tokens
             )
+            host = agent_config.host or self.config.client.host
+            agent_name = agent_config.name
+            
+            # Log agent-specific configuration
+            if agent_config.host:
+                _logger.info(f"Agent '{agent_name}' configured with custom host: {host}")
+            else:
+                _logger.info(f"Agent '{agent_name}' using default host: {host}")
         else:
             # Use default client settings for string-based agent names
             model = self.config.client.model
             temperature = self.config.client.temperature
             max_tokens = self.config.client.max_tokens
+            host = self.config.client.host
+            agent_name = agent_config
+            
+            _logger.info(f"Agent '{agent_name}' using default host: {host}")
 
         return OllamaClient(
             model=model,
             temperature=temperature,
             max_tokens=max_tokens,
+            host=host,
         )
 
     def _get_agent_name(self, agent_config) -> str:
@@ -148,11 +164,15 @@ class OrchestratorBuilder:
         return "\n\n".join(sections)
 
     def build(self):
+        # Log orchestrator configuration
+        _logger.info(f"Building orchestrator with default client host: {self.config.client.host}")
+        
         # Create default client for orchestrator
         orchestrator_client = OllamaClient(
             model=self.config.client.model,
             temperature=self.config.client.temperature,
             max_tokens=self.config.client.max_tokens,
+            host=self.config.client.host,
         )
 
         # Prepare sources

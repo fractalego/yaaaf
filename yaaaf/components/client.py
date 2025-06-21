@@ -45,6 +45,9 @@ class OllamaClient(BaseClient):
         self._training_cutoff_date = None
         self._cutoffs_data = None
 
+        # Log Ollama connection details
+        _logger.info(f"Initializing OllamaClient for model '{model}' on host '{host}'")
+
         # Load cutoffs file
         if cutoffs_file is None:
             # Default to the JSON file in the same directory as this module
@@ -128,6 +131,8 @@ class OllamaClient(BaseClient):
     async def predict(
         self, messages: "Messages", stop_sequences: Optional[List[str]] = None
     ) -> str:
+        _logger.debug(f"Making request to Ollama instance at {self.host} with model '{self.model}'")
+        
         headers = {"Content-Type": "application/json"}
         data = {
             "model": self.model,
@@ -143,6 +148,8 @@ class OllamaClient(BaseClient):
             f"{self.host}/api/chat", headers=headers, data=json.dumps(data)
         )
         if response.status_code == 200:
+            _logger.debug(f"Successfully received response from {self.host}")
             return strip_thought_tokens(json.loads(response.text)["message"]["content"])
         else:
+            _logger.error(f"Error response from {self.host}: {response.status_code}, {response.text}")
             raise Exception(f"Error: {response.status_code}, {response.text}")

@@ -209,7 +209,8 @@ YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM pr
   "client": {
     "model": "qwen2.5:32b",
     "temperature": 0.7,
-    "max_tokens": 1024
+    "max_tokens": 1024,
+    "host": "http://localhost:11434"
   },
   "agents": [
     "reflection",
@@ -223,7 +224,8 @@ YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM pr
       "name": "rag",
       "model": "qwen2.5:14b", 
       "temperature": 0.8,
-      "max_tokens": 4096
+      "max_tokens": 4096,
+      "host": "http://localhost:11435"
     },
     "reviewer",
     "websearch",
@@ -240,11 +242,12 @@ YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM pr
 }
 ```
 
-**Per-Agent Model Configuration:**
+**Per-Agent Configuration:**
 - **Simple format**: `"agent_name"` uses default client settings
-- **Object format**: `{"name": "agent_name", "model": "...", "temperature": 0.1}` overrides specific parameters
+- **Object format**: `{"name": "agent_name", "model": "...", "temperature": 0.1, "host": "..."}` overrides specific parameters
 - **Fallback**: Any unspecified parameters use the default client configuration
 - **Examples**: Use specialized models for specific tasks (e.g., coding models for visualization, larger models for RAG)
+- **Host configuration**: Set different Ollama instances per agent or use default host
 
 ## 📚 Documentation
 

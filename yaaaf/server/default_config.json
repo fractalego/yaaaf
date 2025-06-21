@@ -2,7 +2,8 @@
   "client": {
     "model": "qwen2.5:32b",
     "temperature": 0.7,
-    "max_tokens": 1024
+    "max_tokens": 1024,
+    "host": "http://localhost:11434"
   },
   "agents": [
     "reflection",
@@ -15,7 +16,6 @@
     "rag",
     "reviewer",
     "websearch",
-    "brave_search",
     "url",
     "url_reviewer",
     "user_input",

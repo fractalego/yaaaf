@@ -8,6 +8,7 @@ class ClientSettings(BaseSettings):
     model: str | None = None
     temperature: float = 0.5
     max_tokens: int = 1024
+    host: str = "http://localhost:11434"
 
 
 class SourceSettings(BaseSettings):
@@ -33,6 +34,7 @@ class AgentSettings(BaseSettings):
     model: str | None = None
     temperature: float | None = None
     max_tokens: int | None = None
+    host: str | None = None
 
 
 class Settings(BaseSettings):

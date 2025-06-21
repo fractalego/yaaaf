@@ -111,7 +111,9 @@ async def stream_utterances(arguments: NewUtteranceArguments):
     async def generate_stream():
         stream_id = arguments.stream_id
         current_index = 0
-        max_iterations = 360  # 6 minutes max
+        max_iterations = 1200  # 20 minutes max (increased from 6)
+        consecutive_empty_checks = 0
+        max_empty_checks = 10  # Send keep-alive after 5 seconds of no data
         
         for i in range(max_iterations):
             try:
@@ -119,22 +121,34 @@ async def stream_utterances(arguments: NewUtteranceArguments):
                 new_notes = notes[current_index:]
                 current_index += len(new_notes)
                 
-                for note in new_notes:
-                    # Send each note as SSE
-                    import json
-                    note_data = {
-                        "message": note.message,
-                        "artefact_id": note.artefact_id,
-                        "agent_name": note.agent_name,
-                        "model_name": note.model_name
-                    }
-                    yield f"data: {json.dumps(note_data)}\n\n"
+                if new_notes:
+                    # Reset empty check counter when we have data
+                    consecutive_empty_checks = 0
                     
-                    # Check for completion
-                    if "taskcompleted" in note.message:
-                        return
+                    for note in new_notes:
+                        # Send each note as SSE
+                        import json
+                        note_data = {
+                            "message": note.message,
+                            "artefact_id": note.artefact_id,
+                            "agent_name": note.agent_name,
+                            "model_name": note.model_name
+                        }
+                        yield f"data: {json.dumps(note_data)}\n\n"
                         
-                # Small delay to prevent overwhelming the client
+                        # Check for completion
+                        if "taskcompleted" in note.message:
+                            return
+                else:
+                    # No new data, increment empty check counter
+                    consecutive_empty_checks += 1
+                    
+                    # Send keep-alive message every 5 seconds when no data
+                    if consecutive_empty_checks >= max_empty_checks:
+                        yield ": keep-alive\n\n"  # SSE comment for keep-alive
+                        consecutive_empty_checks = 0
+                        
+                # Shorter delay for more responsive streaming
                 await asyncio.sleep(0.5)
                 
             except Exception as e:
@@ -144,10 +158,12 @@ async def stream_utterances(arguments: NewUtteranceArguments):
     
     return StreamingResponse(
         generate_stream(),
-        media_type="text/plain",
+        media_type="text/event-stream",  # Proper SSE media type
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # Nginx directive to disable buffering
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control",
         }
     )

@@ -37,17 +37,23 @@ export async function POST(req: Request) {
 
       try {
         // Use real streaming instead of polling
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 1200000) // 20 minute timeout
+        
         const response = await fetch(stream_utterances_url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Accept: "text/plain",
+            Accept: "text/event-stream",
             "Cache-Control": "no-cache",
           },
           body: JSON.stringify({
             stream_id,
           }),
+          signal: controller.signal,
         })
+        
+        clearTimeout(timeoutId)
 
         if (!response.ok) {
           throw new Error(`Stream failed: ${response.statusText}`)
@@ -60,12 +66,17 @@ export async function POST(req: Request) {
 
         const decoder = new TextDecoder()
         let buffer = ""
+        let lastActivityTime = Date.now()
 
         try {
           while (true) {
             const { done, value } = await reader.read()
-            if (done) break
+            if (done) {
+              console.log('Frontend: Stream ended normally')
+              break
+            }
 
+            lastActivityTime = Date.now()
             buffer += decoder.decode(value, { stream: true })
             
             // Process complete SSE messages
@@ -73,6 +84,12 @@ export async function POST(req: Request) {
             buffer = lines.pop() || "" // Keep incomplete line in buffer
 
             for (const line of lines) {
+              // Handle SSE keep-alive comments (lines starting with ':')
+              if (line.startsWith(':')) {
+                console.log('Frontend: Received keep-alive signal')
+                continue
+              }
+              
               if (line.startsWith('data: ')) {
                 try {
                   const jsonData = line.slice(6) // Remove 'data: ' prefix
@@ -106,13 +123,20 @@ export async function POST(req: Request) {
                   dataStream.write(`0:"${utterance}<br/><br/>"\n`)
                   
                   if (stopIterations) {
+                    console.log('Frontend: Task completed, ending stream')
                     reader.releaseLock()
                     return
                   }
                 } catch (parseError) {
-                  console.error('Frontend: Error parsing SSE data:', parseError)
+                  console.error('Frontend: Error parsing SSE data:', parseError, 'Line:', line)
                 }
               }
+            }
+            
+            // Check for connection timeout (no activity for 2 minutes)
+            if (Date.now() - lastActivityTime > 120000) {
+              console.warn('Frontend: Stream timeout - no activity for 2 minutes')
+              break
             }
           }
         } finally {

@@ -178,7 +178,7 @@ class OllamaClient(BaseClient):
                 f"{self.host}/api/chat",
                 headers=headers,
                 data=json.dumps(data),
-                timeout=30,  # 30 second timeout
+                timeout=600,
             )
         except ConnectionError as e:
             error_msg = f"Connection refused to Ollama at {self.host}. Please ensure Ollama is running and accessible."

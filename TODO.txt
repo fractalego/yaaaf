@@ -1,7 +1,10 @@
-* test search and mcp from frontend
-* solve issues in the frontend
-* modify frontend so that one can add mcp servers?
-* allow mcp servers to be in the environment config
+* the web search is too convoluted. It should be simpler. Do not use url or url_retriever agents. Just use the web search agents
+  and integrate the url retrieval / browsing in the web search agent.
+
+/* test search and mcp from frontend
+/* solve issues in the frontend
+/* modify frontend so that one can add mcp servers?
+/* allow mcp servers to be in the environment config
 /* use notes in message queue
 
 /* MCP connector for tools

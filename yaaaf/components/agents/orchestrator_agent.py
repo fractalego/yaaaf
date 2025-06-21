@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 from typing import List, Tuple, Optional
@@ -31,7 +32,10 @@ class OrchestratorAgent(BaseAgent):
 
     @handle_exceptions
     async def query(
-        self, messages: Messages, notes: Optional[List[Note]] = None, stream_id: Optional[str] = None
+        self,
+        messages: Messages,
+        notes: Optional[List[Note]] = None,
+        stream_id: Optional[str] = None,
     ) -> str:
         messages = messages.add_system_prompt(
             self._get_system_prompt(await self._goal_extractor.extract(messages))
@@ -39,6 +43,13 @@ class OrchestratorAgent(BaseAgent):
 
         answer: str = ""
         for step_index in range(self._max_steps):
+            # Check for cancellation before each step
+            if stream_id and self._is_stream_cancelled(stream_id):
+                _logger.info(
+                    f"Orchestrator: Stream {stream_id} cancelled, stopping execution"
+                )
+                raise asyncio.CancelledError(f"Stream {stream_id} was cancelled")
+
             answer = await self._client.predict(
                 messages, stop_sequences=self._stop_sequences
             )
@@ -208,3 +219,13 @@ Orchestrator agent: This agent orchestrates the agents.
                 + answer
             )
         return answer
+
+    def _is_stream_cancelled(self, stream_id: str) -> bool:
+        """Check if stream has been cancelled by importing from accessories"""
+        try:
+            from yaaaf.server.accessories import is_stream_cancelled
+
+            return is_stream_cancelled(stream_id)
+        except ImportError:
+            # If we can't import (e.g., in tests), assume not cancelled
+            return False

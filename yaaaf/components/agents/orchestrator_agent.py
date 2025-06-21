@@ -31,7 +31,7 @@ class OrchestratorAgent(BaseAgent):
 
     @handle_exceptions
     async def query(
-        self, messages: Messages, notes: Optional[List[Note]] = None
+        self, messages: Messages, notes: Optional[List[Note]] = None, stream_id: Optional[str] = None
     ) -> str:
         messages = messages.add_system_prompt(
             self._get_system_prompt(await self._goal_extractor.extract(messages))

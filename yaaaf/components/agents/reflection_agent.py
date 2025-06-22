@@ -61,5 +61,6 @@ class ReflectionAgent(BaseAgent):
         return f"""
 Self-reflection agent: {self.get_info()}.
 Always call this agent first to think about the task and plan the next steps.
+Call this agent only once per task, it is not meant to be called multiple times.
 To call this agent write {self.get_opening_tag()} THINGS TO THINK ABOUT {self.get_closing_tag()}
         """

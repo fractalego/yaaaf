@@ -9,6 +9,7 @@ import { NpmCommands } from "types/unist"
 
 import { Event } from "@/lib/events"
 import { cn } from "@/lib/utils"
+import { processTableCellContent } from "@/lib/url-utils"
 import { Callout } from "@/components/callout"
 import { CodeBlockWrapper } from "@/components/code-block-wrapper"
 import { ComponentExample } from "@/components/component-example"
@@ -161,14 +162,16 @@ const components = {
       {...props}
     />
   ),
-  td: ({ className, ...props }: React.HTMLAttributes<HTMLTableCellElement>) => (
+  td: ({ className, children, ...props }: React.HTMLAttributes<HTMLTableCellElement>) => (
     <td
       className={cn(
         "border px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right",
         className
       )}
       {...props}
-    />
+    >
+      {processTableCellContent(children)}
+    </td>
   ),
   pre: ({
     className,

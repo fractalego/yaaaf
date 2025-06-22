@@ -3,6 +3,7 @@ import Markdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
 import remarkGfm from "remark-gfm"
 
+import { processTableCellContent } from "@/lib/url-utils"
 import { cn } from "@/lib/utils"
 import { Artefact } from "@/registry/custom/artefact"
 import { BashAgent } from "@/registry/custom/bash-agent"
@@ -306,9 +307,16 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
       "th",
       "border border-foreground/20 px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right"
     ),
-    td: withClass(
-      "td",
-      "border border-foreground/20 px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right"
+    td: ({ className, children, ...props }: any) => (
+      <td
+        className={cn(
+          "border border-foreground/20 px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right",
+          className
+        )}
+        {...props}
+      >
+        {processTableCellContent(children)}
+      </td>
     ),
     tr: withClass("tr", "m-0 border-t p-0 even:bg-muted"),
     p: withClass("p", "whitespace-pre-wrap"),

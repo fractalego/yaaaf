@@ -2,6 +2,8 @@
 
 import * as React from "react"
 
+import { linkifyUrls } from "@/lib/url-utils"
+
 function ArtefactPage(element: { data: string; code: string; image: string }) {
   let data = element.data
   data = data.replaceAll('class="dataframe"', "")
@@ -14,6 +16,9 @@ function ArtefactPage(element: { data: string; code: string; image: string }) {
     "<tr",
     '<tr class="border-b border-neutral-200 dark:border-white/10"'
   )
+
+  // Process table cell content to make URLs clickable
+  data = linkifyUrls(data)
   let html: string = ""
   if (element.image) {
     const image_source = "data:image/png;charset=utf-8;base64," + element.image

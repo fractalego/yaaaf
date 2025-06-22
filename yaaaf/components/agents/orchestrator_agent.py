@@ -5,7 +5,7 @@ from typing import List, Tuple, Optional
 from yaaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.agents.base_agent import BaseAgent
-from yaaaf.components.agents.settings import task_completed_tag
+from yaaaf.components.agents.settings import task_completed_tag, task_paused_tag
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Note
 from yaaaf.components.agents.prompts import orchestrator_prompt_template
@@ -16,7 +16,7 @@ _logger = logging.getLogger(__name__)
 
 
 class OrchestratorAgent(BaseAgent):
-    _completing_tags: List[str] = [task_completed_tag]
+    _completing_tags: List[str] = [task_completed_tag, task_paused_tag]
     _agents_map: {str: BaseAgent} = {}
     _stop_sequences = []
     _max_steps = 10
@@ -112,6 +112,10 @@ class OrchestratorAgent(BaseAgent):
                     )
                 )
         return answer
+
+    def is_paused(self, answer: str) -> bool:
+        """Check if the task is paused and waiting for user input."""
+        return task_paused_tag in answer
 
     def subscribe_agent(self, agent: BaseAgent):
         if agent.get_opening_tag() in self._agents_map:

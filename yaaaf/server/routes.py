@@ -108,54 +108,59 @@ def get_query_suggestions(query: str) -> List[str]:
 
 async def stream_utterances(arguments: NewUtteranceArguments):
     """Real-time streaming endpoint for utterances"""
+
     async def generate_stream():
         stream_id = arguments.stream_id
         current_index = 0
         max_iterations = 1200  # 20 minutes max (increased from 6)
         consecutive_empty_checks = 0
         max_empty_checks = 10  # Send keep-alive after 5 seconds of no data
-        
+
         for i in range(max_iterations):
             try:
                 notes = get_utterances(stream_id)
                 new_notes = notes[current_index:]
                 current_index += len(new_notes)
-                
+
                 if new_notes:
                     # Reset empty check counter when we have data
                     consecutive_empty_checks = 0
-                    
+
                     for note in new_notes:
                         # Send each note as SSE
                         import json
+
                         note_data = {
                             "message": note.message,
                             "artefact_id": note.artefact_id,
                             "agent_name": note.agent_name,
-                            "model_name": note.model_name
+                            "model_name": note.model_name,
                         }
                         yield f"data: {json.dumps(note_data)}\n\n"
-                        
-                        # Check for completion
-                        if "taskcompleted" in note.message:
+
+                        # Check for completion or paused state
+                        if (
+                            "taskcompleted" in note.message
+                            or "taskpaused" in note.message
+                        ):
                             return
                 else:
                     # No new data, increment empty check counter
                     consecutive_empty_checks += 1
-                    
+
                     # Send keep-alive message every 5 seconds when no data
                     if consecutive_empty_checks >= max_empty_checks:
                         yield ": keep-alive\n\n"  # SSE comment for keep-alive
                         consecutive_empty_checks = 0
-                        
+
                 # Shorter delay for more responsive streaming
                 await asyncio.sleep(0.5)
-                
+
             except Exception as e:
                 _logger.error(f"Routes: Error in streaming for {stream_id}: {e}")
-                yield f"data: {{\"error\": \"Stream error: {str(e)}\"}}\n\n"
+                yield f'data: {{"error": "Stream error: {str(e)}"}}\n\n'
                 return
-    
+
     return StreamingResponse(
         generate_stream(),
         media_type="text/event-stream",  # Proper SSE media type
@@ -165,5 +170,5 @@ async def stream_utterances(arguments: NewUtteranceArguments):
             "X-Accel-Buffering": "no",  # Nginx directive to disable buffering
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "Cache-Control",
-        }
+        },
     )

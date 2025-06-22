@@ -153,9 +153,13 @@ export async function POST(req: Request) {
               }
             }
             
-            // Check for completion flag to exit cleanly
-            if (lines.some(line => line.includes('taskcompleted'))) {
-              console.log('Frontend: Task completed detected, ending stream')
+            // Check for completion or paused flag to exit cleanly
+            if (lines.some(line => line.includes('taskcompleted') || line.includes('taskpaused'))) {
+              if (lines.some(line => line.includes('taskcompleted'))) {
+                console.log('Frontend: Task completed detected, ending stream')
+              } else {
+                console.log('Frontend: Task paused detected, ending stream')
+              }
               break
             }
             

@@ -7,30 +7,32 @@ def run_frontend(
     port: int, use_https: bool = False, cert_path: str = None, key_path: str = None
 ):
     server_path = os.path.join(_path, "standalone/apps/www", "server.js")
-    
+
     # Check if Node.js is available
     import subprocess
     import shutil
-    
+
     # Try different node command variations
     node_cmd = None
     for cmd in ["node", "nodejs", "/usr/bin/node", "/usr/bin/nodejs"]:
         if shutil.which(cmd):
             node_cmd = cmd
             break
-    
+
     if not node_cmd:
         print("❌ Error: Node.js is not installed or not available in PATH.")
         print("Please install Node.js (version 18+) to run the frontend:")
         print("- On Ubuntu/Debian: sudo apt-get install nodejs npm")
-        print("- On macOS: brew install node")  
+        print("- On macOS: brew install node")
         print("- On Windows: Download from https://nodejs.org/")
         print("Searched for: node, nodejs, /usr/bin/node, /usr/bin/nodejs")
         return
-    
+
     # Test Node.js version
     try:
-        version_result = subprocess.run([node_cmd, "--version"], capture_output=True, text=True)
+        version_result = subprocess.run(
+            [node_cmd, "--version"], capture_output=True, text=True
+        )
         if version_result.returncode == 0:
             print(f"✅ Found Node.js: {node_cmd} {version_result.stdout.strip()}")
         else:
@@ -93,19 +95,19 @@ def run_frontend(
         print("    For HTTPS, consider using a reverse proxy like nginx or running:")
         print("    python -m yaaaf frontend <port>  # and configure nginx with SSL")
         use_https = False  # Fall back to HTTP for now
-    
+
     # Change to the server directory before running
     original_cwd = os.getcwd()
     server_dir = os.path.dirname(server_path)
-    
+
     try:
         os.chdir(server_dir)
         print(f"Starting Next.js server from: {server_dir}")
-        
+
         # Run the Node.js server with proper environment
         cmd = [node_cmd, "server.js"]
         print(f"Executing: {' '.join(cmd)}")
-        
+
         # Use Popen for better control and to avoid the "performance" error
         process = subprocess.Popen(
             cmd,
@@ -114,9 +116,9 @@ def run_frontend(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
-            bufsize=1
+            bufsize=1,
         )
-        
+
         # Stream output in real-time
         try:
             for line in process.stdout:
@@ -130,10 +132,10 @@ def run_frontend(
                 print("⚠️  Process didn't terminate gracefully, forcing...")
                 process.kill()
             return 0
-        
+
         return_code = process.wait()
         return return_code
-        
+
     except FileNotFoundError as e:
         print(f"❌ Server file not found: {e}")
         print(f"   Looked for: {server_path}")

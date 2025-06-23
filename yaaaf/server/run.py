@@ -66,5 +66,6 @@ def run_server(host: str, port: int):
 
 
 if __name__ == "__main__":
-    os.environ["YAAF_CONFIG"] = "default_config.json"
+    if not os.environ.get("YAAF_CONFIG"):
+        os.environ["YAAF_CONFIG"] = "default_config.json"
     run_server(host=server_settings.host, port=server_settings.port)

@@ -12,7 +12,7 @@ from yaaaf.components.agents.prompts import url_agent_prompt_template
 from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages, PromptTemplate
+from yaaaf.components.data_types import Messages, PromptTemplate, Note
 from yaaaf.components.decorators import handle_exceptions
 
 
@@ -81,16 +81,28 @@ class URLAgent(BaseAgent):
         return list(set(urls))  # Remove duplicates
 
     @handle_exceptions
-    async def query(self, messages: Messages, notes: Optional[List[str]] = None) -> str:
+    async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
         messages = messages.add_system_prompt(self._system_prompt)
         url = ""
         instruction = ""
         current_output = "No output"
 
-        for step in range(self._max_steps):
+        for step_idx in range(self._max_steps):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            
+            # Log internal thinking step
+            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+                model_name = getattr(self._client, "model", None)
+                internal_note = Note(
+                    message=f"[URL Step {step_idx}] {answer}",
+                    artefact_id=None,
+                    agent_name=self.get_name(),
+                    model_name=model_name,
+                    internal=True,
+                )
+                notes.append(internal_note)
 
             if self.is_complete(answer) or answer.strip() == "":
                 break
@@ -189,6 +201,7 @@ class URLAgent(BaseAgent):
                     data=current_output,
                     description=f"URLs extracted from {url} for instruction: {instruction}",
                     code=f"URL: {url}\nInstruction: {instruction}",
+                    id=url_agent_id,
                 ),
             )
             return f"The result is in this artifact <artefact type='url-analysis'>{url_agent_id}</artefact>"

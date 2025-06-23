@@ -64,7 +64,9 @@ def create_stream(arguments: CreateStreamArguments):
 
 def get_all_utterances(arguments: NewUtteranceArguments) -> List[Note]:
     try:
-        return get_utterances(arguments.stream_id)
+        all_notes = get_utterances(arguments.stream_id)
+        # Filter out internal messages for frontend display
+        return [note for note in all_notes if not getattr(note, 'internal', False)]
     except Exception as e:
         _logger.error(
             f"Routes: Failed to get utterances for {arguments.stream_id}: {e}"
@@ -127,6 +129,10 @@ async def stream_utterances(arguments: NewUtteranceArguments):
                     consecutive_empty_checks = 0
 
                     for note in new_notes:
+                        # Skip internal messages - don't send them to frontend
+                        if getattr(note, 'internal', False):
+                            continue
+                            
                         # Send each note as SSE
                         import json
 

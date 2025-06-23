@@ -43,10 +43,23 @@ class SqlAgent(BaseAgent):
         )
         current_output: str | pd.DataFrame = "No output"
         sql_query = "No SQL query"
-        for _ in range(self._max_steps):
+        for step_idx in range(self._max_steps):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            
+            # Log internal thinking step
+            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+                model_name = getattr(self._client, "model", None)
+                internal_note = Note(
+                    message=f"[Internal Step {step_idx}] {answer}",
+                    artefact_id=None,
+                    agent_name=self.get_name(),
+                    model_name=model_name,
+                    internal=True,
+                )
+                notes.append(internal_note)
+            
             if self.is_complete(answer) or answer.strip() == "":
                 break
 
@@ -82,6 +95,7 @@ class SqlAgent(BaseAgent):
                 data=current_output,
                 description=df_info_output.getvalue(),
                 code=sql_query,
+                id=table_id,
             ),
         )
         return f"The result is in this artifact <artefact type='table'>{table_id}</artefact>."

@@ -8,6 +8,7 @@ class Note(BaseModel):
     artefact_id: Optional[str] = None
     agent_name: Optional[str] = None
     model_name: Optional[str] = None
+    internal: bool = False  # Flag to distinguish internal agent dialogue from user-facing messages
 
     def __repr__(self):
         return f"Note(message={self.message[:50]}..., artefact_id={self.artefact_id}, agent_name={self.agent_name}, model_name={self.model_name})"

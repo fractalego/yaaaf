@@ -122,10 +122,22 @@ class BashAgent(BaseAgent):
     ) -> str:
         messages = messages.add_system_prompt(self._system_prompt)
 
-        for step in range(self._max_steps):
+        for step_idx in range(self._max_steps):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            
+            # Log internal thinking step
+            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+                model_name = getattr(self._client, "model", None)
+                internal_note = Note(
+                    message=f"[Bash Step {step_idx}] {answer}",
+                    artefact_id=None,
+                    agent_name=self.get_name(),
+                    model_name=model_name,
+                    internal=True,
+                )
+                notes.append(internal_note)
 
             # Handle empty responses
             if answer.strip() == "":

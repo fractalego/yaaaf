@@ -1,5 +1,7 @@
 "use strict";exports.id=1057,exports.ids=[1057],exports.modules={3165:(e,t,a)=>{a.d(t,{Cv:()=>n,Hk:()=>o,SZ:()=>l,ZX:()=>r,fH:()=>i});let s=process.env.YAAAF_API_PORT||4e3;console.log(`Using backend port as YAAAF_API_PORT=${s}`);let r="<taskcompleted/>",n="<taskpaused/>",l="who is the prime minister of Italy,what is the capital of France,how to cook pasta,what is the weather today,how to learn programming",i=process.env.YAAAF_INFO_TITLE||"About YAAAF",o=process.env.YAAAF_INFO_MESSAGE||`YAAAF - Yet Another Autonomous Agents Framework
 
+Contact: alberto@fractalego.io for any questions or issues.
+
 🤖 Modular Agent System
 Specialized agents for SQL, visualization, web search, ML, and more
 

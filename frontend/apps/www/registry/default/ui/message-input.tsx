@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from "react"
-import { ArrowUp, Square } from "lucide-react"
+import { ArrowUp, Square, ThumbsDown, ThumbsUp } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { useAutosizeTextArea } from "@/registry/default/hooks/use-autosize-textarea"
@@ -15,6 +15,11 @@ interface MessageInputProps
   stop?: () => void
   isGenerating: boolean
   enableInterrupt?: boolean
+  onRateResponse?: (
+    messageId: string,
+    rating: "thumbs-up" | "thumbs-down"
+  ) => void
+  lastMessageId?: string
 }
 
 export function MessageInput({
@@ -25,6 +30,8 @@ export function MessageInput({
   stop,
   isGenerating,
   enableInterrupt = true,
+  onRateResponse,
+  lastMessageId,
   ...props
 }: MessageInputProps) {
   const [showInterruptPrompt, setShowInterruptPrompt] = useState(false)
@@ -82,6 +89,32 @@ export function MessageInput({
       )}
 
       <div className="relative flex w-full items-center space-x-2">
+        {/* Feedback buttons - always visible */}
+        {onRateResponse && lastMessageId && (
+          <div className="flex gap-1">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 text-muted-foreground hover:text-green-600"
+              aria-label="Rate response positively"
+              onClick={() => onRateResponse(lastMessageId, "thumbs-up")}
+            >
+              <ThumbsUp className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 text-muted-foreground hover:text-red-600"
+              aria-label="Rate response negatively"
+              onClick={() => onRateResponse(lastMessageId, "thumbs-down")}
+            >
+              <ThumbsDown className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
         <div className="relative flex-1">
           <textarea
             aria-label="Write your prompt here"

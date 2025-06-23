@@ -3,8 +3,8 @@ import { createDataStreamResponse } from "ai"
 import {
   complete_tag,
   create_stream_url,
-  stream_utterances_url,
   paused_tag,
+  stream_utterances_url,
 } from "@/app/settings"
 
 // Define the Note interface to match the backend structure
@@ -16,9 +16,9 @@ interface Note {
 }
 
 // Increase the max duration for this API route
-export const maxDuration = 900; // 15 minutes
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const maxDuration = 900 // 15 minutes
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 
 export async function POST(req: Request) {
   const { messages, session_id } = await req.json()
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     // @ts-ignore
     delete item["parts"]
   })
-  
+
   try {
     await createStream(stream_id, messages)
   } catch (error) {
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         // Use real streaming instead of polling
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 1200000) // 20 minute timeout
-        
+
         const response = await fetch(stream_utterances_url, {
           method: "POST",
           headers: {
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
           }),
           signal: controller.signal,
         })
-        
+
         clearTimeout(timeoutId)
 
         if (!response.ok) {
@@ -79,120 +79,148 @@ export async function POST(req: Request) {
           while (true) {
             const { done, value } = await reader.read()
             if (done) {
-              console.log('Frontend: Stream ended normally')
+              console.log("Frontend: Stream ended normally")
               break
             }
 
             lastActivityTime = Date.now()
             buffer += decoder.decode(value, { stream: true })
-            
-            // Process complete SSE messages
-            let lines = buffer.split('\n')
-            buffer = lines.pop() || "" // Keep incomplete line in buffer
 
+            // Process complete SSE messages
+            let lines = buffer.split("\n")
+            buffer = lines.pop() || "" // Keep incomplete line in buffer
 
             for (const line of lines) {
               // Handle SSE keep-alive comments (lines starting with ':')
-              if (line.startsWith(':')) {
-                console.log('Frontend: Received keep-alive signal')
+              if (line.startsWith(":")) {
+                console.log("Frontend: Received keep-alive signal")
                 lastActivityTime = Date.now() // Reset activity timer on keep-alive
                 continue
               }
-              
-              if (line.startsWith('data: ')) {
+
+              if (line.startsWith("data: ")) {
                 try {
                   const jsonData = line.slice(6) // Remove 'data: ' prefix
-                  if (jsonData.trim() === '') continue // Skip empty data
-                  
+                  if (jsonData.trim() === "") continue // Skip empty data
+
                   const note: Note = JSON.parse(jsonData)
-                  
+
                   // Convert Note to formatted string
                   let utterance = formatNoteToString(note)
                   let stopIterations = false
-                  
+
                   if (utterance.indexOf(complete_tag) !== -1) {
                     stopIterations = true
                   }
-                  
+
                   // Check if task is paused and needs user input
                   if (utterance.indexOf(paused_tag) !== -1) {
                     stopIterations = true
                     utterance += " 🤔 <em>(Waiting for your response...)</em>"
                   }
-                  
+
                   utterance = utterance.replaceAll("\n", "<br/>")
                   utterance = utterance.replaceAll('"', "&quot;")
-                  utterance = utterance.replaceAll("\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
-                  
+                  utterance = utterance.replaceAll(
+                    "\t",
+                    "&nbsp;&nbsp;&nbsp;&nbsp;"
+                  )
+
                   messageCount++
-                  
+
                   console.log(
                     `Frontend: Message #${messageCount} - Processing utterance from ${note.agent_name} (${note.model_name})`
                   )
-                  
+
                   try {
                     dataStream.write(`0:"${utterance}<br/><br/>"\n`)
-                    console.log(`Frontend: Message #${messageCount} - Successfully wrote to dataStream`)
+                    console.log(
+                      `Frontend: Message #${messageCount} - Successfully wrote to dataStream`
+                    )
                   } catch (writeError) {
-                    console.error(`Frontend: Message #${messageCount} - Error writing to dataStream:`, writeError)
-                    console.error('Frontend: DataStream appears to be unresponsive - ending stream')
+                    console.error(
+                      `Frontend: Message #${messageCount} - Error writing to dataStream:`,
+                      writeError
+                    )
+                    console.error(
+                      "Frontend: DataStream appears to be unresponsive - ending stream"
+                    )
                     throw writeError
                   }
-                  
+
                   lastMessageTime = Date.now() // Reset message timer
                   stillWorkingShown = false // Reset still working flag
-                  
+
                   if (stopIterations) {
-                    console.log('Frontend: Task completed, ending stream')
+                    console.log("Frontend: Task completed, ending stream")
                     break // Use break instead of return to ensure proper cleanup
                   }
                 } catch (parseError) {
-                  console.error('Frontend: Error parsing SSE data:', parseError, 'Line:', line)
+                  console.error(
+                    "Frontend: Error parsing SSE data:",
+                    parseError,
+                    "Line:",
+                    line
+                  )
                   // Continue processing other lines instead of breaking
                 }
               }
             }
-            
+
             // Check for completion or paused flag to exit cleanly
-            if (lines.some(line => line.includes('taskcompleted') || line.includes('taskpaused'))) {
-              if (lines.some(line => line.includes('taskcompleted'))) {
-                console.log('Frontend: Task completed detected, ending stream')
+            if (
+              lines.some(
+                (line) =>
+                  line.includes("taskcompleted") || line.includes("taskpaused")
+              )
+            ) {
+              if (lines.some((line) => line.includes("taskcompleted"))) {
+                console.log("Frontend: Task completed detected, ending stream")
               } else {
-                console.log('Frontend: Task paused detected, ending stream')
+                console.log("Frontend: Task paused detected, ending stream")
               }
               break
             }
-            
+
             // Show "still working" message if no real messages for 2 minutes but connection is alive
             const timeSinceLastMessage = Date.now() - lastMessageTime
             if (timeSinceLastMessage > 120000 && !stillWorkingShown) {
-              dataStream.write(`0:"<em>🔄 Still working on your request...</em><br/><br/>"\n`)
+              dataStream.write(
+                `0:"<em>🔄 Still working on your request...</em><br/><br/>"\n`
+              )
               stillWorkingShown = true
-              console.log('Frontend: Showed still working indicator')
+              console.log("Frontend: Showed still working indicator")
             }
-            
+
             // Check for connection timeout (no activity for 10 minutes)
             if (Date.now() - lastActivityTime > 600000) {
-              console.warn('Frontend: Stream timeout - no activity for 10 minutes')
+              console.warn(
+                "Frontend: Stream timeout - no activity for 10 minutes"
+              )
               break
             }
           }
         } catch (readerError) {
-          console.error('Frontend: Reader error:', readerError)
+          console.error("Frontend: Reader error:", readerError)
           throw readerError
         } finally {
           try {
             reader.releaseLock()
           } catch (lockError) {
-            console.warn('Frontend: Error releasing reader lock:', lockError)
+            console.warn("Frontend: Error releasing reader lock:", lockError)
           }
         }
-        
+
         // Streaming ended normally (not due to timeout)
-        console.log('Frontend: Streaming ended normally')
+        console.log("Frontend: Streaming ended normally")
       } catch (streamError) {
-        console.error(`Frontend: Streaming error for ${stream_id}:`, streamError)
-        dataStream.write(`0:"<em>Streaming error: ${streamError}</em><br/><br/>"\n`)
+        console.error(
+          `Frontend: Streaming error for ${stream_id}:`,
+          streamError
+        )
+        dataStream.write(
+          `0:"<em>Streaming error: ${streamError}</em><br/><br/>"\n`
+        )
       }
     },
   })
@@ -280,4 +308,3 @@ function formatNoteToString(note: Note): string {
 
   return result
 }
-

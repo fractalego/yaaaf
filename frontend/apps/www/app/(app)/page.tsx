@@ -16,7 +16,10 @@ import {
 import { getSessionId } from "./session"
 
 // Function to send feedback to backend
-async function sendFeedback(streamId: string, rating: "thumbs-up" | "thumbs-down") {
+async function sendFeedback(
+  streamId: string,
+  rating: "thumbs-up" | "thumbs-down"
+) {
   try {
     console.log(`Sending feedback for stream ${streamId}: ${rating}`)
     const response = await fetch("http://localhost:4000/save_feedback", {
@@ -66,7 +69,10 @@ export default function ChatDemo() {
   })
 
   // Handle feedback submission
-  const handleRateResponse = async (messageId: string, rating: "thumbs-up" | "thumbs-down") => {
+  const handleRateResponse = async (
+    messageId: string,
+    rating: "thumbs-up" | "thumbs-down"
+  ) => {
     console.log(`Rating message ${messageId} with ${rating}`)
     await sendFeedback(sessionId, rating)
   }

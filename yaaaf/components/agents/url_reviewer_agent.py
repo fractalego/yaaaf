@@ -27,7 +27,7 @@ class UrlReviewerAgent(BaseAgent):
     _completing_tags: List[str] = [task_completed_tag]
     _output_tag = "```table"
     _stop_sequences = _completing_tags
-    _max_steps = 5
+    _max_steps = 2
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):

@@ -21,7 +21,7 @@ class URLAgent(BaseAgent):
     _completing_tags: List[str] = [task_completed_tag]
     _output_tag = "```url"
     _stop_sequences = [task_completed_tag]
-    _max_steps = 3
+    _max_steps = 2
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):
@@ -35,7 +35,7 @@ class URLAgent(BaseAgent):
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
             }
 
-            response = requests.get(url, headers=headers, timeout=30)
+            response = requests.get(url, headers=headers, timeout=3)
             response.raise_for_status()
 
             # Parse HTML content
@@ -55,6 +55,8 @@ class URLAgent(BaseAgent):
 
             return text[:10000]  # Limit to first 10k characters
 
+        except requests.exceptions.Timeout:
+            return "The website is not accessible from my deployment location (timeout after 3 seconds)"
         except Exception as e:
             return f"Error fetching URL {url}: {str(e)}"
 

@@ -2,12 +2,11 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import Dict, Any
 
 from pydantic import BaseModel
 
-from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
-from yaaaf.components.data_types import Note
+from yaaaf.components.agents.artefacts import ArtefactStorage
 from yaaaf.server.accessories import get_utterances
 from yaaaf.server.config import get_config, AgentSettings
 
@@ -22,13 +21,19 @@ class FeedbackArguments(BaseModel):
 def save_feedback(arguments: FeedbackArguments) -> Dict[str, Any]:
     """Save feedback data including notes, artifacts, rating, and agent configuration to a JSON file"""
     try:
+        _logger.info("=== FEEDBACK ENDPOINT CALLED ===")
+        _logger.info(f"Received feedback request: stream_id={arguments.stream_id}, rating={arguments.rating}")
+        
         stream_id = arguments.stream_id
         rating = arguments.rating
         
         # Get configuration
+        _logger.info("Getting configuration...")
         config = get_config()
+        _logger.info("Configuration retrieved successfully")
         
         # Get all notes for this stream
+        _logger.info(f"Getting utterances for stream {stream_id}...")
         notes = get_utterances(stream_id)
         _logger.info(f"Retrieved {len(notes)} notes for stream {stream_id}")
         
@@ -134,19 +139,27 @@ def save_feedback(arguments: FeedbackArguments) -> Dict[str, Any]:
         }
         
         # Ensure feedback directory exists in root folder
+        _logger.info("Creating feedback directory...")
         feedback_dir = "feedback"
         os.makedirs(feedback_dir, exist_ok=True)
+        _logger.info(f"Feedback directory created/exists: {feedback_dir}")
         
         # Save to JSON file with timestamp
         filename = f"feedback_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{stream_id}.json"
         filepath = os.path.join(feedback_dir, filename)
+        _logger.info(f"Saving feedback to file: {filepath}")
         
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(feedback_data, f, indent=2, ensure_ascii=False)
         
-        _logger.info(f"Feedback saved to {filepath}")
-        return {"success": True, "filepath": filepath}
+        _logger.info(f"Feedback saved successfully to {filepath}")
+        result = {"success": True, "filepath": filepath}
+        _logger.info(f"Returning result: {result}")
+        return result
         
     except Exception as e:
+        import traceback
         _logger.error(f"Failed to save feedback for {arguments.stream_id}: {e}")
-        raise
+        _logger.error(f"Full traceback: {traceback.format_exc()}")
+        # Return an error response instead of raising, so the frontend gets a proper response
+        return {"success": False, "error": str(e)}

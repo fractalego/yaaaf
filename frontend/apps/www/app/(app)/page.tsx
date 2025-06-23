@@ -11,6 +11,7 @@ import {
   info_button_message,
   info_button_title,
   query_suggestions,
+  save_feedback_url,
 } from "@/app/settings"
 
 import { getSessionId } from "./session"
@@ -22,7 +23,7 @@ async function sendFeedback(
 ) {
   try {
     console.log(`Sending feedback for stream ${streamId}: ${rating}`)
-    const response = await fetch("http://localhost:4000/save_feedback", {
+    const response = await fetch(save_feedback_url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

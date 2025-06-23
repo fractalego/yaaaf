@@ -15,10 +15,39 @@ import {
 
 import { getSessionId } from "./session"
 
+// Function to send feedback to backend
+async function sendFeedback(streamId: string, rating: "thumbs-up" | "thumbs-down") {
+  try {
+    console.log(`Sending feedback for stream ${streamId}: ${rating}`)
+    const response = await fetch("http://localhost:4000/save_feedback", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        stream_id: streamId,
+        rating: rating,
+      }),
+    })
+
+    if (response.ok) {
+      const result = await response.json()
+      console.log("Feedback saved successfully:", result)
+      // You could show a toast notification here
+    } else {
+      console.error("Failed to save feedback:", response.statusText)
+    }
+  } catch (error) {
+    console.error("Error sending feedback:", error)
+  }
+}
+
 export default function ChatDemo() {
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(
     null
   )
+
+  const sessionId = getSessionId()
 
   const {
     messages,
@@ -32,9 +61,15 @@ export default function ChatDemo() {
   } = useChat({
     api: "/api/chat",
     body: {
-      session_id: getSessionId(),
+      session_id: sessionId,
     },
   })
+
+  // Handle feedback submission
+  const handleRateResponse = async (messageId: string, rating: "thumbs-up" | "thumbs-down") => {
+    console.log(`Rating message ${messageId} with ${rating}`)
+    await sendFeedback(sessionId, rating)
+  }
 
   return (
     <div className="h-[90vh] w-full bg-background">
@@ -76,6 +111,7 @@ export default function ChatDemo() {
               setMessages={setMessages}
               suggestions={query_suggestions.split(",")}
               onArtifactClick={setSelectedArtifactId}
+              onRateResponse={handleRateResponse}
             />
           </div>
         </div>

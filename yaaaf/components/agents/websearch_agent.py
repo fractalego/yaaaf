@@ -13,7 +13,7 @@ from yaaaf.components.agents.prompts import duckduckgo_search_agent_prompt_templ
 from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages, PromptTemplate
+from yaaaf.components.data_types import Messages, PromptTemplate, Note
 from yaaaf.components.decorators import handle_exceptions
 
 _path = os.path.dirname(os.path.abspath(__file__))
@@ -30,15 +30,40 @@ class DuckDuckGoSearchAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         self._client = client
 
+    def _add_internal_message(self, message: str, notes: Optional[List[Note]], prefix: str = "Message"):
+        """Helper to add internal messages to notes"""
+        if notes is not None:
+            internal_note = Note(
+                message=f"[{prefix}] {message}",
+                artefact_id=None,
+                agent_name=self.get_name(),
+                model_name=getattr(self._client, "model", None),
+                internal=True,
+            )
+            notes.append(internal_note)
+
     @handle_exceptions
-    async def query(self, messages: Messages, notes: Optional[List[str]] = None) -> str:
+    async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
         messages = messages.add_system_prompt(self._system_prompt)
         search_query = ""
         current_output: str | pd.DataFrame = "No output"
-        for _ in range(self._max_steps):
+        for step_idx in range(self._max_steps):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            
+            # Log internal thinking step
+            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+                model_name = getattr(self._client, "model", None)
+                internal_note = Note(
+                    message=f"[DuckDuckGo Search Step {step_idx}] {answer}",
+                    artefact_id=None,
+                    agent_name=self.get_name(),
+                    model_name=model_name,
+                    internal=True,
+                )
+                notes.append(internal_note)
+            
             if self.is_complete(answer) or answer.strip() == "":
                 break
 
@@ -57,15 +82,15 @@ class DuckDuckGoSearchAgent(BaseAgent):
                     columns=["Title", "Summary", "URL"],
                 )
 
-                messages = messages.add_user_utterance(
-                    f"The web search query was {answer}.\n\nThe result of this query is {current_output}.\n\n\n"
-                    f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
-                    f"If there are errors correct the query accordingly.\n"
-                )
+                feedback_message = f"The web search query was {answer}.\n\nThe result of this query is {current_output}.\n\n\n" \
+                                   f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n" \
+                                   f"If there are errors correct the query accordingly.\n"
+                self._add_internal_message(feedback_message, notes, "Search Feedback")
+                messages = messages.add_user_utterance(feedback_message)
             else:
-                messages = messages.add_user_utterance(
-                    f"The query is {answer} but there are no results from the web search. Try again. If there are errors correct the query accordingly."
-                )
+                error_message = f"The query is {answer} but there are no results from the web search. Try again. If there are errors correct the query accordingly."
+                self._add_internal_message(error_message, notes, "Search Error")
+                messages = messages.add_user_utterance(error_message)
 
         if isinstance(current_output, str):
             return current_output.replace(task_completed_tag, "")
@@ -80,6 +105,7 @@ class DuckDuckGoSearchAgent(BaseAgent):
                 data=current_output,
                 description=df_info_output.getvalue(),
                 code=search_query,
+                id=web_search_id,
             ),
         )
         return f"The result is in this artifact <artefact type='websearch-result'>{web_search_id}</artefact>."

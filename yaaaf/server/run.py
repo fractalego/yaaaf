@@ -12,6 +12,7 @@ from yaaaf.server.routes import (
     get_query_suggestions,
     stream_utterances,
 )
+from yaaaf.server.feedback import save_feedback
 from yaaaf.server.server_settings import server_settings
 
 app = FastAPI()
@@ -26,6 +27,7 @@ app.add_api_route("/get_image", endpoint=get_image, methods=["POST"])
 app.add_api_route(
     "/get_query_suggestions", endpoint=get_query_suggestions, methods=["POST"]
 )
+app.add_api_route("/save_feedback", endpoint=save_feedback, methods=["POST"])
 
 
 def run_server(host: str, port: int):
@@ -64,5 +66,6 @@ def run_server(host: str, port: int):
 
 
 if __name__ == "__main__":
-    os.environ["YAAF_CONFIG"] = "default_config.json"
+    if not os.environ.get("YAAF_CONFIG"):
+        os.environ["YAAF_CONFIG"] = "default_config.json"
     run_server(host=server_settings.host, port=server_settings.port)

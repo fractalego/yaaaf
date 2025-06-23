@@ -18,7 +18,7 @@ from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages
+from yaaaf.components.data_types import Messages, Note
 from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
@@ -34,8 +34,20 @@ class ReviewerAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         self._client = client
 
+    def _add_internal_message(self, message: str, notes: Optional[List[Note]], prefix: str = "Message"):
+        """Helper to add internal messages to notes"""
+        if notes is not None:
+            internal_note = Note(
+                message=f"[{prefix}] {message}",
+                artefact_id=None,
+                agent_name=self.get_name(),
+                model_name=getattr(self._client, "model", None),
+                internal=True,
+            )
+            notes.append(internal_note)
+
     @handle_exceptions
-    async def query(self, messages: Messages, notes: Optional[List[str]] = None) -> str:
+    async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
         last_utterance = messages.utterances[-1]
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
@@ -53,10 +65,23 @@ class ReviewerAgent(BaseAgent):
         )
         df, model = get_table_and_model_from_artefacts(artefact_list)
         code_result = "no code could be executed"
-        for _ in range(self._max_steps):
+        for step_idx in range(self._max_steps):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            
+            # Log internal thinking step
+            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+                model_name = getattr(self._client, "model", None)
+                internal_note = Note(
+                    message=f"[Reviewer Step {step_idx}] {answer}",
+                    artefact_id=None,
+                    agent_name=self.get_name(),
+                    model_name=model_name,
+                    internal=True,
+                )
+                notes.append(internal_note)
+            
             messages.add_assistant_utterance(answer)
             code = get_first_text_between_tags(answer, self._output_tag, "```")
             if code:
@@ -79,9 +104,9 @@ class ReviewerAgent(BaseAgent):
             ):
                 break
 
-            messages.add_assistant_utterance(
-                f"The result is: {code_result}. If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
-            )
+            feedback_message = f"The result is: {code_result}. If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
+            self._add_internal_message(feedback_message, notes, "Reviewer Feedback")
+            messages.add_assistant_utterance(feedback_message)
 
         return code_result
 

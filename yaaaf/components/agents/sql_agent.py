@@ -34,6 +34,18 @@ class SqlAgent(BaseAgent):
         self._client = client
         self._source = source
 
+    def _add_internal_message(self, message: str, notes: Optional[List[Note]], prefix: str = "Message"):
+        """Helper to add internal messages to notes"""
+        if notes is not None:
+            internal_note = Note(
+                message=f"[{prefix}] {message}",
+                artefact_id=None,
+                agent_name=self.get_name(),
+                model_name=getattr(self._client, "model", None),
+                internal=True,
+            )
+            notes.append(internal_note)
+
     @handle_exceptions
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
@@ -43,10 +55,23 @@ class SqlAgent(BaseAgent):
         )
         current_output: str | pd.DataFrame = "No output"
         sql_query = "No SQL query"
-        for _ in range(self._max_steps):
+        for step_idx in range(self._max_steps):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            
+            # Log internal thinking step
+            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+                model_name = getattr(self._client, "model", None)
+                internal_note = Note(
+                    message=f"[Internal Step {step_idx}] {answer}",
+                    artefact_id=None,
+                    agent_name=self.get_name(),
+                    model_name=model_name,
+                    internal=True,
+                )
+                notes.append(internal_note)
+            
             if self.is_complete(answer) or answer.strip() == "":
                 break
 
@@ -62,15 +87,15 @@ class SqlAgent(BaseAgent):
                     )
                     notes.append(note)
                 current_output = self._source.get_data(sql_query)
-                messages = messages.add_user_utterance(
-                    f"The answer is {answer}.\n\nThe output of this SQL query is {current_output}.\n\n\n"
-                    f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
-                    f"If there are errors correct the SQL query accordingly you will need to write the SQL query leveraging the schema above.\n"
-                )
+                feedback_message = f"The answer is {answer}.\n\nThe output of this SQL query is {current_output}.\n\n\n" \
+                                   f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n" \
+                                   f"If there are errors correct the SQL query accordingly you will need to write the SQL query leveraging the schema above.\n"
+                self._add_internal_message(feedback_message, notes, "SQL Feedback")
+                messages = messages.add_user_utterance(feedback_message)
             else:
-                messages = messages.add_user_utterance(
-                    f"The answer is {answer} but there is no SQL call. Try again. If there are errors correct the SQL query accordingly."
-                )
+                error_message = f"The answer is {answer} but there is no SQL call. Try again. If there are errors correct the SQL query accordingly."
+                self._add_internal_message(error_message, notes, "SQL Error")
+                messages = messages.add_user_utterance(error_message)
 
         df_info_output = StringIO()
         table_id = create_hash(current_output.to_markdown())
@@ -82,6 +107,7 @@ class SqlAgent(BaseAgent):
                 data=current_output,
                 description=df_info_output.getvalue(),
                 code=sql_query,
+                id=table_id,
             ),
         )
         return f"The result is in this artifact <artefact type='table'>{table_id}</artefact>."

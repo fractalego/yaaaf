@@ -58,6 +58,12 @@ export function Chat({
   const isEmpty = messages.length === 0
   const isTyping = lastMessage?.role === "user"
 
+  // Get the last assistant message ID for feedback
+  const lastAssistantMessage = messages.findLast(
+    (msg) => msg.role === "assistant"
+  )
+  const lastAssistantMessageId = lastAssistantMessage?.id
+
   const messagesRef = useRef(messages)
   messagesRef.current = messages
 
@@ -147,39 +153,14 @@ export function Chat({
 
   const messageOptions = useCallback(
     (message: Message) => ({
-      actions: onRateResponse ? (
-        <>
-          <div className="border-r pr-1">
-            <CopyButton
-              content={message.content}
-              copyMessage="Copied response to clipboard!"
-            />
-          </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-6 w-6"
-            onClick={() => onRateResponse(message.id, "thumbs-up")}
-          >
-            <ThumbsUp className="h-4 w-4" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-6 w-6"
-            onClick={() => onRateResponse(message.id, "thumbs-down")}
-          >
-            <ThumbsDown className="h-4 w-4" />
-          </Button>
-        </>
-      ) : (
+      actions: (
         <CopyButton
           content={message.content}
           copyMessage="Copied response to clipboard!"
         />
       ),
     }),
-    [onRateResponse]
+    []
   )
 
   return (
@@ -205,6 +186,8 @@ export function Chat({
           onChange={handleInputChange}
           stop={handleStop}
           isGenerating={isGenerating}
+          onRateResponse={onRateResponse}
+          lastMessageId={lastAssistantMessageId}
         />
       </ChatForm>
       {isEmpty && append && suggestions ? (

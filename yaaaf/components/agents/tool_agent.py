@@ -10,7 +10,7 @@ from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.prompts import tool_agent_prompt_template
 from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages, PromptTemplate
+from yaaaf.components.data_types import Messages, PromptTemplate, Note
 from yaaaf.connectors.mcp_connector import MCPTools
 from yaaaf.components.decorators import handle_exceptions
 
@@ -34,17 +34,30 @@ class ToolAgent(BaseAgent):
         self._tools = tools
 
     @handle_exceptions
-    async def query(self, messages: Messages, notes: Optional[List[str]] = None) -> str:
+    async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
         messages = messages.add_system_prompt(
             self._system_prompt.complete(tools_descriptions=self._tools_description)
         )
         all_tool_results = []
         all_tool_calls = []
 
-        for _ in range(self._max_steps):
+        for step_idx in range(self._max_steps):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            
+            # Log internal thinking step
+            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+                model_name = getattr(self._client, "model", None)
+                internal_note = Note(
+                    message=f"[Tool Step {step_idx}] {answer}",
+                    artefact_id=None,
+                    agent_name=self.get_name(),
+                    model_name=model_name,
+                    internal=True,
+                )
+                notes.append(internal_note)
+            
             if self.is_complete(answer) or answer.strip() == "":
                 break
 

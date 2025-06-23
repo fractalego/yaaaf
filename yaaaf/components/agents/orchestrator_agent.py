@@ -52,15 +52,18 @@ class OrchestratorAgent(BaseAgent):
                 artefacts = get_artefacts_from_utterance_content(answer)
                 # Get model name from client if available
                 model_name = getattr(self._client, "model", None)
+                
+                # Add cleaned user-facing note
                 note = Note(
                     message=Note.clean_agent_tags(answer),
                     artefact_id=artefacts[0].id if artefacts else None,
                     agent_name=agent_name,
                     model_name=model_name,
                 )
+                note.internal = False
                 notes.append(note)
 
-            if self.is_complete(answer) or answer.strip() == "":
+            if agent_to_call is None and (self.is_complete(answer) or answer.strip() == ""):
                 break
             if agent_to_call is not None:
                 if notes is not None:
@@ -84,12 +87,15 @@ class OrchestratorAgent(BaseAgent):
                         if agent_to_call
                         else None
                     )
+                    
+                    # Add cleaned user-facing note
                     note = Note(
                         message=Note.clean_agent_tags(answer),
                         artefact_id=artefacts[0].id if artefacts else None,
                         agent_name=final_agent_name,
                         model_name=agent_model_name,
                     )
+                    note.internal = False
                     notes.append(note)
 
                 messages = messages.add_user_utterance(
@@ -195,7 +201,7 @@ Orchestrator agent: This agent orchestrates the agents.
         return df_clean.to_markdown(index=False)
 
     def _make_output_visible(self, answer: str) -> str:
-        """Make the output visible by printing or visualising the content of artefacts"""
+        """Make the output visible by prinurl_ting or visualising the content of artefacts"""
         if "<artefact type='image'>" in answer:
             image_artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
             answer = f"<imageoutput>{image_artefact.id}</imageoutput>" + "\n" + answer

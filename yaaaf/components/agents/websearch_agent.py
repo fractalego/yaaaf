@@ -30,6 +30,18 @@ class DuckDuckGoSearchAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         self._client = client
 
+    def _add_internal_message(self, message: str, notes: Optional[List[Note]], prefix: str = "Message"):
+        """Helper to add internal messages to notes"""
+        if notes is not None:
+            internal_note = Note(
+                message=f"[{prefix}] {message}",
+                artefact_id=None,
+                agent_name=self.get_name(),
+                model_name=getattr(self._client, "model", None),
+                internal=True,
+            )
+            notes.append(internal_note)
+
     @handle_exceptions
     async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
         messages = messages.add_system_prompt(self._system_prompt)
@@ -70,15 +82,15 @@ class DuckDuckGoSearchAgent(BaseAgent):
                     columns=["Title", "Summary", "URL"],
                 )
 
-                messages = messages.add_user_utterance(
-                    f"The web search query was {answer}.\n\nThe result of this query is {current_output}.\n\n\n"
-                    f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
-                    f"If there are errors correct the query accordingly.\n"
-                )
+                feedback_message = f"The web search query was {answer}.\n\nThe result of this query is {current_output}.\n\n\n" \
+                                   f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n" \
+                                   f"If there are errors correct the query accordingly.\n"
+                self._add_internal_message(feedback_message, notes, "Search Feedback")
+                messages = messages.add_user_utterance(feedback_message)
             else:
-                messages = messages.add_user_utterance(
-                    f"The query is {answer} but there are no results from the web search. Try again. If there are errors correct the query accordingly."
-                )
+                error_message = f"The query is {answer} but there are no results from the web search. Try again. If there are errors correct the query accordingly."
+                self._add_internal_message(error_message, notes, "Search Error")
+                messages = messages.add_user_utterance(error_message)
 
         if isinstance(current_output, str):
             return current_output.replace(task_completed_tag, "")

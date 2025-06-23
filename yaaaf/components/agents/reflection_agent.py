@@ -22,6 +22,18 @@ class ReflectionAgent(BaseAgent):
         self._client = client
         self._agents_and_sources_and_tools_list = agents_and_sources_and_tools_list
 
+    def _add_internal_message(self, message: str, notes: Optional[List[Note]], prefix: str = "Message"):
+        """Helper to add internal messages to notes"""
+        if notes is not None:
+            internal_note = Note(
+                message=f"[{prefix}] {message}",
+                artefact_id=None,
+                agent_name=self.get_name(),
+                model_name=getattr(self._client, "model", None),
+                internal=True,
+            )
+            notes.append(internal_note)
+
     @handle_exceptions
     async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
         messages = messages.add_system_prompt(
@@ -52,9 +64,10 @@ class ReflectionAgent(BaseAgent):
             ) or answer.strip() == "":
                 break
 
-            messages = messages.add_user_utterance(
-                f"The answer is:\n\n{answer}\n\nIf it is satisfactory output {self._completing_tags[0]} at the beginning of your answer and nothing else.\n"
-            )
+            # Add internal note for agent's intermediate message
+            feedback_message = f"The answer is:\n\n{answer}\n\nIf it is satisfactory output {self._completing_tags[0]} at the beginning of your answer and nothing else.\n"
+            self._add_internal_message(feedback_message, notes, "Reflection Feedback")
+            messages = messages.add_user_utterance(feedback_message)
             matches = re.findall(
                 rf"{self._output_tag}(.+)```",
                 answer,

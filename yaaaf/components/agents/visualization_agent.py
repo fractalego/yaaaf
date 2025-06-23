@@ -41,6 +41,18 @@ class VisualizationAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         self._client = client
 
+    def _add_internal_message(self, message: str, notes: Optional[List[Note]], prefix: str = "Message"):
+        """Helper to add internal messages to notes"""
+        if notes is not None:
+            internal_note = Note(
+                message=f"[{prefix}] {message}",
+                artefact_id=None,
+                agent_name=self.get_name(),
+                model_name=getattr(self._client, "model", None),
+                internal=True,
+            )
+            notes.append(internal_note)
+
     @handle_exceptions
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
@@ -102,9 +114,9 @@ class VisualizationAgent(BaseAgent):
             ):
                 break
 
-            messages.add_assistant_utterance(
-                f"The result is: {code_result}. If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
-            )
+            feedback_message = f"The result is: {code_result}. If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
+            self._add_internal_message(feedback_message, notes, "Visualization Feedback")
+            messages.add_assistant_utterance(feedback_message)
 
         if not os.path.exists(image_name):
             return "No image was generated. Please try again."

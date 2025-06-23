@@ -38,6 +38,18 @@ class BraveSearchAgent(BaseAgent):
                 "Brave Search API key is required but not found in configuration. Please set 'api_keys.brave_search_api_key' in your config."
             )
 
+    def _add_internal_message(self, message: str, notes: Optional[List[Note]], prefix: str = "Message"):
+        """Helper to add internal messages to notes"""
+        if notes is not None:
+            internal_note = Note(
+                message=f"[{prefix}] {message}",
+                artefact_id=None,
+                agent_name=self.get_name(),
+                model_name=getattr(self._client, "model", None),
+                internal=True,
+            )
+            notes.append(internal_note)
+
     def _search_brave(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
         """
         Search using Brave Search API
@@ -123,15 +135,15 @@ class BraveSearchAgent(BaseAgent):
                     columns=["Title", "Summary", "URL"],
                 )
 
-                messages = messages.add_user_utterance(
-                    f"The web search query was {answer}.\n\nThe result of this query is {current_output}.\n\n\n"
-                    f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
-                    f"If there are errors correct the query accordingly.\n"
-                )
+                feedback_message = f"The web search query was {answer}.\n\nThe result of this query is {current_output}.\n\n\n" \
+                                   f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n" \
+                                   f"If there are errors correct the query accordingly.\n"
+                self._add_internal_message(feedback_message, notes, "Brave Search Feedback")
+                messages = messages.add_user_utterance(feedback_message)
             else:
-                messages = messages.add_user_utterance(
-                    f"The query is {answer} but there are no results from the Brave Search. Try again. If there are errors correct the query accordingly."
-                )
+                error_message = f"The query is {answer} but there are no results from the Brave Search. Try again. If there are errors correct the query accordingly."
+                self._add_internal_message(error_message, notes, "Brave Search Error")
+                messages = messages.add_user_utterance(error_message)
 
         if isinstance(current_output, str):
             return current_output.replace(task_completed_tag, "")

@@ -18,6 +18,8 @@ export const info_button_message =
   process.env.YAAAF_INFO_MESSAGE ||
   `YAAAF - Yet Another Autonomous Agents Framework
 
+Contact: alberto@fractalego.io for any questions or issues.
+
 🤖 Modular Agent System
 Specialized agents for SQL, visualization, web search, ML, and more
 

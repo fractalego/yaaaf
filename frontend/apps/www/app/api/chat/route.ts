@@ -37,8 +37,6 @@ export async function POST(req: Request) {
 
   const result = createDataStreamResponse({
     async execute(dataStream) {
-      dataStream.write('0:"Thinking... <br/><br/>"\n')
-
       try {
         // Use real streaming instead of polling
         const controller = new AbortController()

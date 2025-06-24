@@ -11,19 +11,18 @@ import {
   info_button_message,
   info_button_title,
   query_suggestions,
-  save_feedback_url,
 } from "@/app/settings"
 
 import { getSessionId } from "./session"
 
-// Function to send feedback to backend
+// Function to send feedback via frontend API route (avoids CORS issues)
 async function sendFeedback(
   streamId: string,
   rating: "thumbs-up" | "thumbs-down"
 ) {
   try {
     console.log(`Sending feedback for stream ${streamId}: ${rating}`)
-    const response = await fetch(save_feedback_url, {
+    const response = await fetch("/api/feedback", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -66,10 +66,6 @@ class OrchestratorAgent(BaseAgent):
             if agent_to_call is None and (self.is_complete(answer) or answer.strip() == ""):
                 break
             if agent_to_call is not None:
-                if notes is not None:
-                    messages = messages.add_assistant_utterance(
-                        f"Calling {agent_name} with instruction:\n\n{instruction}\n\n"
-                    )
                 answer = await agent_to_call.query(
                     Messages().add_user_utterance(instruction),
                     notes=notes,
@@ -200,21 +196,67 @@ Orchestrator agent: This agent orchestrates the agents.
 
         return df_clean.to_markdown(index=False)
 
+    def _sanitize_and_truncate_dataframe_for_markdown(self, df, max_rows: int = 5) -> str:
+        """Sanitize dataframe and truncate to first max_rows, showing ellipsis if truncated."""
+        # Create a copy to avoid modifying the original
+        df_clean = df.copy()
+
+        # Apply basic sanitization to all string columns - keep it simple to avoid encoding issues
+        for col in df_clean.columns:
+            if df_clean[col].dtype == "object":  # String columns
+                df_clean[col] = (
+                    df_clean[col]
+                    .astype(str)
+                    .apply(
+                        lambda x: (
+                            # Only do basic cleaning - let frontend handle the rest
+                            x.replace("\n", " ")  # Replace newlines with spaces
+                            .replace("\r", " ")  # Replace carriage returns
+                            .replace("\t", " ")  # Replace tabs with spaces
+                            .strip()  # Remove leading/trailing whitespace
+                        )
+                    )
+                )
+
+        # Check if we need to truncate
+        is_truncated = len(df_clean) > max_rows
+        df_display = df_clean.head(max_rows)
+        
+        # Convert to markdown - keep it simple
+        markdown_table = df_display.to_markdown(index=False)
+        
+        # Add ellipsis indicator if truncated
+        if is_truncated:
+            total_rows = len(df_clean)
+            markdown_table += f"\n\n*... ({total_rows - max_rows} more rows)*"
+        
+        return markdown_table
+
     def _make_output_visible(self, answer: str) -> str:
-        """Make the output visible by prinurl_ting or visualising the content of artefacts"""
+        """Make the output visible by printing or visualising the content of artefacts"""
+        # Handle images
         if "<artefact type='image'>" in answer:
             image_artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
             answer = f"<imageoutput>{image_artefact.id}</imageoutput>" + "\n" + answer
-        if "<artefact type='paragraphs-table'>" in answer:
-            artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
-            answer = (
-                f"<markdown>{self._sanitize_dataframe_for_markdown(artefact.data)}</markdown>"
-                + answer
-            )
-        if "<artefact type='called-tools-table'>" in answer:
-            artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
-            answer = (
-                f"<markdown>{self._sanitize_dataframe_for_markdown(artefact.data)}</markdown>"
-                + answer
-            )
+        
+        # Handle ALL table types - get all artefacts from the answer
+        artefacts = get_artefacts_from_utterance_content(answer)
+        for artefact in artefacts:
+            # Check if this artefact has table data (DataFrame)
+            if artefact.data is not None and hasattr(artefact.data, 'to_markdown'):
+                try:
+                    # This is a table - display it with truncation
+                    markdown_table = self._sanitize_and_truncate_dataframe_for_markdown(artefact.data)
+                    # Prepend the table display to the answer
+                    answer = f"<markdown>{markdown_table}</markdown>\n" + answer
+                    # Debug logging
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"Added table with {len(artefact.data)} rows to output")
+                except Exception as e:
+                    # If table processing fails, log it but don't break the flow
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Failed to process table for display: {e}")
+        
         return answer

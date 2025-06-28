@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yaaaf"
-version = "0.0.26"
+version = "0.0.27"
 description = "YAAAF (Yet Another Autonomous Agents Framework) - A modular framework for building intelligent agentic applications with Python backend and Next.js frontend"
 readme = "README.md"
 requires-python = ">=3.11"

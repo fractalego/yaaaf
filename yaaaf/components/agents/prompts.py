@@ -53,13 +53,14 @@ Mention the specific agents and tools you will use by their exact names.
 These are the agents and tools you can use:
 {agents_and_sources_and_tools_list}
 
-Create a todo list in JSON format with the following structure for each item:
-- id: unique identifier (string)
-- content: description of the task (string)
-- status: "pending", "in_progress", or "completed" (string)
-- priority: "high", "medium", or "low" (string)
+Create a todo list as a markdown table with the following columns:
+- ID: unique identifier
+- Task: description of the task
+- Status: "pending", "in_progress", or "completed"
+- Priority: "high", "medium", or "low"
+- Agent/Tool: specific agent or tool to use
 
-When you are satisfied with the todo list, output it between markdown tags ```json ... ```
+When you are satisfied with the todo list, output it between markdown tags ```table ... ```
 """
 )
 

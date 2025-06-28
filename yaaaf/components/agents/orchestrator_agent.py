@@ -36,12 +36,13 @@ class OrchestratorAgent(BaseAgent):
         # Reset all agent budgets at the start of each query
         self._reset_all_agent_budgets()
 
-        messages = messages.add_system_prompt(
-            self._get_system_prompt(await self._goal_extractor.extract(messages))
-        )
+        # Extract goal once at the beginning
+        goal = await self._goal_extractor.extract(messages)
 
         answer: str = ""
         for step_index in range(self._max_steps):
+            # Update system prompt with current budget information at each step
+            messages = messages.set_system_prompt(self._get_system_prompt(goal))
             answer = await self._client.predict(
                 messages, stop_sequences=self._stop_sequences
             )
@@ -296,17 +297,30 @@ Orchestrator agent: This agent orchestrates the agents.
             # Check if this artefact has table data (DataFrame)
             if artefact.data is not None and hasattr(artefact.data, "to_markdown"):
                 try:
-                    # This is a table - display it with truncation
-                    markdown_table = self._sanitize_and_truncate_dataframe_for_markdown(
-                        artefact.data
-                    )
+                    # Handle todo-list artifacts differently - show full table
+                    if artefact.type == Artefact.Types.TODO_LIST:
+                        markdown_table = self._sanitize_dataframe_for_markdown(
+                            artefact.data
+                        )
+                        logger_msg = f"Added full todo-list table with {len(artefact.data)} rows to output"
+                    else:
+                        # Regular tables - display with truncation
+                        markdown_table = (
+                            self._sanitize_and_truncate_dataframe_for_markdown(
+                                artefact.data
+                            )
+                        )
+                        logger_msg = (
+                            f"Added table with {len(artefact.data)} rows to output"
+                        )
+
                     # Prepend the table display to the answer
                     answer = f"<markdown>{markdown_table}</markdown>\n" + answer
                     # Debug logging
                     import logging
 
                     logger = logging.getLogger(__name__)
-                    logger.info(f"Added table with {len(artefact.data)} rows to output")
+                    logger.info(logger_msg)
                 except Exception as e:
                     # If table processing fails, log it but don't break the flow
                     import logging

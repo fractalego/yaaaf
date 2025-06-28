@@ -24,6 +24,7 @@ class Artefact(BaseModel):
         TABLE = "table"
         IMAGE = "image"
         MODEL = "model"
+        TODO_LIST = "todo-list"
 
     class Config:
         arbitrary_types_allowed = True

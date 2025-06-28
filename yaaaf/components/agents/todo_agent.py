@@ -1,20 +1,26 @@
 import re
 from typing import List, Optional
+from io import StringIO
+
+import pandas as pd
 
 from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import PromptTemplate, Messages, Note
 from yaaaf.components.agents.prompts import todo_agent_prompt_template
+from yaaaf.components.agents.artefacts import ArtefactStorage, Artefact
+from yaaaf.components.agents.hash_utils import create_hash
 from yaaaf.components.decorators import handle_exceptions
 
 
 class TodoAgent(BaseAgent):
     _system_prompt: PromptTemplate = todo_agent_prompt_template
     _completing_tags: List[str] = [task_completed_tag]
-    _output_tag = "```json"
+    _output_tag = "```table"
     _stop_sequences = []
     _max_steps = 5
+    _storage = ArtefactStorage()
 
     def __init__(
         self, client: BaseClient, agents_and_sources_and_tools_list: str = ""
@@ -83,6 +89,48 @@ class TodoAgent(BaseAgent):
             )
             if matches:
                 current_output = matches[0]
+
+        # Parse the markdown table into a DataFrame and create artifact
+        try:
+            markdown_table = current_output.replace(task_completed_tag, "").strip()
+
+            # Parse markdown table into DataFrame
+            lines = [
+                line.strip() for line in markdown_table.split("\n") if line.strip()
+            ]
+            if len(lines) >= 3:  # Header, separator, and at least one data row
+                # Extract header
+                header_line = lines[0]
+                headers = [col.strip() for col in header_line.split("|") if col.strip()]
+
+                # Extract data rows (skip separator line)
+                data_rows = []
+                for line in lines[2:]:  # Skip header and separator
+                    row = [col.strip() for col in line.split("|") if col.strip()]
+                    if len(row) == len(headers):
+                        data_rows.append(row)
+
+                if data_rows:
+                    df = pd.DataFrame(data_rows, columns=headers)
+
+                    # Create and store the todo-list artifact
+                    df_info_output = StringIO()
+                    table_id = create_hash(df.to_markdown())
+                    df.info(verbose=True, buf=df_info_output)
+                    self._storage.store_artefact(
+                        table_id,
+                        Artefact(
+                            type=Artefact.Types.TODO_LIST,
+                            data=df,
+                            description=df_info_output.getvalue(),
+                            code=None,
+                            id=table_id,
+                        ),
+                    )
+                    return f"Todo list created and stored in this artifact <artefact type='todo-list'>{table_id}</artefact>."
+        except Exception:
+            # Fallback to original behavior if parsing fails
+            pass
 
         return current_output.replace(task_completed_tag, "")
 

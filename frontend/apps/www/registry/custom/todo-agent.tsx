@@ -5,19 +5,6 @@ import * as React from "react"
 import { ModelIndicator } from "./model-indicator"
 
 function TodoAgent(element: { text: string; modelName?: string }) {
-  // Parse JSON if the text looks like a todo list
-  let todos = [];
-  let displayText = element.text;
-  
-  try {
-    const parsed = JSON.parse(element.text);
-    if (Array.isArray(parsed)) {
-      todos = parsed;
-    }
-  } catch {
-    // If not valid JSON, display as plain text
-  }
-
   return (
     <div className="inline-block bg-slate-200 dark:bg-slate-700 dark:text-white p-3 text-xl rounded-sm">
       <div className="flex items-center gap-2 mb-1">
@@ -52,35 +39,7 @@ function TodoAgent(element: { text: string; modelName?: string }) {
           />
         )}
       </div>
-      <div>
-        {todos.length > 0 ? (
-          <div className="space-y-2">
-            {todos.map((todo, index) => (
-              <div key={index} className="flex items-center gap-2 text-sm">
-                <div className={`w-2 h-2 rounded-full ${
-                  todo.status === 'completed' ? 'bg-green-500' :
-                  todo.status === 'in_progress' ? 'bg-yellow-500' :
-                  'bg-gray-400'
-                }`} />
-                <span className={`flex-1 ${
-                  todo.status === 'completed' ? 'line-through opacity-70' : ''
-                }`}>
-                  {todo.content}
-                </span>
-                <span className={`text-xs px-2 py-1 rounded ${
-                  todo.priority === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
-                  todo.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
-                  'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                }`}>
-                  {todo.priority}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div>{displayText}</div>
-        )}
-      </div>
+      <div>{element.text}</div>
     </div>
   )
 }

@@ -105,8 +105,11 @@ class UrlReviewerAgent(BaseAgent):
     def get_description(self) -> str:
         return f"""
 Url Retriever agent: {self.get_info()}
-To call this agent write {self.get_opening_tag()} ENGLISH QUERY AND ARTEFACTS THAT DESCRIBE WHAT TO RETRIEVE FROM THE WEB SEARCH RESULTS {self.get_closing_tag()}
+To call this agent write {self.get_opening_tag()} ENGLISH QUERY THAT DESCRIBE WHAT TO RETRIEVE AND <artefact> SEARCH RESULT ARTEFACT </artefact> {self.get_closing_tag()}
 This agent is called when you need to better look into the content of a url.
-The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (only websearch results.
+The arguments within the tags must be: 
+1) instructions about what to look for in the data
+2) the artefacts <artefact type="search-result"> ... </artefact> that describe were found by the other agents above.
+Both arguments are required.
 Do *not* use images in the arguments of this agent.
         """

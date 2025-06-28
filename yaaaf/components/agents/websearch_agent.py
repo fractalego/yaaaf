@@ -117,7 +117,7 @@ class DuckDuckGoSearchAgent(BaseAgent):
                 id=web_search_id,
             ),
         )
-        return f"The result is in this artifact <artefact type='websearch-result'>{web_search_id}</artefact>."
+        return f"The result is in this artifact <artefact type='search-result'>{web_search_id}</artefact>."
 
     @staticmethod
     def get_info() -> str:

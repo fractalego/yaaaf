@@ -61,6 +61,7 @@ Create a todo list as a markdown table with the following columns:
 - Agent/Tool: specific agent or tool to use
 
 When you are satisfied with the todo list, output it between markdown tags ```table ... ```
+You MUST use the ```table ... ``` tags to indicate the start and end of the todo list.
 """
 )
 

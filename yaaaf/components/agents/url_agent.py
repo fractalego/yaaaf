@@ -21,7 +21,7 @@ class URLAgent(BaseAgent):
     _completing_tags: List[str] = [task_completed_tag]
     _output_tag = "```url"
     _stop_sequences = [task_completed_tag]
-    _max_steps = 2
+    _max_steps = 1
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):

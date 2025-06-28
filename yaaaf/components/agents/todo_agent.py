@@ -6,6 +6,7 @@ import pandas as pd
 
 from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.settings import task_completed_tag
+from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import PromptTemplate, Messages, Note
 from yaaaf.components.agents.prompts import todo_agent_prompt_template
@@ -82,13 +83,13 @@ class TodoAgent(BaseAgent):
             feedback_message = f"The todo list is:\n\n{answer}\n\nIf it is satisfactory output {self._completing_tags[0]} at the beginning of your answer and nothing else.\n"
             self._add_internal_message(feedback_message, notes, "Todo Feedback")
             messages = messages.add_user_utterance(feedback_message)
-            matches = re.findall(
-                rf"{self._output_tag}(.+)```",
-                answer,
-                re.DOTALL | re.MULTILINE,
+            current_output = get_first_text_between_tags(
+                answer, self._output_tag, "```"
             )
-            if matches:
-                current_output = matches[0]
+            if not current_output:
+                current_output = get_first_text_between_tags(
+                    answer, "```", "```"
+                )
 
         # Parse the markdown table into a DataFrame and create artifact
         try:

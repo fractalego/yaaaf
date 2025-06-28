@@ -35,6 +35,7 @@ class MleAgent(BaseAgent):
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):
+        super().__init__()
         self._client = client
 
     @handle_exceptions

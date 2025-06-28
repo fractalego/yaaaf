@@ -23,6 +23,7 @@ class RAGAgent(BaseAgent):
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient, sources: List[RAGSource]):
+        super().__init__()
         self._client = client
         self._folders_description = "\n".join(
             [

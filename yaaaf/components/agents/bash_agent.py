@@ -22,6 +22,7 @@ class BashAgent(BaseAgent):
     _max_steps = 5
 
     def __init__(self, client: BaseClient) -> None:
+        super().__init__()
         self._client = client
 
     def is_paused(self, answer: str) -> bool:

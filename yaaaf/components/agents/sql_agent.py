@@ -30,6 +30,7 @@ class SqlAgent(BaseAgent):
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient, source: SqliteSource):
+        super().__init__()
         self._schema = source.get_description()
         self._client = client
         self._source = source

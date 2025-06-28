@@ -25,6 +25,7 @@ class URLAgent(BaseAgent):
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):
+        super().__init__()
         self._client = client
 
     def _fetch_url_content(self, url: str) -> str:

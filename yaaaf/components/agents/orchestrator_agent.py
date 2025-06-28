@@ -33,6 +33,9 @@ class OrchestratorAgent(BaseAgent):
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
+        # Reset all agent budgets at the start of each query
+        self._reset_all_agent_budgets()
+
         messages = messages.add_system_prompt(
             self._get_system_prompt(await self._goal_extractor.extract(messages))
         )
@@ -68,11 +71,24 @@ class OrchestratorAgent(BaseAgent):
             ):
                 break
             if agent_to_call is not None:
-                answer = await agent_to_call.query(
-                    Messages().add_user_utterance(instruction),
-                    notes=notes,
-                )
-                answer = self._make_output_visible(answer)
+                # Check if agent has budget remaining
+                if agent_to_call.get_budget() <= 0:
+                    _logger.warning(
+                        f"Agent {agent_to_call.get_name()} has exhausted its budget"
+                    )
+                    answer = f"Agent {agent_to_call.get_name()} has exhausted its budget and cannot be called again."
+                else:
+                    # Consume budget before calling agent
+                    agent_to_call.consume_budget()
+                    _logger.info(
+                        f"Agent {agent_to_call.get_name()} called, remaining budget: {agent_to_call.get_budget()}"
+                    )
+
+                    answer = await agent_to_call.query(
+                        Messages().add_user_utterance(instruction),
+                        notes=notes,
+                    )
+                    answer = self._make_output_visible(answer)
 
                 if notes is not None:
                     artefacts = get_artefacts_from_utterance_content(answer)
@@ -133,8 +149,25 @@ class OrchestratorAgent(BaseAgent):
             f"Registered agent: {agent.get_name()} (tag: {agent.get_opening_tag()})"
         )
 
+    def _reset_all_agent_budgets(self) -> None:
+        """Reset budgets for all agents at the start of a new query."""
+        for agent in self._agents_map.values():
+            agent.reset_budget()
+        _logger.info("Reset budgets for all agents")
+
+    def _get_available_agents(self) -> dict:
+        """Get agents that still have budget remaining."""
+        return {
+            tag: agent
+            for tag, agent in self._agents_map.items()
+            if agent.get_budget() > 0
+        }
+
     def map_answer_to_agent(self, answer: str) -> Tuple[BaseAgent | None, str]:
-        for tag, agent in self._agents_map.items():
+        # Only consider agents that still have budget
+        available_agents = self._get_available_agents()
+
+        for tag, agent in available_agents.items():
             if tag in answer:
                 matches = re.findall(
                     rf"{agent.get_opening_tag()}(.+)", answer, re.DOTALL | re.MULTILINE
@@ -157,20 +190,34 @@ Orchestrator agent: This agent orchestrates the agents.
             if cutoff_date:
                 training_cutoff_info = f"Your training date cutoff is {cutoff_date}. You have been trained to know only information before that date."
 
+        # Only include agents that still have budget
+        available_agents = self._get_available_agents()
+
+        # Generate budget information
+        budget_info = "Current agent budgets (remaining calls):\n" + "\n".join(
+            [
+                f"• {agent.get_name()}: {agent.get_budget()} calls remaining"
+                for agent in available_agents.values()
+            ]
+        )
+
         return orchestrator_prompt_template.complete(
             training_cutoff_info=training_cutoff_info,
             agents_list="\n".join(
                 [
-                    "* " + agent.get_description().strip() + "\n"
-                    for agent in self._agents_map.values()
+                    "* "
+                    + agent.get_description().strip()
+                    + f" (Budget: {agent.get_budget()} calls)\n"
+                    for agent in available_agents.values()
                 ]
             ),
             all_tags_list="\n".join(
                 [
                     agent.get_opening_tag().strip() + agent.get_closing_tag().strip()
-                    for agent in self._agents_map.values()
+                    for agent in available_agents.values()
                 ]
             ),
+            budget_info=budget_info,
             goal=goal,
         )
 

@@ -28,6 +28,7 @@ class DuckDuckGoSearchAgent(BaseAgent):
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):
+        super().__init__()
         self._client = client
 
     def _add_internal_message(

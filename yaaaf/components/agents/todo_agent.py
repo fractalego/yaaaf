@@ -19,6 +19,8 @@ class TodoAgent(BaseAgent):
     def __init__(
         self, client: BaseClient, agents_and_sources_and_tools_list: str = ""
     ) -> None:
+        super().__init__()
+        self.set_budget(1)  # TodoAgent only gets 1 call per query
         self._client = client
         self._agents_and_sources_and_tools_list = agents_and_sources_and_tools_list
 
@@ -94,5 +96,6 @@ class TodoAgent(BaseAgent):
 Todo planning agent: {self.get_info()}.
 Always call this agent first to create a structured todo list and plan the next steps.
 Call this agent only once per task, it is not meant to be called multiple times.
+Budget: {self.get_budget()} call remaining.
 To call this agent write {self.get_opening_tag()} QUERY TO PLAN {self.get_closing_tag()}
         """

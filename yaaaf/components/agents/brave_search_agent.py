@@ -29,6 +29,7 @@ class BraveSearchAgent(BaseAgent):
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):
+        super().__init__()
         self._client = client
         # Get API key from config
         config = get_config()

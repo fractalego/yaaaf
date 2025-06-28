@@ -24,6 +24,7 @@ class ToolAgent(BaseAgent):
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient, tools: List[MCPTools]):
+        super().__init__()
         self._client = client
         self._tools_description = "\n".join(
             [

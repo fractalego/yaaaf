@@ -3,11 +3,13 @@ from yaaaf.components.data_types import PromptTemplate
 
 orchestrator_prompt_template = PromptTemplate(
     prompt="""
-Your role is to orchestrate a set of 3 analytics agents. You call different agents for different tasks.
+Your role is to orchestrate a set of analytics agents. You call different agents for different tasks.
 These calls happen by writing the name of the agent as the tag name.
 Information about the task is provided between tags.
 
 {training_cutoff_info}
+
+IMPORTANT: Each agent has a limited budget (number of calls) per query. Once an agent's budget is exhausted, it cannot be called again for this query.
 
 You have these agents at your disposal:
 {agents_list}
@@ -15,6 +17,8 @@ You have these agents at your disposal:
 These agents only know what you write between tags and have no memory.
 Use the agents to get what you want. Do not write the answer yourself.
 The only html tags they understand are these ones: {all_tags_list}. Use these tags to call the agents.
+
+{budget_info}
 
 The goal to reach is the following:
 {goal}

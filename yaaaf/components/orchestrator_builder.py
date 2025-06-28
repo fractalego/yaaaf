@@ -2,7 +2,7 @@ import os
 import logging
 from typing import List
 from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
-from yaaaf.components.agents.reflection_agent import ReflectionAgent
+from yaaaf.components.agents.todo_agent import TodoAgent
 from yaaaf.components.agents.reviewer_agent import ReviewerAgent
 from yaaaf.components.agents.sql_agent import SqlAgent
 from yaaaf.components.agents.rag_agent import RAGAgent
@@ -25,7 +25,7 @@ class OrchestratorBuilder:
     def __init__(self, config: Settings):
         self.config = config
         self._agents_map = {
-            "reflection": ReflectionAgent,
+            "todo": TodoAgent,
             "visualization": VisualizationAgent,
             "sql": SqlAgent,
             "rag": RAGAgent,
@@ -135,13 +135,13 @@ class OrchestratorBuilder:
         return agent_config
 
     def _generate_agents_sources_tools_list(self) -> str:
-        """Generate a comprehensive list of available agents, sources, and tools for the ReflectionAgent."""
+        """Generate a comprehensive list of available agents, sources, and tools for the TodoAgent."""
         sections = []
 
         # Agents section
         agents_info = ["**Available Agents:**"]
         for agent_name, agent_class in self._agents_map.items():
-            if agent_name != "reflection":
+            if agent_name != "todo":
                 agents_info.append(f"• {agent_name}: {agent_class.get_info()}")
 
         sections.append("\n".join(agents_info))
@@ -185,7 +185,7 @@ class OrchestratorBuilder:
 
         orchestrator = OrchestratorAgent(orchestrator_client)
 
-        # Generate agents/sources/tools list for ReflectionAgent
+        # Generate agents/sources/tools list for TodoAgent
         agents_sources_tools_list = self._generate_agents_sources_tools_list()
 
         for agent_config in self.config.agents:
@@ -209,14 +209,14 @@ class OrchestratorBuilder:
                         client=agent_client, sources=rag_sources
                     )
                 )
-            elif agent_name == "reflection":
+            elif agent_name == "todo":
                 orchestrator.subscribe_agent(
                     self._agents_map[agent_name](
                         client=agent_client,
                         agents_and_sources_and_tools_list=agents_sources_tools_list,
                     )
                 )
-            elif agent_name not in ["sql", "rag", "reflection"]:
+            elif agent_name not in ["sql", "rag", "todo"]:
                 orchestrator.subscribe_agent(
                     self._agents_map[agent_name](client=agent_client)
                 )

@@ -30,7 +30,9 @@ class DuckDuckGoSearchAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         self._client = client
 
-    def _add_internal_message(self, message: str, notes: Optional[List[Note]], prefix: str = "Message"):
+    def _add_internal_message(
+        self, message: str, notes: Optional[List[Note]], prefix: str = "Message"
+    ):
         """Helper to add internal messages to notes"""
         if notes is not None:
             internal_note = Note(
@@ -43,7 +45,9 @@ class DuckDuckGoSearchAgent(BaseAgent):
             notes.append(internal_note)
 
     @handle_exceptions
-    async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
+    async def query(
+        self, messages: Messages, notes: Optional[List[Note]] = None
+    ) -> str:
         messages = messages.add_system_prompt(self._system_prompt)
         search_query = ""
         current_output: str | pd.DataFrame = "No output"
@@ -51,9 +55,11 @@ class DuckDuckGoSearchAgent(BaseAgent):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            
+
             # Log internal thinking step
-            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+            if (
+                notes is not None and step_idx > 0
+            ):  # Skip first step to avoid duplication with orchestrator
                 model_name = getattr(self._client, "model", None)
                 internal_note = Note(
                     message=f"[DuckDuckGo Search Step {step_idx}] {answer}",
@@ -63,7 +69,7 @@ class DuckDuckGoSearchAgent(BaseAgent):
                     internal=True,
                 )
                 notes.append(internal_note)
-            
+
             if self.is_complete(answer) or answer.strip() == "":
                 break
 
@@ -82,9 +88,11 @@ class DuckDuckGoSearchAgent(BaseAgent):
                     columns=["Title", "Summary", "URL"],
                 )
 
-                feedback_message = f"The web search query was {answer}.\n\nThe result of this query is {current_output}.\n\n\n" \
-                                   f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n" \
-                                   f"If there are errors correct the query accordingly.\n"
+                feedback_message = (
+                    f"The web search query was {answer}.\n\nThe result of this query is {current_output}.\n\n\n"
+                    f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
+                    f"If there are errors correct the query accordingly.\n"
+                )
                 self._add_internal_message(feedback_message, notes, "Search Feedback")
                 messages = messages.add_user_utterance(feedback_message)
             else:

@@ -14,7 +14,7 @@ import { ImageOutput } from "@/registry/custom/image-output"
 import { MleAgent } from "@/registry/custom/mle-agent"
 import { Paused } from "@/registry/custom/paused"
 import { RagAgent } from "@/registry/custom/rag-agent"
-import { ReflectionAgent } from "@/registry/custom/reflection-agent"
+import { TodoAgent } from "@/registry/custom/todo-agent"
 import { ReviewerAgent } from "@/registry/custom/reviewer-agent"
 import { SqlAgent } from "@/registry/custom/sql-agent"
 import { UrlAgent } from "@/registry/custom/url-agent"
@@ -201,12 +201,12 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     imageoutput: ({ children }: any) => {
       return <ImageOutput id={children}></ImageOutput>
     },
-    reflectionagent: ({ children, ...props }: any) => {
+    todoagent: ({ children, ...props }: any) => {
       return (
-        <ReflectionAgent
+        <TodoAgent
           text={children}
           modelName={props["data-model"]}
-        ></ReflectionAgent>
+        ></TodoAgent>
       )
     },
     taskcompleted: ({ children }: any) => {

@@ -52,7 +52,7 @@ class OrchestratorAgent(BaseAgent):
                 artefacts = get_artefacts_from_utterance_content(answer)
                 # Get model name from client if available
                 model_name = getattr(self._client, "model", None)
-                
+
                 # Add cleaned user-facing note
                 note = Note(
                     message=Note.clean_agent_tags(answer),
@@ -63,7 +63,9 @@ class OrchestratorAgent(BaseAgent):
                 note.internal = False
                 notes.append(note)
 
-            if agent_to_call is None and (self.is_complete(answer) or answer.strip() == ""):
+            if agent_to_call is None and (
+                self.is_complete(answer) or answer.strip() == ""
+            ):
                 break
             if agent_to_call is not None:
                 answer = await agent_to_call.query(
@@ -83,7 +85,7 @@ class OrchestratorAgent(BaseAgent):
                         if agent_to_call
                         else None
                     )
-                    
+
                     # Add cleaned user-facing note
                     note = Note(
                         message=Note.clean_agent_tags(answer),
@@ -196,7 +198,9 @@ Orchestrator agent: This agent orchestrates the agents.
 
         return df_clean.to_markdown(index=False)
 
-    def _sanitize_and_truncate_dataframe_for_markdown(self, df, max_rows: int = 5) -> str:
+    def _sanitize_and_truncate_dataframe_for_markdown(
+        self, df, max_rows: int = 5
+    ) -> str:
         """Sanitize dataframe and truncate to first max_rows, showing ellipsis if truncated."""
         # Create a copy to avoid modifying the original
         df_clean = df.copy()
@@ -221,15 +225,15 @@ Orchestrator agent: This agent orchestrates the agents.
         # Check if we need to truncate
         is_truncated = len(df_clean) > max_rows
         df_display = df_clean.head(max_rows)
-        
+
         # Convert to markdown - keep it simple
         markdown_table = df_display.to_markdown(index=False)
-        
+
         # Add ellipsis indicator if truncated
         if is_truncated:
             total_rows = len(df_clean)
             markdown_table += f"\n\n*... ({total_rows - max_rows} more rows)*"
-        
+
         return markdown_table
 
     def _make_output_visible(self, answer: str) -> str:
@@ -238,25 +242,29 @@ Orchestrator agent: This agent orchestrates the agents.
         if "<artefact type='image'>" in answer:
             image_artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
             answer = f"<imageoutput>{image_artefact.id}</imageoutput>" + "\n" + answer
-        
+
         # Handle ALL table types - get all artefacts from the answer
         artefacts = get_artefacts_from_utterance_content(answer)
         for artefact in artefacts:
             # Check if this artefact has table data (DataFrame)
-            if artefact.data is not None and hasattr(artefact.data, 'to_markdown'):
+            if artefact.data is not None and hasattr(artefact.data, "to_markdown"):
                 try:
                     # This is a table - display it with truncation
-                    markdown_table = self._sanitize_and_truncate_dataframe_for_markdown(artefact.data)
+                    markdown_table = self._sanitize_and_truncate_dataframe_for_markdown(
+                        artefact.data
+                    )
                     # Prepend the table display to the answer
                     answer = f"<markdown>{markdown_table}</markdown>\n" + answer
                     # Debug logging
                     import logging
+
                     logger = logging.getLogger(__name__)
                     logger.info(f"Added table with {len(artefact.data)} rows to output")
                 except Exception as e:
                     # If table processing fails, log it but don't break the flow
                     import logging
+
                     logger = logging.getLogger(__name__)
                     logger.warning(f"Failed to process table for display: {e}")
-        
+
         return answer

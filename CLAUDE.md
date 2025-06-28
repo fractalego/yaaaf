@@ -72,6 +72,9 @@ YAAAF (Yet Another Autonomous Agents Framework) is a modular framework for build
 - `frontend/apps/www/components/ui/chat.tsx`: Main chat interface component
 - `tests/`: Unit tests for all major components. All the tests go into this folder.
 
+## Files to ignore
+- `yaaaf/client/standalone/`: Contains standalone client code that is built from the frontend when run in production mode. It is not used in development.
+
 ## Development Notes
 
 - The system uses async/await patterns throughout for streaming responses

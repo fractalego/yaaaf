@@ -5,14 +5,14 @@ from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import PromptTemplate, Messages, Note
-from yaaaf.components.agents.prompts import reflection_agent_prompt_template
+from yaaaf.components.agents.prompts import todo_agent_prompt_template
 from yaaaf.components.decorators import handle_exceptions
 
 
-class ReflectionAgent(BaseAgent):
-    _system_prompt: PromptTemplate = reflection_agent_prompt_template
+class TodoAgent(BaseAgent):
+    _system_prompt: PromptTemplate = todo_agent_prompt_template
     _completing_tags: List[str] = [task_completed_tag]
-    _output_tag = "```text"
+    _output_tag = "```json"
     _stop_sequences = []
     _max_steps = 5
 
@@ -22,7 +22,9 @@ class ReflectionAgent(BaseAgent):
         self._client = client
         self._agents_and_sources_and_tools_list = agents_and_sources_and_tools_list
 
-    def _add_internal_message(self, message: str, notes: Optional[List[Note]], prefix: str = "Message"):
+    def _add_internal_message(
+        self, message: str, notes: Optional[List[Note]], prefix: str = "Message"
+    ):
         """Helper to add internal messages to notes"""
         if notes is not None:
             internal_note = Note(
@@ -35,7 +37,9 @@ class ReflectionAgent(BaseAgent):
             notes.append(internal_note)
 
     @handle_exceptions
-    async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
+    async def query(
+        self, messages: Messages, notes: Optional[List[Note]] = None
+    ) -> str:
         messages = messages.add_system_prompt(
             self._system_prompt.complete(
                 agents_and_sources_and_tools_list=self._agents_and_sources_and_tools_list
@@ -46,27 +50,29 @@ class ReflectionAgent(BaseAgent):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            
+
             # Log internal thinking step
-            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+            if (
+                notes is not None and step_idx > 0
+            ):  # Skip first step to avoid duplication with orchestrator
                 model_name = getattr(self._client, "model", None)
                 internal_note = Note(
-                    message=f"[Reflection Step {step_idx}] {answer}",
+                    message=f"[Todo Planning Step {step_idx}] {answer}",
                     artefact_id=None,
                     agent_name=self.get_name(),
                     model_name=model_name,
                     internal=True,
                 )
                 notes.append(internal_note)
-            
+
             if (
                 self._output_tag not in answer and self.is_complete(answer)
             ) or answer.strip() == "":
                 break
 
             # Add internal note for agent's intermediate message
-            feedback_message = f"The answer is:\n\n{answer}\n\nIf it is satisfactory output {self._completing_tags[0]} at the beginning of your answer and nothing else.\n"
-            self._add_internal_message(feedback_message, notes, "Reflection Feedback")
+            feedback_message = f"The todo list is:\n\n{answer}\n\nIf it is satisfactory output {self._completing_tags[0]} at the beginning of your answer and nothing else.\n"
+            self._add_internal_message(feedback_message, notes, "Todo Feedback")
             messages = messages.add_user_utterance(feedback_message)
             matches = re.findall(
                 rf"{self._output_tag}(.+)```",
@@ -81,12 +87,12 @@ class ReflectionAgent(BaseAgent):
     @staticmethod
     def get_info() -> str:
         """Get a brief high-level description of what this agent does."""
-        return "This agent thinks step by step about the actions to take"
+        return "This agent creates structured todo lists for planning query responses"
 
     def get_description(self) -> str:
         return f"""
-Self-reflection agent: {self.get_info()}.
-Always call this agent first to think about the task and plan the next steps.
+Todo planning agent: {self.get_info()}.
+Always call this agent first to create a structured todo list and plan the next steps.
 Call this agent only once per task, it is not meant to be called multiple times.
-To call this agent write {self.get_opening_tag()} THINGS TO THINK ABOUT {self.get_closing_tag()}
+To call this agent write {self.get_opening_tag()} QUERY TO PLAN {self.get_closing_tag()}
         """

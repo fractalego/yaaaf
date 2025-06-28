@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script to verify that ReflectionAgent receives agents/sources/tools information correctly
+Test script to verify that TodoAgent receives agents/sources/tools information correctly
 """
 
 import sys
@@ -10,23 +10,23 @@ import os
 sys.path.append(os.getcwd())
 
 from yaaaf.components.client import OllamaClient
-from yaaaf.components.agents.reflection_agent import ReflectionAgent
+from yaaaf.components.agents.todo_agent import TodoAgent
 from yaaaf.components.orchestrator_builder import OrchestratorBuilder
 from yaaaf.server.config import Settings, SourceSettings, ClientSettings
 
 
-def test_reflection_agent_initialization():
-    """Test that ReflectionAgent properly receives agents/sources/tools information."""
+def test_todo_agent_initialization():
+    """Test that TodoAgent properly receives agents/sources/tools information."""
 
-    print("🧪 Testing ReflectionAgent with Agents/Sources/Tools List")
+    print("🧪 Testing TodoAgent with Agents/Sources/Tools List")
     print("=" * 60)
 
     # Create a test client
     test_client = OllamaClient(model="test-model:latest", host="http://localhost:11434")
 
-    # Test 1: Basic ReflectionAgent without list
-    print("\n📦 Test 1: ReflectionAgent without agents list")
-    basic_agent = ReflectionAgent(client=test_client)
+    # Test 1: Basic TodoAgent without list
+    print("\n📦 Test 1: TodoAgent without agents list")
+    basic_agent = TodoAgent(client=test_client)
     print(f"   Agents list: '{basic_agent._agents_and_sources_and_tools_list}'")
 
     # Test 2: ReflectionAgent with custom list
@@ -41,8 +41,8 @@ def test_reflection_agent_initialization():
 • File system operations
 • Data visualization"""
 
-    print("\n📦 Test 2: ReflectionAgent with custom agents list")
-    custom_agent = ReflectionAgent(
+    print("\n📦 Test 2: TodoAgent with custom agents list")
+    custom_agent = TodoAgent(
         client=test_client, agents_and_sources_and_tools_list=test_list
     )
     print(
@@ -59,7 +59,7 @@ def test_reflection_agent_initialization():
 
 
 def test_orchestrator_builder_integration():
-    """Test that OrchestratorBuilder passes agents/sources/tools info to ReflectionAgent."""
+    """Test that OrchestratorBuilder passes agents/sources/tools info to TodoAgent."""
 
     print("\n🏗️ Testing OrchestratorBuilder Integration")
     print("-" * 40)
@@ -69,7 +69,7 @@ def test_orchestrator_builder_integration():
         client=ClientSettings(
             model="test-model:latest", temperature=0.7, max_tokens=1024
         ),
-        agents=["reflection", "sql", "visualization"],
+        agents=["todo", "sql", "visualization"],
         sources=[SourceSettings(name="test_db", type="sqlite", path="./test.db")],
     )
 
@@ -109,12 +109,12 @@ def test_orchestrator_builder_integration():
 
 
 def test_prompt_template_completion():
-    """Test that the reflection agent prompt template gets properly completed."""
+    """Test that the todo agent prompt template gets properly completed."""
 
     print("\n📋 Testing Prompt Template Completion")
     print("-" * 40)
 
-    from yaaaf.components.agents.prompts import reflection_agent_prompt_template
+    from yaaaf.components.agents.prompts import todo_agent_prompt_template
 
     test_list = """**Available Agents:**
 • sql: Database queries with SQL
@@ -125,7 +125,7 @@ def test_prompt_template_completion():
 • Web search"""
 
     # Test prompt completion
-    completed_prompt = reflection_agent_prompt_template.complete(
+    completed_prompt = todo_agent_prompt_template.complete(
         agents_and_sources_and_tools_list=test_list
     )
 
@@ -151,19 +151,19 @@ def test_prompt_template_completion():
 
 
 if __name__ == "__main__":
-    print("🎯 ReflectionAgent Integration Tests")
+    print("🎯 TodoAgent Integration Tests")
     print("=" * 60)
 
     try:
         # Run all tests
-        test1_result = test_reflection_agent_initialization()
+        test1_result = test_todo_agent_initialization()
         test2_result = test_orchestrator_builder_integration()
         test3_result = test_prompt_template_completion()
 
         print("\n🎉 Test Results Summary:")
         print("=" * 30)
         print(
-            f"   ReflectionAgent initialization: {'✅ PASS' if test1_result else '❌ FAIL'}"
+            f"   TodoAgent initialization: {'✅ PASS' if test1_result else '❌ FAIL'}"
         )
         print(
             f"   OrchestratorBuilder integration: {'✅ PASS' if test2_result else '❌ FAIL'}"
@@ -173,9 +173,7 @@ if __name__ == "__main__":
         )
 
         if all([test1_result, test2_result, test3_result]):
-            print(
-                "\n🎉 All tests passed! ReflectionAgent integration is working correctly."
-            )
+            print("\n🎉 All tests passed! TodoAgent integration is working correctly.")
         else:
             print("\n❌ Some tests failed. Please check the implementation.")
             sys.exit(1)

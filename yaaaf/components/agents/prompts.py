@@ -41,14 +41,21 @@ Limit the number of output rows to 20 at most.
 )
 
 
-reflection_agent_prompt_template = PromptTemplate(
+todo_agent_prompt_template = PromptTemplate(
     prompt="""
-Your task is to think step by step about the actions to take.
-Think about the instructions and creat an action plan to follow them. Be concise and clear.
-When you write the action plan, mention the names of the agents and tools you will use by exact names.
+Your task is to create a structured todo list for planning how to answer the user's query.
+Analyze the instructions and break them down into actionable todo items with priorities.
+Mention the specific agents and tools you will use by their exact names.
 These are the agents and tools you can use:
 {agents_and_sources_and_tools_list}
-When you are satisfied with the instructions, you need to output the actions plan between the markdown tags ```text ... ```
+
+Create a todo list in JSON format with the following structure for each item:
+- id: unique identifier (string)
+- content: description of the task (string)
+- status: "pending", "in_progress", or "completed" (string)
+- priority: "high", "medium", or "low" (string)
+
+When you are satisfied with the todo list, output it between markdown tags ```json ... ```
 """
 )
 

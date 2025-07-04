@@ -30,7 +30,7 @@ class Note(BaseModel):
     def extract_agent_name_from_tags(text: str) -> Optional[str]:
         """Extract agent name from agent tags in the text (e.g., <sqlagent>...</sqlagent>)"""
         # Look for agent tags (excluding artefact and completion tags)
-        agent_tag_pattern = r"<(\w+agent)>"
+        agent_tag_pattern = r"<(\w+agent)\s.*?>"
         matches = re.findall(agent_tag_pattern, text, re.IGNORECASE)
         return matches[0] if matches else None
 

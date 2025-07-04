@@ -12,23 +12,23 @@ function ArtefactPage(element: { data: string; code: string; image: string }) {
     const parser = new DOMParser()
     const doc = parser.parseFromString(htmlString, 'text/html')
     const table = doc.querySelector('table')
-    
+
     if (!table) return htmlString
-    
+
     const rows = Array.from(table.querySelectorAll('tr'))
     let markdown = ''
-    
+
     rows.forEach((row, rowIndex) => {
       const cells = Array.from(row.querySelectorAll('td, th'))
       const cellValues = cells.map(cell => cell.textContent?.trim() || '')
       markdown += '| ' + cellValues.join(' | ') + ' |\n'
-      
+
       // Add header separator after first row
       if (rowIndex === 0 && cells.length > 0) {
         markdown += '| ' + Array(cells.length).fill('---').join(' | ') + ' |\n'
       }
     })
-    
+
     return markdown
   }
 
@@ -64,8 +64,8 @@ function ArtefactPage(element: { data: string; code: string; image: string }) {
           <button
             onClick={copyTableAsMarkdown}
             className={`inline-flex items-center gap-2 px-3 py-1 text-sm rounded-md transition-colors ${
-              copied 
-                ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300" 
+              copied
+                ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
                 : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
             }`}
             title="Copy table as markdown"

@@ -54,10 +54,8 @@ class OrchestratorAgent(BaseAgent):
 
             if notes is not None:
                 artefacts = get_artefacts_from_utterance_content(answer)
-                # Get model name from client if available
                 model_name = getattr(self._client, "model", None)
 
-                # Add cleaned user-facing note
                 note = Note(
                     message=Note.clean_agent_tags(answer),
                     artefact_id=artefacts[0].id if artefacts else None,

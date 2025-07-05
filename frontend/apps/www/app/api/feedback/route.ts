@@ -8,7 +8,9 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { stream_id, rating } = body
 
-    console.log(`Frontend API: Proxying feedback request - stream_id: ${stream_id}, rating: ${rating}`)
+    console.log(
+      `Frontend API: Proxying feedback request - stream_id: ${stream_id}, rating: ${rating}`
+    )
 
     const response = await fetch(save_feedback_url, {
       method: "POST",
@@ -26,7 +28,10 @@ export async function POST(req: Request) {
       console.log("Frontend API: Feedback saved successfully:", result)
       return Response.json(result)
     } else {
-      console.error("Frontend API: Failed to save feedback:", response.statusText)
+      console.error(
+        "Frontend API: Failed to save feedback:",
+        response.statusText
+      )
       return Response.json(
         { success: false, error: response.statusText },
         { status: response.status }

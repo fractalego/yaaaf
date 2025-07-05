@@ -10,6 +10,7 @@ from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Note
 from yaaaf.components.agents.prompts import orchestrator_prompt_template
 from yaaaf.components.extractors.goal_extractor import GoalExtractor
+from yaaaf.components.extractors.summary_extractor import SummaryExtractor
 from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class OrchestratorAgent(BaseAgent):
             key: agent(client) for key, agent in self._agents_map.items()
         }
         self._goal_extractor = GoalExtractor(client)
+        self._summary_extractor = SummaryExtractor(client)
 
     @handle_exceptions
     async def query(
@@ -57,7 +59,7 @@ class OrchestratorAgent(BaseAgent):
                 model_name = getattr(self._client, "model", None)
 
                 note = Note(
-                    message=Note.clean_agent_tags(answer),
+                    message=self._remove_and_extract_completion_tag(Note.clean_agent_tags(answer)),
                     artefact_id=artefacts[0].id if artefacts else None,
                     agent_name=agent_name,
                     model_name=model_name,
@@ -68,6 +70,9 @@ class OrchestratorAgent(BaseAgent):
             if agent_to_call is None and (
                 self.is_complete(answer) or answer.strip() == ""
             ):
+                # Generate summary artifact when task is completed
+                if self.is_complete(answer):
+                    answer = await self._generate_and_add_summary(answer, notes)
                 break
             if agent_to_call is not None:
                 # Check if agent has budget remaining
@@ -121,6 +126,8 @@ class OrchestratorAgent(BaseAgent):
                 )
         if not self.is_complete(answer) and step_index == self._max_steps - 1:
             answer += f"\nThe Orchestrator agent has finished its maximum number of steps. {task_completed_tag}"
+            # Generate summary artifact when max steps reached
+            answer = await self._generate_and_add_summary(answer, notes)
             if notes is not None:
                 model_name = getattr(self._client, "model", None)
                 notes.append(
@@ -130,11 +137,37 @@ class OrchestratorAgent(BaseAgent):
                         model_name=model_name,
                     )
                 )
+
         return answer
 
     def is_paused(self, answer: str) -> bool:
         """Check if the task is paused and waiting for user input."""
         return task_paused_tag in answer
+
+    def _remove_and_extract_completion_tag(self, answer: str) -> str:
+        cleaned_answer = answer.replace(task_completed_tag, "").strip()
+        return cleaned_answer
+
+    async def _generate_and_add_summary(
+        self, answer: str, notes: Optional[List[Note]] = None
+    ) -> str:
+        """Generate summary artifact and add it to notes, returning updated answer."""
+        if not notes:
+            return answer
+
+        summary_result = await self._summary_extractor.extract(notes)
+        if summary_result:
+            updated_answer = f"\n\n{summary_result}\n\n{task_completed_tag}"
+            model_name = getattr(self._client, "model", None)
+            notes.append(
+                Note(
+                    message=updated_answer,
+                    agent_name=self.get_name(),
+                    model_name=model_name,
+                )
+            )
+            return updated_answer
+        return answer
 
     def subscribe_agent(self, agent: BaseAgent):
         if agent.get_opening_tag() in self._agents_map:

@@ -5,7 +5,12 @@ import { Check, Copy } from "lucide-react"
 
 import { linkifyUrls } from "@/lib/url-utils"
 
-function ArtefactPage(element: { data: string; code: string; image: string }) {
+function ArtefactPage(element: {
+  data: string
+  code: string
+  image: string
+  summary: string
+}) {
   const [copied, setCopied] = React.useState(false)
 
   const convertHtmlTableToMarkdown = (htmlString: string): string => {
@@ -57,8 +62,50 @@ function ArtefactPage(element: { data: string; code: string; image: string }) {
 
   // Process table cell content to make URLs clickable
   data = linkifyUrls(data)
+
+  // Render markdown function for summary
+  const renderMarkdown = (markdown: string) => {
+    // Simple markdown renderer for basic formatting
+    let html = markdown
+      .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mb-4">$1</h1>')
+      .replace(/^## (.*$)/gim, '<h2 class="text-xl font-semibold mb-3">$1</h2>')
+      .replace(/^### (.*$)/gim, '<h3 class="text-lg font-medium mb-2">$1</h3>')
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.*?)\*/g, "<em>$1</em>")
+      .replace(
+        /\[(.*?)\]\((.*?)\)/g,
+        '<a href="$2" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer">$1</a>'
+      )
+      .replace(/\n\n/g, '</p><p class="mb-3">')
+      .replace(/\n/g, "<br>")
+
+    // Wrap in paragraph tags if not already wrapped in block elements
+    if (
+      !html.includes("<h1>") &&
+      !html.includes("<h2>") &&
+      !html.includes("<h3>")
+    ) {
+      html = `<p class="mb-3">${html}</p>`
+    }
+
+    return html
+  }
+
   return (
     <div>
+      {element.summary && (
+        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border">
+          <h2 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
+            Conversation Summary
+          </h2>
+          <div
+            className="prose prose-sm max-w-none dark:prose-invert text-gray-700 dark:text-gray-300"
+            dangerouslySetInnerHTML={{
+              __html: renderMarkdown(element.summary),
+            }}
+          />
+        </div>
+      )}
       {element.data && (
         <div className="mb-4">
           <button

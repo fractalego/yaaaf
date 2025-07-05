@@ -243,13 +243,29 @@ YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM pr
     "reviewer",
     "websearch",
     "url_reviewer",
-    "bash"
+    "bash",
+    "tool"
   ],
   "sources": [
     {
       "name": "london_archaeological_data",
       "type": "sqlite",
       "path": "../../data/london_archaeological_data.db"
+    }
+  ],
+  "tools": [
+    {
+      "name": "math_tools",
+      "type": "sse",
+      "description": "Mathematical calculation tools",
+      "url": "http://localhost:8080/sse"
+    },
+    {
+      "name": "file_tools",
+      "type": "stdio",
+      "description": "File manipulation tools",
+      "command": "python",
+      "args": ["-m", "my_file_server"]
     }
   ]
 }
@@ -261,6 +277,13 @@ YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM pr
 - **Fallback**: Any unspecified parameters use the default client configuration
 - **Examples**: Use specialized models for specific tasks (e.g., coding models for visualization, larger models for RAG)
 - **Host configuration**: Set different Ollama instances per agent or use default host
+
+**MCP Tools Configuration:**
+- **SSE Tools**: For HTTP-based MCP servers (`"type": "sse"` with `"url"`)
+- **Stdio Tools**: For command-line MCP servers (`"type": "stdio"` with `"command"` and `"args"`)
+- **Tool Agent**: Add `"tool"` to agents list to enable MCP tool integration
+- **Description**: Human-readable description of what the tool server provides
+- **Error Handling**: Failed tool connections are logged but don't prevent startup
 
 ## 📚 Documentation
 

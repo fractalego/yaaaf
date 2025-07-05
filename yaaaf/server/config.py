@@ -1,7 +1,13 @@
 import os
-from typing import List
+from typing import List, Optional
+from enum import Enum
 
 from pydantic_settings import BaseSettings
+
+
+class ToolTransportType(str, Enum):
+    SSE = "sse"
+    STDIO = "stdio"
 
 
 class ClientSettings(BaseSettings):
@@ -16,6 +22,15 @@ class SourceSettings(BaseSettings):
     type: str | None = None
     path: str | None = None
     description: str | None = None
+
+
+class ToolSettings(BaseSettings):
+    name: str
+    type: ToolTransportType
+    description: str
+    url: Optional[str] = None  # For SSE type
+    command: Optional[str] = None  # For stdio type
+    args: Optional[List[str]] = None  # For stdio type
 
 
 class SafetyFilterSettings(BaseSettings):
@@ -40,6 +55,7 @@ class AgentSettings(BaseSettings):
 class Settings(BaseSettings):
     client: ClientSettings
     sources: List[SourceSettings] = []
+    tools: List[ToolSettings] = []
     agents: List[str | AgentSettings] = []
     safety_filter: SafetyFilterSettings = SafetyFilterSettings()
     api_keys: APISettings = APISettings()
@@ -71,6 +87,7 @@ def _get_simple_config() -> Settings:
     config: Settings = Settings(
         client=client_settings,
         sources=[],
+        tools=[],
         agents=[
             "reflection",
             "visualization",

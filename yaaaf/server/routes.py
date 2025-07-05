@@ -52,10 +52,12 @@ def create_stream(arguments: CreateStreamArguments):
     try:
         stream_id = arguments.stream_id
         messages = Messages(utterances=arguments.messages)
-        orchestrator = OrchestratorBuilder(get_config()).build()
-        t = threading.Thread(
-            target=asyncio.run, args=(do_compute(stream_id, messages, orchestrator),)
-        )
+
+        async def build_and_compute():
+            orchestrator = await OrchestratorBuilder(get_config()).build()
+            await do_compute(stream_id, messages, orchestrator)
+
+        t = threading.Thread(target=asyncio.run, args=(build_and_compute(),))
         t.start()
     except Exception as e:
         _logger.error(f"Routes: Failed to create stream for {arguments.stream_id}: {e}")

@@ -71,7 +71,7 @@ function ArtefactPage(element: {
 
       // Set title
       doc.setFontSize(16)
-      doc.setFont(undefined, "bold")
+      doc.setFont("helvetica", "bold")
       doc.text("Conversation Summary", 20, 20)
 
       // Process the summary text to handle basic markdown
@@ -85,7 +85,7 @@ function ArtefactPage(element: {
 
       // Split text into lines and add to PDF
       doc.setFontSize(12)
-      doc.setFont(undefined, "normal")
+      doc.setFont("helvetica", "normal")
 
       const splitText = doc.splitTextToSize(processedText, 170) // 170mm width
       let yPosition = 35

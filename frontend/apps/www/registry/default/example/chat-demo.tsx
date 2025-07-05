@@ -61,7 +61,6 @@ export default function ChatDemo(props: ChatDemoProps) {
 
       <Chat
         className="grow"
-        // @ts-expect-error @ts-ignore
         messages={messages}
         handleSubmit={handleSubmit}
         input={input}

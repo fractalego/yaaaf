@@ -16,7 +16,7 @@ import { MarkdownRenderer } from "@/registry/default/ui/markdown-renderer"
 import { complete_tag, paused_tag } from "@/app/settings"
 
 const chatBubbleVariants = cva(
-  "group/message relative break-words rounded-xl p-4 text-sm sm:max-w-[75%] shadow-sm border",
+  "group/message relative break-words rounded-xl p-4 text-sm sm:max-w-[85%] shadow-sm border",
   {
     variants: {
       isUser: {
@@ -290,7 +290,7 @@ const ReasoningBlock = ({ part }: { part: ReasoningPart }) => {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <div className="mb-3 flex flex-col items-start sm:max-w-[75%]">
+    <div className="mb-3 flex flex-col items-start sm:max-w-[85%]">
       <Collapsible
         open={isOpen}
         onOpenChange={setIsOpen}

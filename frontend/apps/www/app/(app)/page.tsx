@@ -89,7 +89,7 @@ export default function ChatDemo() {
               : "w-full border-transparent"
           )}
         >
-          <div className="mx-auto flex h-full w-full max-w-4xl flex-col">
+          <div className="mx-auto flex h-full w-full max-w-6xl flex-col">
             {/* Header with Info Button */}
             <div className="flex items-center justify-between border-b border-border/50 p-4">
               <div className="flex items-center gap-2">

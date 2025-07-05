@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Copy, Check } from "lucide-react"
+import { Check, Copy } from "lucide-react"
 
 import { linkifyUrls } from "@/lib/url-utils"
 
@@ -10,22 +10,22 @@ function ArtefactPage(element: { data: string; code: string; image: string }) {
 
   const convertHtmlTableToMarkdown = (htmlString: string): string => {
     const parser = new DOMParser()
-    const doc = parser.parseFromString(htmlString, 'text/html')
-    const table = doc.querySelector('table')
+    const doc = parser.parseFromString(htmlString, "text/html")
+    const table = doc.querySelector("table")
 
     if (!table) return htmlString
 
-    const rows = Array.from(table.querySelectorAll('tr'))
-    let markdown = ''
+    const rows = Array.from(table.querySelectorAll("tr"))
+    let markdown = ""
 
     rows.forEach((row, rowIndex) => {
-      const cells = Array.from(row.querySelectorAll('td, th'))
-      const cellValues = cells.map(cell => cell.textContent?.trim() || '')
-      markdown += '| ' + cellValues.join(' | ') + ' |\n'
+      const cells = Array.from(row.querySelectorAll("td, th"))
+      const cellValues = cells.map((cell) => cell.textContent?.trim() || "")
+      markdown += "| " + cellValues.join(" | ") + " |\n"
 
       // Add header separator after first row
       if (rowIndex === 0 && cells.length > 0) {
-        markdown += '| ' + Array(cells.length).fill('---').join(' | ') + ' |\n'
+        markdown += "| " + Array(cells.length).fill("---").join(" | ") + " |\n"
       }
     })
 
@@ -39,7 +39,7 @@ function ArtefactPage(element: { data: string; code: string; image: string }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error('Failed to copy table as markdown:', err)
+      console.error("Failed to copy table as markdown:", err)
     }
   }
 
@@ -70,7 +70,11 @@ function ArtefactPage(element: { data: string; code: string; image: string }) {
             }`}
             title="Copy table as markdown"
           >
-            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
             {copied ? "Copied!" : "Copy as Markdown"}
           </button>
         </div>
@@ -79,14 +83,20 @@ function ArtefactPage(element: { data: string; code: string; image: string }) {
         <div>
           <div className="flex">
             <div className="m-5 align-baseline">
-              <img alt="Image" src={`data:image/png;charset=utf-8;base64,${element.image}`} />
+              <img
+                alt="Image"
+                src={`data:image/png;charset=utf-8;base64,${element.image}`}
+              />
             </div>
             <div className="m-5 align-baseline">
               <pre>{element.code}</pre>
             </div>
           </div>
           <div className="columns-[70vw]">
-            <div className="m-5 align-baseline" dangerouslySetInnerHTML={{ __html: data }} />
+            <div
+              className="m-5 align-baseline"
+              dangerouslySetInnerHTML={{ __html: data }}
+            />
           </div>
         </div>
       ) : (
@@ -97,7 +107,10 @@ function ArtefactPage(element: { data: string; code: string; image: string }) {
             </div>
           </div>
           <div className="columns-[70vw]">
-            <div className="m-5 align-baseline" dangerouslySetInnerHTML={{ __html: data }} />
+            <div
+              className="m-5 align-baseline"
+              dangerouslySetInnerHTML={{ __html: data }}
+            />
           </div>
         </div>
       )}

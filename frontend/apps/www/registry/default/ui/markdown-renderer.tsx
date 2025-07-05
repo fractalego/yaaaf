@@ -296,18 +296,27 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     ol: withClass("ol", "list-decimal space-y-2 pl-6"),
     ul: withClass("ul", "list-disc space-y-2 pl-6"),
     li: withClass("li", "my-1.5"),
-    table: withClass(
-      "table",
-      "w-full border-collapse overflow-y-auto rounded-md border border-foreground/20"
+    table: ({ className, children, ...props }: any) => (
+      <div className="w-full">
+        <table
+          className={cn(
+            "w-full border-collapse rounded-md border border-foreground/20 table-fixed",
+            className
+          )}
+          {...props}
+        >
+          {children}
+        </table>
+      </div>
     ),
     th: withClass(
       "th",
-      "border border-foreground/20 px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right"
+      "border border-foreground/20 px-3 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right break-words hyphens-auto text-sm"
     ),
     td: ({ className, children, ...props }: any) => (
       <td
         className={cn(
-          "border border-foreground/20 px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right",
+          "border border-foreground/20 px-3 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right break-words hyphens-auto text-sm leading-relaxed",
           className
         )}
         {...props}

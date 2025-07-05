@@ -13,6 +13,7 @@ export default async function Page({ params }) {
       data={artefact.data}
       code={artefact.code}
       image={artefact.image}
+      summary={artefact.summary}
     ></ArtefactPage>
   )
 }

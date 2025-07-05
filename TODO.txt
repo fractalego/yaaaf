@@ -1,7 +1,14 @@
-* test search and mcp from frontend
-* solve issues in the frontend
-* modify frontend so that one can add mcp servers?
-* allow mcp servers to be in the environment config
+* make it so you can upload docs and tables to the frontend. You'll need to have the options activated if RAGagent is used and
+  similarly for the SQLagent.
+  - this means that the config file can be set on the fly
+  - the files needs to be indexed when uploaded
+  - folders can be uploaded in one go, file by file
+  - extract description from the file content and use it upon retrieval (same for tables)
+
+/* test search and mcp from frontend
+/* solve issues in the frontend
+/* modify frontend so that one can add mcp servers?
+/* allow mcp servers to be in the environment config
 /* use notes in message queue
 
 /* MCP connector for tools

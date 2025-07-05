@@ -6,6 +6,7 @@ interface ArtefactOutput {
   data: string
   code: string
   image: string
+  summary: string
 }
 
 export async function get_artefact(

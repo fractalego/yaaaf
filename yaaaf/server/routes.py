@@ -32,6 +32,7 @@ class ArtefactOutput(BaseModel):
     data: str
     code: str
     image: str
+    summary: str
 
     @staticmethod
     def create_from_artefact(artefact: Artefact) -> "ArtefactOutput":
@@ -41,6 +42,7 @@ class ArtefactOutput(BaseModel):
             else "",
             code=artefact.code if artefact.code is not None else "",
             image=artefact.image if artefact.image is not None else "",
+            summary=artefact.summary if artefact.summary is not None else "",
         )
 
 
@@ -52,10 +54,12 @@ def create_stream(arguments: CreateStreamArguments):
     try:
         stream_id = arguments.stream_id
         messages = Messages(utterances=arguments.messages)
-        orchestrator = OrchestratorBuilder(get_config()).build()
-        t = threading.Thread(
-            target=asyncio.run, args=(do_compute(stream_id, messages, orchestrator),)
-        )
+
+        async def build_and_compute():
+            orchestrator = await OrchestratorBuilder(get_config()).build()
+            await do_compute(stream_id, messages, orchestrator)
+
+        t = threading.Thread(target=asyncio.run, args=(build_and_compute(),))
         t.start()
     except Exception as e:
         _logger.error(f"Routes: Failed to create stream for {arguments.stream_id}: {e}")
@@ -66,7 +70,7 @@ def get_all_utterances(arguments: NewUtteranceArguments) -> List[Note]:
     try:
         all_notes = get_utterances(arguments.stream_id)
         # Filter out internal messages for frontend display
-        return [note for note in all_notes if not getattr(note, 'internal', False)]
+        return [note for note in all_notes if not getattr(note, "internal", False)]
     except Exception as e:
         _logger.error(
             f"Routes: Failed to get utterances for {arguments.stream_id}: {e}"
@@ -130,9 +134,9 @@ async def stream_utterances(arguments: NewUtteranceArguments):
 
                     for note in new_notes:
                         # Skip internal messages - don't send them to frontend
-                        if getattr(note, 'internal', False):
+                        if getattr(note, "internal", False):
                             continue
-                            
+
                         # Send each note as SSE
                         import json
 

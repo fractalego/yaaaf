@@ -24,6 +24,7 @@ class ToolAgent(BaseAgent):
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient, tools: List[MCPTools]):
+        super().__init__()
         self._client = client
         self._tools_description = "\n".join(
             [
@@ -34,7 +35,9 @@ class ToolAgent(BaseAgent):
         self._tools = tools
 
     @handle_exceptions
-    async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
+    async def query(
+        self, messages: Messages, notes: Optional[List[Note]] = None
+    ) -> str:
         messages = messages.add_system_prompt(
             self._system_prompt.complete(tools_descriptions=self._tools_description)
         )
@@ -45,9 +48,11 @@ class ToolAgent(BaseAgent):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            
+
             # Log internal thinking step
-            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+            if (
+                notes is not None and step_idx > 0
+            ):  # Skip first step to avoid duplication with orchestrator
                 model_name = getattr(self._client, "model", None)
                 internal_note = Note(
                     message=f"[Tool Step {step_idx}] {answer}",
@@ -57,7 +62,7 @@ class ToolAgent(BaseAgent):
                     internal=True,
                 )
                 notes.append(internal_note)
-            
+
             if self.is_complete(answer) or answer.strip() == "":
                 break
 

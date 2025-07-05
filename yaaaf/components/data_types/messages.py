@@ -34,6 +34,15 @@ class Messages(BaseModel):
         system_prompt = Utterance(role="system", content=prompt)
         return Messages(utterances=[system_prompt] + self.utterances)
 
+    def set_system_prompt(self, prompt: str | PromptTemplate) -> "Messages":
+        """Replace or set the system prompt, removing any existing system messages."""
+        if isinstance(prompt, PromptTemplate):
+            prompt = prompt.complete()
+        system_prompt = Utterance(role="system", content=prompt)
+        # Filter out any existing system prompts
+        non_system_utterances = [u for u in self.utterances if u.role != "system"]
+        return Messages(utterances=[system_prompt] + non_system_utterances)
+
     def add_assistant_utterance(self, content: str) -> "Messages":
         assistant_utterance = Utterance(role="assistant", content=content)
         return Messages(utterances=self.utterances + [assistant_utterance])

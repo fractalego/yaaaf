@@ -23,6 +23,7 @@ class RAGAgent(BaseAgent):
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient, sources: List[RAGSource]):
+        super().__init__()
         self._client = client
         self._folders_description = "\n".join(
             [
@@ -33,7 +34,9 @@ class RAGAgent(BaseAgent):
         self._sources = sources
 
     @handle_exceptions
-    async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
+    async def query(
+        self, messages: Messages, notes: Optional[List[Note]] = None
+    ) -> str:
         messages = messages.add_system_prompt(
             self._system_prompt.complete(folders=self._folders_description)
         )
@@ -43,9 +46,11 @@ class RAGAgent(BaseAgent):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            
+
             # Log internal thinking step
-            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+            if (
+                notes is not None and step_idx > 0
+            ):  # Skip first step to avoid duplication with orchestrator
                 model_name = getattr(self._client, "model", None)
                 internal_note = Note(
                     message=f"[RAG Step {step_idx}] {answer}",
@@ -55,7 +60,7 @@ class RAGAgent(BaseAgent):
                     internal=True,
                 )
                 notes.append(internal_note)
-            
+
             if self.is_complete(answer) or answer.strip() == "":
                 break
 

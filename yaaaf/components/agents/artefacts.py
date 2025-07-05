@@ -19,11 +19,13 @@ class Artefact(BaseModel):
     image: Optional[str] = None
     type: Optional[str] = None
     id: Optional[str] = None
+    summary: Optional[str] = None
 
     class Types:
         TABLE = "table"
         IMAGE = "image"
         MODEL = "model"
+        TODO_LIST = "todo-list"
 
     class Config:
         arbitrary_types_allowed = True

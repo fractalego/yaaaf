@@ -18,6 +18,7 @@ function ArtefactPanel({ artifactId, onClose }: ArtefactPanelProps) {
     data: string
     code: string
     image: string
+    summary: string
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -35,7 +36,8 @@ function ArtefactPanel({ artifactId, onClose }: ArtefactPanelProps) {
           data &&
           (data.data !== undefined ||
             data.code !== undefined ||
-            data.image !== undefined)
+            data.image !== undefined ||
+            data.summary !== undefined)
         ) {
           console.log("Setting artifact data to:", data)
           setArtifactData(data)
@@ -73,6 +75,7 @@ function ArtefactPanel({ artifactId, onClose }: ArtefactPanelProps) {
         data={artifactData.data}
         code={artifactData.code}
         image={artifactData.image}
+        summary={artifactData.summary}
       />
     )
   }

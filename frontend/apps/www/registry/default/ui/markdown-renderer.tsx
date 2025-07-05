@@ -12,11 +12,12 @@ import { Complete } from "@/registry/custom/complete"
 import { DuckDuckGoSearchAgent } from "@/registry/custom/duck-duck-go-search-agent"
 import { ImageOutput } from "@/registry/custom/image-output"
 import { MleAgent } from "@/registry/custom/mle-agent"
+import { NumericalSequencesAgent } from "@/registry/custom/numerical-sequences-agent"
 import { Paused } from "@/registry/custom/paused"
 import { RagAgent } from "@/registry/custom/rag-agent"
-import { ReflectionAgent } from "@/registry/custom/reflection-agent"
 import { ReviewerAgent } from "@/registry/custom/reviewer-agent"
 import { SqlAgent } from "@/registry/custom/sql-agent"
+import { TodoAgent } from "@/registry/custom/todo-agent"
 import { UrlAgent } from "@/registry/custom/url-agent"
 import { UrlRetrieverAgent } from "@/registry/custom/url-retriever-agent"
 import { UrlReviewerAgent } from "@/registry/custom/url-reviewer-agent"
@@ -201,12 +202,9 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     imageoutput: ({ children }: any) => {
       return <ImageOutput id={children}></ImageOutput>
     },
-    reflectionagent: ({ children, ...props }: any) => {
+    todoagent: ({ children, ...props }: any) => {
       return (
-        <ReflectionAgent
-          text={children}
-          modelName={props["data-model"]}
-        ></ReflectionAgent>
+        <TodoAgent text={children} modelName={props["data-model"]}></TodoAgent>
       )
     },
     taskcompleted: ({ children }: any) => {
@@ -265,6 +263,14 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
         ></UrlReviewerAgent>
       )
     },
+    numericalsequencesagent: ({ children, ...props }: any) => {
+      return (
+        <NumericalSequencesAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></NumericalSequencesAgent>
+      )
+    },
     bashagent: ({ children, ...props }: any) => {
       return (
         <BashAgent text={children} modelName={props["data-model"]}></BashAgent>
@@ -299,18 +305,27 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     ol: withClass("ol", "list-decimal space-y-2 pl-6"),
     ul: withClass("ul", "list-disc space-y-2 pl-6"),
     li: withClass("li", "my-1.5"),
-    table: withClass(
-      "table",
-      "w-full border-collapse overflow-y-auto rounded-md border border-foreground/20"
+    table: ({ className, children, ...props }: any) => (
+      <div className="w-full">
+        <table
+          className={cn(
+            "w-full border-collapse rounded-md border border-foreground/20 table-fixed",
+            className
+          )}
+          {...props}
+        >
+          {children}
+        </table>
+      </div>
     ),
     th: withClass(
       "th",
-      "border border-foreground/20 px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right"
+      "border border-foreground/20 px-3 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right break-words hyphens-auto text-sm"
     ),
     td: ({ className, children, ...props }: any) => (
       <td
         className={cn(
-          "border border-foreground/20 px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right",
+          "border border-foreground/20 px-3 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right break-words hyphens-auto text-sm leading-relaxed",
           className
         )}
         {...props}

@@ -32,9 +32,12 @@ class ReviewerAgent(BaseAgent):
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):
+        super().__init__()
         self._client = client
 
-    def _add_internal_message(self, message: str, notes: Optional[List[Note]], prefix: str = "Message"):
+    def _add_internal_message(
+        self, message: str, notes: Optional[List[Note]], prefix: str = "Message"
+    ):
         """Helper to add internal messages to notes"""
         if notes is not None:
             internal_note = Note(
@@ -47,7 +50,9 @@ class ReviewerAgent(BaseAgent):
             notes.append(internal_note)
 
     @handle_exceptions
-    async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
+    async def query(
+        self, messages: Messages, notes: Optional[List[Note]] = None
+    ) -> str:
         last_utterance = messages.utterances[-1]
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
@@ -69,9 +74,11 @@ class ReviewerAgent(BaseAgent):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            
+
             # Log internal thinking step
-            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+            if (
+                notes is not None and step_idx > 0
+            ):  # Skip first step to avoid duplication with orchestrator
                 model_name = getattr(self._client, "model", None)
                 internal_note = Note(
                     message=f"[Reviewer Step {step_idx}] {answer}",
@@ -81,7 +88,7 @@ class ReviewerAgent(BaseAgent):
                     internal=True,
                 )
                 notes.append(internal_note)
-            
+
             messages.add_assistant_utterance(answer)
             code = get_first_text_between_tags(answer, self._output_tag, "```")
             if code:

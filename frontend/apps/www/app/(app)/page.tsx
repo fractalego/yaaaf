@@ -15,14 +15,14 @@ import {
 
 import { getSessionId } from "./session"
 
-// Function to send feedback to backend
+// Function to send feedback via frontend API route (avoids CORS issues)
 async function sendFeedback(
   streamId: string,
   rating: "thumbs-up" | "thumbs-down"
 ) {
   try {
     console.log(`Sending feedback for stream ${streamId}: ${rating}`)
-    const response = await fetch("http://localhost:4000/save_feedback", {
+    const response = await fetch("/api/feedback", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -89,7 +89,7 @@ export default function ChatDemo() {
               : "w-full border-transparent"
           )}
         >
-          <div className="mx-auto flex h-full w-full max-w-4xl flex-col">
+          <div className="mx-auto flex h-full w-full max-w-6xl flex-col">
             {/* Header with Info Button */}
             <div className="flex items-center justify-between border-b border-border/50 p-4">
               <div className="flex items-center gap-2">
@@ -106,7 +106,6 @@ export default function ChatDemo() {
 
             <Chat
               className="grow"
-              // @ts-expect-error @ts-ignore
               messages={messages}
               handleSubmit={handleSubmit}
               input={input}

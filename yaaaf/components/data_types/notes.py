@@ -8,7 +8,9 @@ class Note(BaseModel):
     artefact_id: Optional[str] = None
     agent_name: Optional[str] = None
     model_name: Optional[str] = None
-    internal: bool = False  # Flag to distinguish internal agent dialogue from user-facing messages
+    internal: bool = (
+        False  # Flag to distinguish internal agent dialogue from user-facing messages
+    )
 
     def __repr__(self):
         return f"Note(message={self.message[:50]}..., artefact_id={self.artefact_id}, agent_name={self.agent_name}, model_name={self.model_name})"
@@ -28,7 +30,7 @@ class Note(BaseModel):
     def extract_agent_name_from_tags(text: str) -> Optional[str]:
         """Extract agent name from agent tags in the text (e.g., <sqlagent>...</sqlagent>)"""
         # Look for agent tags (excluding artefact and completion tags)
-        agent_tag_pattern = r"<(\w+agent)>"
+        agent_tag_pattern = r"<(\w+agent)\s.*?>"
         matches = re.findall(agent_tag_pattern, text, re.IGNORECASE)
         return matches[0] if matches else None
 

@@ -6,6 +6,7 @@ YAAAF is a modular framework for building intelligent agentic applications with 
 
 - **🤖 Modular Agent System**: Specialized agents for SQL, visualization, web search, ML, RAG, and more
 - **🎯 Orchestrator Pattern**: Central coordinator that intelligently routes queries to appropriate agents
+- **🔌 MCP Integration**: Full support for Model Context Protocol (MCP) with SSE and stdio transports
 - **⚡ Real-time Streaming**: Live updates through WebSocket-like streaming with structured Note objects
 - **📊 Artifact Management**: Centralized storage for generated content (tables, images, models, etc.)
 - **🌐 Modern Frontend**: React-based UI with real-time chat interface and agent attribution
@@ -108,7 +109,7 @@ python -m yaaaf frontend 3000
 | **RAGAgent** | Document retrieval | `<ragagent>` | Retrieval-augmented generation |
 | **MleAgent** | Machine learning | `<mleagent>` | sklearn model training & analysis |
 | **ReviewerAgent** | Data analysis | `<revieweragent>` | Extract insights from artifacts |
-| **ToolAgent** | External tools | `<toolagent>` | MCP (Model Context Protocol) integration |
+| **ToolAgent** | External tools | `<toolagent>` | MCP (Model Context Protocol) integration - SSE & stdio |
 | **BashAgent** | Filesystem operations | `<bashagent>` | File reading, writing, directory operations (with user confirmation) |
 
 ## 💡 Example Usage
@@ -121,6 +122,34 @@ from yaaaf.components.data_types import Messages
 orchestrator = OrchestratorBuilder().build()
 messages = Messages().add_user_utterance("How many users are in the database?")
 response = await orchestrator.query(messages)
+```
+
+### MCP Integration
+```python
+from yaaaf.connectors.mcp_connector import MCPSseConnector, MCPStdioConnector
+from yaaaf.components.agents.tool_agent import ToolAgent
+from yaaaf.components.client import OllamaClient
+
+# SSE-based MCP server
+sse_connector = MCPSseConnector(
+    url="http://localhost:8080/sse",
+    description="Math Tools Server"
+)
+
+# Stdio-based MCP server  
+stdio_connector = MCPStdioConnector(
+    command="python",
+    args=["-m", "my_mcp_server"],
+    description="Local MCP Server"
+)
+
+# Use with ToolAgent
+client = OllamaClient(model="qwen2.5:32b")
+tools = await sse_connector.get_tools()
+tool_agent = ToolAgent(client=client, tools=[tools])
+
+messages = Messages().add_user_utterance("Calculate the sum of 15 and 27")
+response = await tool_agent.query(messages)
 ```
 
 ## 🛠️ Development
@@ -136,6 +165,10 @@ ruff check .
 
 # Start with debugging
 YAAAF_DEBUG=true python -m yaaaf backend
+
+# Test MCP servers
+python tests/mcp_sse_server.py --port 8080        # SSE server on port 8080
+python tests/mcp_stdio_server.py                  # Stdio server
 ```
 
 ### Frontend Development
@@ -210,13 +243,29 @@ YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM pr
     "reviewer",
     "websearch",
     "url_reviewer",
-    "bash"
+    "bash",
+    "tool"
   ],
   "sources": [
     {
       "name": "london_archaeological_data",
       "type": "sqlite",
       "path": "../../data/london_archaeological_data.db"
+    }
+  ],
+  "tools": [
+    {
+      "name": "math_tools",
+      "type": "sse",
+      "description": "Mathematical calculation tools",
+      "url": "http://localhost:8080/sse"
+    },
+    {
+      "name": "file_tools",
+      "type": "stdio",
+      "description": "File manipulation tools",
+      "command": "python",
+      "args": ["-m", "my_file_server"]
     }
   ]
 }
@@ -228,6 +277,13 @@ YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM pr
 - **Fallback**: Any unspecified parameters use the default client configuration
 - **Examples**: Use specialized models for specific tasks (e.g., coding models for visualization, larger models for RAG)
 - **Host configuration**: Set different Ollama instances per agent or use default host
+
+**MCP Tools Configuration:**
+- **SSE Tools**: For HTTP-based MCP servers (`"type": "sse"` with `"url"`)
+- **Stdio Tools**: For command-line MCP servers (`"type": "stdio"` with `"command"` and `"args"`)
+- **Tool Agent**: Add `"tool"` to agents list to enable MCP tool integration
+- **Description**: Human-readable description of what the tool server provides
+- **Error Handling**: Failed tool connections are logged but don't prevent startup
 
 ## 📚 Documentation
 

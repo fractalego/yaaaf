@@ -22,6 +22,7 @@ class BashAgent(BaseAgent):
     _max_steps = 5
 
     def __init__(self, client: BaseClient) -> None:
+        super().__init__()
         self._client = client
 
     def is_paused(self, answer: str) -> bool:
@@ -126,9 +127,11 @@ class BashAgent(BaseAgent):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            
+
             # Log internal thinking step
-            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+            if (
+                notes is not None and step_idx > 0
+            ):  # Skip first step to avoid duplication with orchestrator
                 model_name = getattr(self._client, "model", None)
                 internal_note = Note(
                     message=f"[Bash Step {step_idx}] {answer}",

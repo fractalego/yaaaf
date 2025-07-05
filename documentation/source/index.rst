@@ -12,6 +12,7 @@ Welcome to YAAAF Documentation
    architecture
    agents
    brave_search_agent
+   mcp_integration
    api_reference
    frontend
    gdpr_popup
@@ -23,6 +24,7 @@ Key Features
 
 * **Modular Agent System**: Specialized agents for SQL, visualization, web search, reflection, and more
 * **Orchestrator Pattern**: Central coordinator that routes queries to appropriate agents
+* **MCP Integration**: Full support for Model Context Protocol (MCP) with SSE and stdio transports
 * **Real-time Streaming**: Live updates through WebSocket-like streaming
 * **Artifact Management**: Structured handling of generated content (tables, images, etc.)
 * **Frontend Integration**: React-based UI with real-time chat interface
@@ -70,7 +72,7 @@ YAAAF includes several built-in agents:
 * **BraveSearchAgent**: Privacy-focused web search using Brave's independent search API
 * **ReflectionAgent**: Provides step-by-step reasoning and planning
 * **RAGAgent**: Retrieval-augmented generation from document sources
-* **ToolAgent**: Integration with MCP (Model Context Protocol) tools
+* **ToolAgent**: Advanced integration with MCP (Model Context Protocol) tools and external services
 
 Indices and tables
 ==================

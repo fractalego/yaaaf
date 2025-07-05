@@ -19,7 +19,8 @@
     "url",
     "url_reviewer",
     "user_input",
-    "bash"
+    "bash",
+    "numerical_sequences"
   ],
   "sources": [
     {

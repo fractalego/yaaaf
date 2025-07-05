@@ -30,11 +30,14 @@ class SqlAgent(BaseAgent):
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient, source: SqliteSource):
+        super().__init__()
         self._schema = source.get_description()
         self._client = client
         self._source = source
 
-    def _add_internal_message(self, message: str, notes: Optional[List[Note]], prefix: str = "Message"):
+    def _add_internal_message(
+        self, message: str, notes: Optional[List[Note]], prefix: str = "Message"
+    ):
         """Helper to add internal messages to notes"""
         if notes is not None:
             internal_note = Note(
@@ -59,9 +62,11 @@ class SqlAgent(BaseAgent):
             answer = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            
+
             # Log internal thinking step
-            if notes is not None and step_idx > 0:  # Skip first step to avoid duplication with orchestrator
+            if (
+                notes is not None and step_idx > 0
+            ):  # Skip first step to avoid duplication with orchestrator
                 model_name = getattr(self._client, "model", None)
                 internal_note = Note(
                     message=f"[Internal Step {step_idx}] {answer}",
@@ -71,7 +76,7 @@ class SqlAgent(BaseAgent):
                     internal=True,
                 )
                 notes.append(internal_note)
-            
+
             if self.is_complete(answer) or answer.strip() == "":
                 break
 
@@ -87,9 +92,11 @@ class SqlAgent(BaseAgent):
                     )
                     notes.append(note)
                 current_output = self._source.get_data(sql_query)
-                feedback_message = f"The answer is {answer}.\n\nThe output of this SQL query is {current_output}.\n\n\n" \
-                                   f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n" \
-                                   f"If there are errors correct the SQL query accordingly you will need to write the SQL query leveraging the schema above.\n"
+                feedback_message = (
+                    f"The answer is {answer}.\n\nThe output of this SQL query is {current_output}.\n\n\n"
+                    f"If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
+                    f"If there are errors correct the SQL query accordingly you will need to write the SQL query leveraging the schema above.\n"
+                )
                 self._add_internal_message(feedback_message, notes, "SQL Feedback")
                 messages = messages.add_user_utterance(feedback_message)
             else:

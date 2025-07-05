@@ -2,7 +2,7 @@ import os
 import logging
 from typing import List
 from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
-from yaaaf.components.agents.reflection_agent import ReflectionAgent
+from yaaaf.components.agents.todo_agent import TodoAgent
 from yaaaf.components.agents.reviewer_agent import ReviewerAgent
 from yaaaf.components.agents.sql_agent import SqlAgent
 from yaaaf.components.agents.rag_agent import RAGAgent
@@ -13,10 +13,13 @@ from yaaaf.components.agents.visualization_agent import VisualizationAgent
 from yaaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
 from yaaaf.components.agents.brave_search_agent import BraveSearchAgent
 from yaaaf.components.agents.bash_agent import BashAgent
+from yaaaf.components.agents.tool_agent import ToolAgent
+from yaaaf.components.agents.numerical_sequences_agent import NumericalSequencesAgent
 from yaaaf.components.client import OllamaClient
 from yaaaf.components.sources.sqlite_source import SqliteSource
 from yaaaf.components.sources.rag_source import RAGSource
-from yaaaf.server.config import Settings, AgentSettings
+from yaaaf.connectors.mcp_connector import MCPSseConnector, MCPStdioConnector, MCPTools
+from yaaaf.server.config import Settings, AgentSettings, ToolTransportType
 
 _logger = logging.getLogger(__name__)
 
@@ -25,7 +28,7 @@ class OrchestratorBuilder:
     def __init__(self, config: Settings):
         self.config = config
         self._agents_map = {
-            "reflection": ReflectionAgent,
+            "todo": TodoAgent,
             "visualization": VisualizationAgent,
             "sql": SqlAgent,
             "rag": RAGAgent,
@@ -36,6 +39,8 @@ class OrchestratorBuilder:
             "url_reviewer": UrlReviewerAgent,
             "user_input": UserInputAgent,
             "bash": BashAgent,
+            "tool": ToolAgent,
+            "numerical_sequences": NumericalSequencesAgent,
         }
 
     def _load_text_from_file(self, file_path: str) -> str:
@@ -75,6 +80,47 @@ class OrchestratorBuilder:
 
                 rag_sources.append(rag_source)
         return rag_sources
+
+    async def _create_mcp_tools(self) -> List[MCPTools]:
+        """Create MCP tools from configuration."""
+        mcp_tools = []
+        for tool_config in self.config.tools:
+            try:
+                if tool_config.type == ToolTransportType.SSE:
+                    if not tool_config.url:
+                        _logger.warning(
+                            f"SSE tool '{tool_config.name}' missing URL, skipping"
+                        )
+                        continue
+                    connector = MCPSseConnector(
+                        url=tool_config.url, description=tool_config.description
+                    )
+                elif tool_config.type == ToolTransportType.STDIO:
+                    if not tool_config.command:
+                        _logger.warning(
+                            f"Stdio tool '{tool_config.name}' missing command, skipping"
+                        )
+                        continue
+                    connector = MCPStdioConnector(
+                        command=tool_config.command,
+                        description=tool_config.description,
+                        args=tool_config.args or [],
+                    )
+                else:
+                    _logger.warning(f"Unknown tool transport type: {tool_config.type}")
+                    continue
+
+                tools = await connector.get_tools()
+                mcp_tools.append(tools)
+                _logger.info(f"Successfully loaded MCP tools from '{tool_config.name}'")
+
+            except Exception as e:
+                _logger.error(
+                    f"Failed to load MCP tools from '{tool_config.name}': {e}"
+                )
+                continue
+
+        return mcp_tools
 
     def _get_sqlite_source(self):
         """Get the first SQLite source from config."""
@@ -134,14 +180,16 @@ class OrchestratorBuilder:
             return agent_config.name
         return agent_config
 
-    def _generate_agents_sources_tools_list(self) -> str:
-        """Generate a comprehensive list of available agents, sources, and tools for the ReflectionAgent."""
+    def _generate_agents_sources_tools_list(
+        self, mcp_tools: List[MCPTools] = None
+    ) -> str:
+        """Generate a comprehensive list of available agents, sources, and tools for the TodoAgent."""
         sections = []
 
         # Agents section
         agents_info = ["**Available Agents:**"]
         for agent_name, agent_class in self._agents_map.items():
-            if agent_name != "reflection":
+            if agent_name != "todo":
                 agents_info.append(f"• {agent_name}: {agent_class.get_info()}")
 
         sections.append("\n".join(agents_info))
@@ -161,11 +209,20 @@ class OrchestratorBuilder:
         tools_info.append("• Web search capabilities")
         tools_info.append("• SQL database queries")
         tools_info.append("• Text analysis and processing")
+
+        # Add MCP tools if available
+        if mcp_tools:
+            tools_info.append("\n**MCP Tools:**")
+            for tool_group in mcp_tools:
+                tools_info.append(f"• {tool_group.server_description}:")
+                for tool in tool_group.tools:
+                    tools_info.append(f"  - {tool.name}: {tool.description}")
+
         sections.append("\n".join(tools_info))
 
         return "\n\n".join(sections)
 
-    def build(self):
+    async def build(self):
         # Log orchestrator configuration
         _logger.info(
             f"Building orchestrator with default client host: {self.config.client.host}"
@@ -183,10 +240,13 @@ class OrchestratorBuilder:
         sqlite_source = self._get_sqlite_source()
         rag_sources = self._create_rag_sources()
 
+        # Prepare MCP tools
+        mcp_tools = await self._create_mcp_tools()
+
         orchestrator = OrchestratorAgent(orchestrator_client)
 
-        # Generate agents/sources/tools list for ReflectionAgent
-        agents_sources_tools_list = self._generate_agents_sources_tools_list()
+        # Generate agents/sources/tools list for TodoAgent
+        agents_sources_tools_list = self._generate_agents_sources_tools_list(mcp_tools)
 
         for agent_config in self.config.agents:
             agent_name = self._get_agent_name(agent_config)
@@ -209,14 +269,18 @@ class OrchestratorBuilder:
                         client=agent_client, sources=rag_sources
                     )
                 )
-            elif agent_name == "reflection":
+            elif agent_name == "tool" and mcp_tools:
+                orchestrator.subscribe_agent(
+                    self._agents_map[agent_name](client=agent_client, tools=mcp_tools)
+                )
+            elif agent_name == "todo":
                 orchestrator.subscribe_agent(
                     self._agents_map[agent_name](
                         client=agent_client,
                         agents_and_sources_and_tools_list=agents_sources_tools_list,
                     )
                 )
-            elif agent_name not in ["sql", "rag", "reflection"]:
+            elif agent_name not in ["sql", "rag", "tool", "todo"]:
                 orchestrator.subscribe_agent(
                     self._agents_map[agent_name](client=agent_client)
                 )

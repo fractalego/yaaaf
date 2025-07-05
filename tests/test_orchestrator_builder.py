@@ -7,14 +7,14 @@ from yaaaf.components.orchestrator_builder import OrchestratorBuilder
 from yaaaf.server.config import Settings, SourceSettings, ClientSettings
 
 
-class TestOrchestratorBuilder(unittest.TestCase):
+class TestOrchestratorBuilder(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.test_data_dir = os.path.join(os.path.dirname(__file__), "../data")
         self.archaeology_file = os.path.join(
             self.test_data_dir, "Archaeology - Wikipedia.html"
         )
 
-    def test_build_with_rag_agent_and_text_source(self):
+    async def test_build_with_rag_agent_and_text_source(self):
         """Test that the orchestrator builder correctly builds RAG agent with text sources."""
         # Create a minimal config with RAG agent and text source
         config = Settings(
@@ -34,7 +34,7 @@ class TestOrchestratorBuilder(unittest.TestCase):
 
         # Build the orchestrator
         builder = OrchestratorBuilder(config)
-        orchestrator = builder.build()
+        orchestrator = await builder.build()
 
         # Verify the orchestrator was created
         self.assertIsNotNone(orchestrator)
@@ -54,7 +54,7 @@ class TestOrchestratorBuilder(unittest.TestCase):
         self.assertEqual(source._description, "Wikipedia page about archaeology")
         self.assertEqual(source.source_path, self.archaeology_file)
 
-    def test_build_with_mixed_sources(self):
+    async def test_build_with_mixed_sources(self):
         """Test that the builder correctly handles both SQLite and text sources."""
         # Create a temporary SQLite file for testing
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_db:
@@ -80,7 +80,7 @@ class TestOrchestratorBuilder(unittest.TestCase):
             )
 
             builder = OrchestratorBuilder(config)
-            orchestrator = builder.build()
+            orchestrator = await builder.build()
 
             # Verify both agents were created
             self.assertEqual(len(orchestrator._agents_map), 2)
@@ -168,7 +168,7 @@ class TestOrchestratorBuilder(unittest.TestCase):
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
 
-    def test_rag_agent_integration_with_archaeology_file(self):
+    async def test_rag_agent_integration_with_archaeology_file(self):
         """Integration test: Test RAG agent with the actual archaeology file."""
         # Skip if the archaeology file doesn't exist
         if not os.path.exists(self.archaeology_file):
@@ -190,7 +190,7 @@ class TestOrchestratorBuilder(unittest.TestCase):
         )
 
         builder = OrchestratorBuilder(config)
-        orchestrator = builder.build()
+        orchestrator = await builder.build()
 
         # Test querying the orchestrator
         from yaaaf.components.data_types import Messages

@@ -6,6 +6,10 @@ dist/
 wheels/
 *.egg-info
 
+# Various files
+config.json
+TODO.txt
+
 # Virtual environments
 .venv
 

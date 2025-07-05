@@ -3,11 +3,13 @@ from yaaaf.components.data_types import PromptTemplate
 
 orchestrator_prompt_template = PromptTemplate(
     prompt="""
-Your role is to orchestrate a set of 3 analytics agents. You call different agents for different tasks.
+Your role is to orchestrate a set of analytics agents. You call different agents for different tasks.
 These calls happen by writing the name of the agent as the tag name.
 Information about the task is provided between tags.
 
 {training_cutoff_info}
+
+IMPORTANT: Each agent has a limited budget (number of calls) per query. Once an agent's budget is exhausted, it cannot be called again for this query.
 
 You have these agents at your disposal:
 {agents_list}
@@ -15,6 +17,8 @@ You have these agents at your disposal:
 These agents only know what you write between tags and have no memory.
 Use the agents to get what you want. Do not write the answer yourself.
 The only html tags they understand are these ones: {all_tags_list}. Use these tags to call the agents.
+
+{budget_info}
 
 The goal to reach is the following:
 {goal}
@@ -41,14 +45,29 @@ Limit the number of output rows to 20 at most.
 )
 
 
-reflection_agent_prompt_template = PromptTemplate(
+todo_agent_prompt_template = PromptTemplate(
     prompt="""
-Your task is to think step by step about the actions to take.
-Think about the instructions and creat an action plan to follow them. Be concise and clear.
-When you write the action plan, mention the names of the agents and tools you will use by exact names.
+Your task is to create a structured todo list for planning how to answer the user's query.
+Analyze the instructions and break them down into actionable todo items with priorities.
+Mention the specific agents and tools you will use by their exact names.
 These are the agents and tools you can use:
 {agents_and_sources_and_tools_list}
-When you are satisfied with the instructions, you need to output the actions plan between the markdown tags ```text ... ```
+
+Create a todo list as a markdown table with the following columns:
+- ID: unique identifier
+- Task: description of the task
+- Status: "pending", "in_progress", or "completed"
+- Priority: "high", "medium", or "low"
+- Agent/Tool: specific agent or tool to use
+
+The table must be structured as follows:
+| ID | Task | Status | Priority | Agent/Tool |
+| --- | ---- | ------ | -------- | ----------- |
+| 1 | Example task | pending | high | ExampleAgent |
+... | ... | ... | ... | ...|
+
+When you are satisfied with the todo list, output it between markdown tags ```table ... ```
+You MUST use the ```table ... ``` tags to indicate the start and end of the todo list.
 """
 )
 
@@ -365,5 +384,40 @@ After the command is executed (with user approval), you'll receive the results a
 - Complete the task using {task_completed_tag}
 
 Think step-by-step about the filesystem operation needed and provide clear, safe commands.
+"""
+)
+
+
+numerical_sequences_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to analyze search results or text content and extract numerical data into structured tables.
+
+This agent is given input data in the following table:
+<table>
+{table}
+</table>
+
+Your goal is to identify and extract numerical sequences, trends, or quantitative data from the provided content.
+Look for:
+- Time series data (years, months, dates with corresponding values)
+- Counts and frequencies (number of items per category)
+- Statistical data (percentages, ratios, measurements)
+- Comparative numerical data across different categories
+- Any numerical patterns that could be visualized
+
+Extract the numerical data and structure it into a clear, well-organized table format.
+The output must be a markdown table with appropriate column headers.
+Each row should represent a single data point with its associated numerical value(s).
+
+Examples of good output formats:
+- | year | number_of_red_cars |
+- | country | population | gdp |
+- | month | sales | profit |
+- | category | count | percentage |
+
+This output *must* be between the markdown tags ```table ... ```.
+
+Focus on extracting meaningful numerical relationships that would be useful for data visualization.
+If multiple numerical sequences are found, create separate tables for each distinct dataset.
 """
 )

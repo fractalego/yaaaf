@@ -14,6 +14,7 @@ from yaaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
 from yaaaf.components.agents.brave_search_agent import BraveSearchAgent
 from yaaaf.components.agents.bash_agent import BashAgent
 from yaaaf.components.agents.tool_agent import ToolAgent
+from yaaaf.components.agents.numerical_sequences_agent import NumericalSequencesAgent
 from yaaaf.components.client import OllamaClient
 from yaaaf.components.sources.sqlite_source import SqliteSource
 from yaaaf.components.sources.rag_source import RAGSource
@@ -39,6 +40,7 @@ class OrchestratorBuilder:
             "user_input": UserInputAgent,
             "bash": BashAgent,
             "tool": ToolAgent,
+            "numerical_sequences": NumericalSequencesAgent,
         }
 
     def _load_text_from_file(self, file_path: str) -> str:

@@ -12,6 +12,7 @@ import { Complete } from "@/registry/custom/complete"
 import { DuckDuckGoSearchAgent } from "@/registry/custom/duck-duck-go-search-agent"
 import { ImageOutput } from "@/registry/custom/image-output"
 import { MleAgent } from "@/registry/custom/mle-agent"
+import { NumericalSequencesAgent } from "@/registry/custom/numerical-sequences-agent"
 import { Paused } from "@/registry/custom/paused"
 import { RagAgent } from "@/registry/custom/rag-agent"
 import { ReviewerAgent } from "@/registry/custom/reviewer-agent"
@@ -260,6 +261,14 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
           text={children}
           modelName={props["data-model"]}
         ></UrlReviewerAgent>
+      )
+    },
+    numericalsequencesagent: ({ children, ...props }: any) => {
+      return (
+        <NumericalSequencesAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></NumericalSequencesAgent>
       )
     },
     bashagent: ({ children, ...props }: any) => {

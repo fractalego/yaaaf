@@ -386,3 +386,38 @@ After the command is executed (with user approval), you'll receive the results a
 Think step-by-step about the filesystem operation needed and provide clear, safe commands.
 """
 )
+
+
+numerical_sequences_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to analyze search results or text content and extract numerical data into structured tables.
+
+This agent is given input data in the following table:
+<table>
+{table}
+</table>
+
+Your goal is to identify and extract numerical sequences, trends, or quantitative data from the provided content.
+Look for:
+- Time series data (years, months, dates with corresponding values)
+- Counts and frequencies (number of items per category)
+- Statistical data (percentages, ratios, measurements)
+- Comparative numerical data across different categories
+- Any numerical patterns that could be visualized
+
+Extract the numerical data and structure it into a clear, well-organized table format.
+The output must be a markdown table with appropriate column headers.
+Each row should represent a single data point with its associated numerical value(s).
+
+Examples of good output formats:
+- | year | number_of_red_cars |
+- | country | population | gdp |
+- | month | sales | profit |
+- | category | count | percentage |
+
+This output *must* be between the markdown tags ```table ... ```.
+
+Focus on extracting meaningful numerical relationships that would be useful for data visualization.
+If multiple numerical sequences are found, create separate tables for each distinct dataset.
+"""
+)

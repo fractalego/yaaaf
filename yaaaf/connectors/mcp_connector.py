@@ -1,6 +1,7 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from pydantic import BaseModel
-from pydantic_ai.mcp import MCPServerSSE
+from pydantic_ai.mcp import MCPServerSSE, MCPServerStdio
+from abc import ABC, abstractmethod
 
 
 class ToolDescription(BaseModel):
@@ -12,7 +13,7 @@ class ToolDescription(BaseModel):
 class MCPTools(BaseModel):
     server_description: str
     tools: List[ToolDescription]
-    server: MCPServerSSE
+    server: Union[MCPServerSSE, MCPServerStdio]
 
     class Config:
         arbitrary_types_allowed = True
@@ -48,16 +49,22 @@ class MCPTools(BaseModel):
         return await self.call_tool(tool_name, arguments)
 
 
-class MCPConnector:
-    def __init__(self, url: str, description: str):
-        self._url = url
-        self._server: Optional[MCPServerSSE] = None
+class MCPConnector(ABC):
+    """Base class for MCP connectors"""
+
+    def __init__(self, description: str):
+        self._server: Optional[Union[MCPServerSSE, MCPServerStdio]] = None
         self._connector_description = description
+
+    @abstractmethod
+    async def _create_server(self) -> Union[MCPServerSSE, MCPServerStdio]:
+        """Create the appropriate MCP server instance"""
+        pass
 
     async def get_tools(self) -> MCPTools:
         """Connect to MCP server and return Tool object with server and tool descriptions"""
         try:
-            self._server = MCPServerSSE(url=self._url)
+            self._server = await self._create_server()
             await self._server.__aenter__()
 
             # Get available tools
@@ -91,3 +98,30 @@ class MCPConnector:
         if self._server:
             await self._server.__aexit__(None, None, None)
             self._server = None
+
+
+class MCPSseConnector(MCPConnector):
+    """MCP Connector for SSE-based servers"""
+
+    def __init__(self, url: str, description: str):
+        super().__init__(description)
+        self._url = url
+
+    async def _create_server(self) -> MCPServerSSE:
+        """Create SSE MCP server instance"""
+        return MCPServerSSE(url=self._url)
+
+
+class MCPStdioConnector(MCPConnector):
+    """MCP Connector for stdio-based servers"""
+
+    def __init__(
+        self, command: str, description: str, args: Optional[List[str]] = None
+    ):
+        super().__init__(description)
+        self._command = command
+        self._args = args or []
+
+    async def _create_server(self) -> MCPServerStdio:
+        """Create stdio MCP server instance"""
+        return MCPServerStdio(command=self._command, args=self._args)

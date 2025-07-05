@@ -4,12 +4,12 @@ from yaaaf.components.agents.artefact_utils import get_artefacts_from_utterance_
 from yaaaf.components.agents.tool_agent import ToolAgent
 from yaaaf.components.client import OllamaClient
 from yaaaf.components.data_types import Messages
-from yaaaf.connectors.mcp_connector import MCPConnector
+from yaaaf.connectors.mcp_connector import MCPSseConnector
 
 
 class TestToolAgent(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        self.connector = MCPConnector(
+        self.connector = MCPSseConnector(
             "http://localhost:8080/sse", "MCP server for number crunching"
         )
 

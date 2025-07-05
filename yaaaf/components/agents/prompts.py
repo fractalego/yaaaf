@@ -60,6 +60,12 @@ Create a todo list as a markdown table with the following columns:
 - Priority: "high", "medium", or "low"
 - Agent/Tool: specific agent or tool to use
 
+The table must be structured as follows:
+| ID | Task | Status | Priority | Agent/Tool |
+| --- | ---- | ------ | -------- | ----------- |
+| 1 | Example task | pending | high | ExampleAgent |
+... | ... | ... | ... | ...|
+
 When you are satisfied with the todo list, output it between markdown tags ```table ... ```
 You MUST use the ```table ... ``` tags to indicate the start and end of the todo list.
 """

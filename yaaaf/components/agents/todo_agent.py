@@ -1,4 +1,3 @@
-import re
 from typing import List, Optional
 from io import StringIO
 
@@ -87,9 +86,7 @@ class TodoAgent(BaseAgent):
                 answer, self._output_tag, "```"
             )
             if not current_output:
-                current_output = get_first_text_between_tags(
-                    answer, "```", "```"
-                )
+                current_output = get_first_text_between_tags(answer, "```", "```")
 
         # Parse the markdown table into a DataFrame and create artifact
         try:

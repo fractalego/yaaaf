@@ -84,7 +84,7 @@ class NumericalSequencesAgent(BaseAgent):
                 f"The result is <result>{output}</result>. If the initial query {last_utterance} is answered write {self._completing_tags[0]} at the beginning of your answer.\n"
                 f"If there are errors try to correct them in the next steps.\n"
             )
-        
+
         if output_df.empty:
             return "Could not extract numerical data from the provided artefacts. Please try again with content that contains quantitative information."
 

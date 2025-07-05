@@ -16,26 +16,28 @@ class TestNumericalSequencesAgent(unittest.IsolatedAsyncioTestCase):
 
     async def test_extract_numerical_sequences(self):
         """Test that the agent can extract numerical data from search results."""
-        
+
         # Create mock search result data
-        search_data = pd.DataFrame({
-            'title': [
-                'Car Sales Report 2020',
-                'Car Sales Report 2021', 
-                'Car Sales Report 2022'
-            ],
-            'content': [
-                'Red cars sold: 1500 units in 2020',
-                'Red cars sold: 1800 units in 2021',
-                'Red cars sold: 2100 units in 2022'
-            ],
-            'url': [
-                'https://example.com/2020',
-                'https://example.com/2021', 
-                'https://example.com/2022'
-            ]
-        })
-        
+        search_data = pd.DataFrame(
+            {
+                "title": [
+                    "Car Sales Report 2020",
+                    "Car Sales Report 2021",
+                    "Car Sales Report 2022",
+                ],
+                "content": [
+                    "Red cars sold: 1500 units in 2020",
+                    "Red cars sold: 1800 units in 2021",
+                    "Red cars sold: 2100 units in 2022",
+                ],
+                "url": [
+                    "https://example.com/2020",
+                    "https://example.com/2021",
+                    "https://example.com/2022",
+                ],
+            }
+        )
+
         # Store the search result as an artefact
         storage = ArtefactStorage()
         search_artefact_id = "test_search_123"
@@ -48,15 +50,17 @@ class TestNumericalSequencesAgent(unittest.IsolatedAsyncioTestCase):
                 id=search_artefact_id,
             ),
         )
-        
+
         # Create a message with the artefact reference
-        messages = Messages([
-            Utterance(
-                role="user",
-                content=f"Extract yearly red car sales data from <artefact type='search-result'>{search_artefact_id}</artefact>"
-            )
-        ])
-        
+        messages = Messages(
+            [
+                Utterance(
+                    role="user",
+                    content=f"Extract yearly red car sales data from <artefact type='search-result'>{search_artefact_id}</artefact>",
+                )
+            ]
+        )
+
         # Mock the LLM response with extracted numerical data
         mock_response = """I'll extract the numerical data about red car sales by year.
 
@@ -69,51 +73,55 @@ class TestNumericalSequencesAgent(unittest.IsolatedAsyncioTestCase):
 ```
 
 <taskcompleted/>"""
-        
+
         self.mock_client.predict.return_value = mock_response
-        
+
         # Call the agent
         result = await self.agent.query(messages)
-        
+
         # Verify the agent was called with correct prompt
         self.mock_client.predict.assert_called_once()
         call_args = self.mock_client.predict.call_args
-        messages_arg = call_args.kwargs['messages']
-        
+        messages_arg = call_args.kwargs["messages"]
+
         # Check that the system prompt contains the search data
-        system_prompts = [u for u in messages_arg.utterances if u.role == 'system']
+        system_prompts = [u for u in messages_arg.utterances if u.role == "system"]
         self.assertTrue(len(system_prompts) > 0)
-        self.assertIn('Car Sales Report', system_prompts[0].content)
-        
+        self.assertIn("Car Sales Report", system_prompts[0].content)
+
         # Verify the result contains artefact reference
         self.assertIn("artefact", result)
         self.assertIn("numerical-sequences-table", result)
 
     async def test_no_artefact_error(self):
         """Test that the agent returns error when no artefacts are provided."""
-        messages = Messages([
-            Utterance(
-                role="user",
-                content="Extract numerical data without providing any artefacts"
-            )
-        ])
-        
+        messages = Messages(
+            [
+                Utterance(
+                    role="user",
+                    content="Extract numerical data without providing any artefacts",
+                )
+            ]
+        )
+
         result = await self.agent.query(messages)
-        
+
         # Should return no artefact error
         self.assertEqual(result, "No artefact found in the message.")
         self.mock_client.predict.assert_not_called()
 
     async def test_empty_table_response(self):
         """Test agent behavior when LLM returns empty/invalid table."""
-        
+
         # Create dummy search data
-        search_data = pd.DataFrame({
-            'title': ['Test'], 
-            'content': ['No numerical data here'],
-            'url': ['https://example.com']
-        })
-        
+        search_data = pd.DataFrame(
+            {
+                "title": ["Test"],
+                "content": ["No numerical data here"],
+                "url": ["https://example.com"],
+            }
+        )
+
         storage = ArtefactStorage()
         search_artefact_id = "test_empty_123"
         storage.store_artefact(
@@ -125,23 +133,25 @@ class TestNumericalSequencesAgent(unittest.IsolatedAsyncioTestCase):
                 id=search_artefact_id,
             ),
         )
-        
-        messages = Messages([
-            Utterance(
-                role="user",
-                content=f"Extract numerical data from <artefact type='search-result'>{search_artefact_id}</artefact>"
-            )
-        ])
-        
+
+        messages = Messages(
+            [
+                Utterance(
+                    role="user",
+                    content=f"Extract numerical data from <artefact type='search-result'>{search_artefact_id}</artefact>",
+                )
+            ]
+        )
+
         # Mock response with no valid table
         mock_response = """I couldn't find any numerical data in the provided content.
 
 <taskcompleted/>"""
-        
+
         self.mock_client.predict.return_value = mock_response
-        
+
         result = await self.agent.query(messages)
-        
+
         # Should return error about no numerical data
         self.assertIn("Could not extract numerical data", result)
 
@@ -150,7 +160,7 @@ class TestNumericalSequencesAgent(unittest.IsolatedAsyncioTestCase):
         info = self.agent.get_info()
         self.assertIn("numerical data", info.lower())
         self.assertIn("structured tables", info.lower())
-        
+
         description = self.agent.get_description()
         self.assertIn("Numerical Sequences agent", description)
         self.assertIn("numericalsequencesagent", description)

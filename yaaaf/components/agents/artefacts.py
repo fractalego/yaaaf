@@ -19,6 +19,7 @@ class Artefact(BaseModel):
     image: Optional[str] = None
     type: Optional[str] = None
     id: Optional[str] = None
+    summary: Optional[str] = None
 
     class Types:
         TABLE = "table"

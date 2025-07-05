@@ -32,6 +32,7 @@ class ArtefactOutput(BaseModel):
     data: str
     code: str
     image: str
+    summary: str
 
     @staticmethod
     def create_from_artefact(artefact: Artefact) -> "ArtefactOutput":
@@ -41,6 +42,7 @@ class ArtefactOutput(BaseModel):
             else "",
             code=artefact.code if artefact.code is not None else "",
             image=artefact.image if artefact.image is not None else "",
+            summary=artefact.summary if artefact.summary is not None else "",
         )
 
 

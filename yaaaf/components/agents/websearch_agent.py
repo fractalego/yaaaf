@@ -78,7 +78,7 @@ class DuckDuckGoSearchAgent(BaseAgent):
                 answer, self._output_tag, "```"
             )
             query_results: List[Dict[str, str]] = DDGS().text(
-                search_query, max_results=5
+                search_query, max_results=20
             )
             if query_results:
                 current_output = pd.DataFrame(

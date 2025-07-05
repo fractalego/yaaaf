@@ -31,7 +31,6 @@ class BraveSearchAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         super().__init__()
         self._client = client
-        # Get API key from config
         config = get_config()
         self._api_key = config.api_keys.brave_search_api_key
         if not self._api_key:
@@ -53,7 +52,7 @@ class BraveSearchAgent(BaseAgent):
             )
             notes.append(internal_note)
 
-    def _search_brave(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
+    def _search_brave(self, query: str, max_results: int = 20) -> List[Dict[str, str]]:
         """
         Search using Brave Search API
         """
@@ -130,7 +129,7 @@ class BraveSearchAgent(BaseAgent):
             )
 
             query_results: List[Dict[str, str]] = self._search_brave(
-                search_query, max_results=5
+                search_query, max_results=20
             )
 
             if query_results:

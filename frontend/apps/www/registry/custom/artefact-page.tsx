@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, Copy } from "lucide-react"
+import { Check, Copy, Download, FileText } from "lucide-react"
 
 import { linkifyUrls } from "@/lib/url-utils"
 
@@ -12,6 +12,8 @@ function ArtefactPage(element: {
   summary: string
 }) {
   const [copied, setCopied] = React.useState(false)
+  const [summaryCopied, setSummaryCopied] = React.useState(false)
+  const [downloadingPdf, setDownloadingPdf] = React.useState(false)
 
   const convertHtmlTableToMarkdown = (htmlString: string): string => {
     const parser = new DOMParser()
@@ -45,6 +47,65 @@ function ArtefactPage(element: {
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       console.error("Failed to copy table as markdown:", err)
+    }
+  }
+
+  const copySummaryAsMarkdown = async () => {
+    try {
+      await navigator.clipboard.writeText(element.summary)
+      setSummaryCopied(true)
+      setTimeout(() => setSummaryCopied(false), 2000)
+    } catch (err) {
+      console.error("Failed to copy summary as markdown:", err)
+    }
+  }
+
+  const downloadSummaryAsPdf = async () => {
+    try {
+      setDownloadingPdf(true)
+
+      // Dynamically import jsPDF to avoid SSR issues
+      const { default: jsPDF } = await import("jspdf")
+
+      const doc = new jsPDF()
+
+      // Set title
+      doc.setFontSize(16)
+      doc.setFont(undefined, "bold")
+      doc.text("Conversation Summary", 20, 20)
+
+      // Process the summary text to handle basic markdown
+      let processedText = element.summary
+        .replace(/^# (.*$)/gim, "$1") // Remove header markdown
+        .replace(/^## (.*$)/gim, "$1") // Remove header markdown
+        .replace(/^### (.*$)/gim, "$1") // Remove header markdown
+        .replace(/\*\*(.*?)\*\*/g, "$1") // Remove bold markdown
+        .replace(/\*(.*?)\*/g, "$1") // Remove italic markdown
+        .replace(/\[(.*?)\]\((.*?)\)/g, "$1 ($2)") // Convert links to text
+
+      // Split text into lines and add to PDF
+      doc.setFontSize(12)
+      doc.setFont(undefined, "normal")
+
+      const splitText = doc.splitTextToSize(processedText, 170) // 170mm width
+      let yPosition = 35
+
+      splitText.forEach((line: string) => {
+        if (yPosition > 280) {
+          // Add new page if needed
+          doc.addPage()
+          yPosition = 20
+        }
+        doc.text(line, 20, yPosition)
+        yPosition += 7
+      })
+
+      // Download the PDF
+      doc.save("conversation-summary.pdf")
+    } catch (err) {
+      console.error("Failed to generate PDF:", err)
+    } finally {
+      setDownloadingPdf(false)
     }
   }
 
@@ -95,9 +156,42 @@ function ArtefactPage(element: {
     <div>
       {element.summary && (
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border">
-          <h2 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
-            Conversation Summary
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              Conversation Summary
+            </h2>
+            <div className="flex gap-2">
+              <button
+                onClick={copySummaryAsMarkdown}
+                className={`inline-flex items-center gap-2 px-3 py-1 text-sm rounded-md transition-colors ${
+                  summaryCopied
+                    ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
+                    : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+                }`}
+                title="Copy summary as markdown"
+              >
+                {summaryCopied ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                {summaryCopied ? "Copied!" : "Copy MD"}
+              </button>
+              <button
+                onClick={downloadSummaryAsPdf}
+                disabled={downloadingPdf}
+                className={`inline-flex items-center gap-2 px-3 py-1 text-sm rounded-md transition-colors ${
+                  downloadingPdf
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
+                    : "bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-300"
+                }`}
+                title="Download summary as PDF"
+              >
+                <Download className="h-4 w-4" />
+                {downloadingPdf ? "Generating..." : "PDF"}
+              </button>
+            </div>
+          </div>
           <div
             className="prose prose-sm max-w-none dark:prose-invert text-gray-700 dark:text-gray-300"
             dangerouslySetInnerHTML={{

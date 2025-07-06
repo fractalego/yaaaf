@@ -34,20 +34,6 @@ class NumericalSequencesAgent(BaseAgent):
         self._client = client
         self._artefact_extractor = ArtefactExtractor(client)
 
-    def _add_internal_message(
-        self, message: str, notes: Optional[List[Note]], prefix: str = "Message"
-    ):
-        """Helper to add internal messages to notes"""
-        if notes is not None:
-            internal_note = Note(
-                message=f"[{prefix}] {message}",
-                artefact_id=None,
-                agent_name=self.get_name(),
-                model_name=getattr(self._client, "model", None),
-                internal=True,
-            )
-            notes.append(internal_note)
-
     @handle_exceptions
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
@@ -56,30 +42,13 @@ class NumericalSequencesAgent(BaseAgent):
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
         )
+        # Try to extract artefacts from notes if none found in utterance
+        artefact_list = await self._try_extract_artefacts_from_notes(
+            artefact_list, last_utterance, notes
+        )
+
         if not artefact_list:
-            # Try to extract relevant artefacts from conversation notes
-            if notes:
-                _logger.info("No artefacts in utterance, trying to extract from notes")
-                extracted_artefact_ids = await self._artefact_extractor.extract(
-                    last_utterance.content, notes
-                )
-                if extracted_artefact_ids:
-                    artefact_list = self._artefact_extractor.get_artefacts_by_ids(
-                        extracted_artefact_ids
-                    )
-                    _logger.info(
-                        f"Found {len(artefact_list)} relevant artefacts from notes"
-                    )
-
-                    # Add internal note about auto-extracted artefacts
-                    self._add_internal_message(
-                        f"Auto-extracted {len(artefact_list)} relevant artefacts from conversation history: {extracted_artefact_ids}",
-                        notes,
-                        "Artefact Extraction",
-                    )
-
-            if not artefact_list:
-                return no_artefact_text
+            return no_artefact_text
 
         df, _ = get_table_and_model_from_artefacts(artefact_list)
         messages = messages.add_system_prompt(

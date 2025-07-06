@@ -8,6 +8,7 @@ from yaaaf.components.agents.artefact_utils import (
     get_artefacts_from_utterance_content,
     create_prompt_from_artefacts,
 )
+from yaaaf.components.extractors.artefact_extractor import ArtefactExtractor
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.prompts import (
@@ -34,6 +35,7 @@ class ReviewerAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         super().__init__()
         self._client = client
+        self._artefact_extractor = ArtefactExtractor(client)
 
     def _add_internal_message(
         self, message: str, notes: Optional[List[Note]], prefix: str = "Message"
@@ -58,7 +60,25 @@ class ReviewerAgent(BaseAgent):
             last_utterance.content
         )
         if not artefact_list:
-            return no_artefact_text
+            # Try to extract relevant artefacts from conversation notes
+            if notes:
+                _logger.info("No artefacts in utterance, trying to extract from notes")
+                extracted_artefact_ids = await self._artefact_extractor.extract(
+                    last_utterance.content, notes
+                )
+                if extracted_artefact_ids:
+                    artefact_list = self._artefact_extractor.get_artefacts_by_ids(extracted_artefact_ids)
+                    _logger.info(f"Found {len(artefact_list)} relevant artefacts from notes")
+                    
+                    # Add internal note about auto-extracted artefacts
+                    self._add_internal_message(
+                        f"Auto-extracted {len(artefact_list)} relevant artefacts from conversation history: {extracted_artefact_ids}",
+                        notes,
+                        "Artefact Extraction"
+                    )
+            
+            if not artefact_list:
+                return no_artefact_text
 
         messages = messages.add_system_prompt(
             create_prompt_from_artefacts(

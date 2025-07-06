@@ -51,6 +51,8 @@ class ArtefactExtractor(BaseExtractor):
                 try:
                     artefact = self._storage.retrieve_from_id(note.artefact_id)
                     artefact_desc = f"Artefact ID: {note.artefact_id}\n"
+                    artefact_desc += f"Message : {note.message}\n"
+                    artefact_desc += f"From agent: {note.agent_name or 'unknown'}\n"
                     artefact_desc += f"Type: {artefact.type or 'unknown'}\n"
                     artefact_desc += f"Description: {artefact.description or artefact.summary or 'No description'}\n"
                     artefact_desc += f"Context: {note.message[:200]}...\n"
@@ -95,7 +97,8 @@ class ArtefactExtractor(BaseExtractor):
             )
         )
         extraction_messages = extraction_messages.add_user_utterance(
-            "List the most relevant artefact IDs for this instruction:"
+            "List the most relevant artefact IDs for this instruction: {instruction}. "
+            "This is just a best guess effort, so you MUST provide the IDs no matter what."
         )
 
         try:
@@ -109,7 +112,7 @@ class ArtefactExtractor(BaseExtractor):
                 # Handle various formats: "artefact_id", "- artefact_id", "1. artefact_id", etc.
                 if line and not line.startswith('#') and not line.lower().startswith('none'):
                     # Extract artefact ID (remove bullets, numbers, etc.)
-                    cleaned_line = line.lstrip('- ').lstrip('1234567890. ').strip()
+                    cleaned_line = line.lstrip('- ').strip()
                     if cleaned_line and cleaned_line in [note.artefact_id for note in notes_with_artefacts]:
                         artefact_ids.append(cleaned_line)
             

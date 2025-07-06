@@ -13,6 +13,7 @@ from yaaaf.components.agents.artefact_utils import (
     get_artefacts_from_utterance_content,
     create_prompt_from_artefacts,
 )
+from yaaaf.components.extractors.artefact_extractor import ArtefactExtractor
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.hash_utils import create_hash
@@ -41,6 +42,7 @@ class VisualizationAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         super().__init__()
         self._client = client
+        self._artefact_extractor = ArtefactExtractor(client)
 
     def _add_internal_message(
         self, message: str, notes: Optional[List[Note]], prefix: str = "Message"
@@ -65,7 +67,25 @@ class VisualizationAgent(BaseAgent):
             last_utterance.content
         )
         if not artefact_list:
-            return no_artefact_text
+            # Try to extract relevant artefacts from conversation notes
+            if notes:
+                _logger.info("No artefacts in utterance, trying to extract from notes")
+                extracted_artefact_ids = await self._artefact_extractor.extract(
+                    last_utterance.content, notes
+                )
+                if extracted_artefact_ids:
+                    artefact_list = self._artefact_extractor.get_artefacts_by_ids(extracted_artefact_ids)
+                    _logger.info(f"Found {len(artefact_list)} relevant artefacts from notes")
+                    
+                    # Add internal note about auto-extracted artefacts
+                    self._add_internal_message(
+                        f"Auto-extracted {len(artefact_list)} relevant artefacts from conversation history: {extracted_artefact_ids}",
+                        notes,
+                        "Artefact Extraction"
+                    )
+            
+            if not artefact_list:
+                return no_artefact_text
 
         image_id: str = create_hash(str(messages))
         image_name: str = image_id + ".png"
@@ -167,7 +187,9 @@ class VisualizationAgent(BaseAgent):
     def get_description(self) -> str:
         return f"""
 Visualization agent: {self.get_info()}.
-To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEFACTS THAT DESCRIBE WHAT TO PLOT {self.get_closing_tag()}
-The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).
+To call this agent write {self.get_opening_tag()}ENGLISH QUERY THAT DESCRIBE WHAT TO PLOT AND <artefact> TABLE WITH NUMERICAL DATA {self.get_closing_tag()}
+The arguments within the tags must be: 
+a) instructions about what to look for in the data 
+2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above.
 The information about what to plot will be then used by the agent.
         """

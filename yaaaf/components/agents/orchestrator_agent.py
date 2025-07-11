@@ -7,7 +7,7 @@ from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.settings import task_completed_tag, task_paused_tag
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages, Note
+from yaaaf.components.data_types import Messages, Note, Tool
 from yaaaf.components.agents.prompts import orchestrator_prompt_template
 from yaaaf.components.extractors.goal_extractor import GoalExtractor
 from yaaaf.components.extractors.summary_extractor import SummaryExtractor
@@ -45,19 +45,68 @@ class OrchestratorAgent(BaseAgent):
         for step_index in range(self._max_steps):
             # Update system prompt with current budget information at each step
             messages = messages.set_system_prompt(self._get_system_prompt(goal))
+            
+            # Get available tools for agents with budget > 0
+            tools = self._get_tools()
+            
             response = await self._client.predict(
-                messages, stop_sequences=self._stop_sequences
+                messages, stop_sequences=self._stop_sequences, tools=tools
             )
-            answer = response.message
-            agent_to_call, instruction = self.map_answer_to_agent(answer)
-            extracted_agent_name = Note.extract_agent_name_from_tags(answer)
-            agent_name = extracted_agent_name or (
-                agent_to_call.get_name() if agent_to_call else self.get_name()
-            )
-
+            
+            # Handle tool calls vs regular messages
+            if response.tool_calls:
+                # Process tool call
+                tool_call = response.tool_calls[0]  # Take the first tool call
+                agent_name = tool_call.function["name"]
+                
+                # Find the agent by name
+                agent_to_call = None
+                for agent in self._agents_map.values():
+                    if agent.get_name() == agent_name:
+                        agent_to_call = agent
+                        break
+                
+                if agent_to_call is None:
+                    answer = f"Unknown agent: {agent_name}"
+                    _logger.error(f"Tool call requested unknown agent: {agent_name}")
+                elif agent_to_call.get_budget() <= 0:
+                    answer = f"Agent {agent_name} has exhausted its budget and cannot be called again."
+                    _logger.warning(f"Agent {agent_name} has exhausted its budget")
+                else:
+                    # Consume budget before calling agent
+                    agent_to_call.consume_budget()
+                    _logger.info(f"Agent {agent_name} called via tool, remaining budget: {agent_to_call.get_budget()}")
+                    
+                    # Extract instruction and artefact_id from tool call
+                    tool_args = tool_call.function.get("arguments", {})
+                    instruction = tool_args.get("instruction", "")
+                    artefact_id = tool_args.get("artefact_id", None)
+                    
+                    # Build the message for the agent
+                    agent_message = instruction
+                    if artefact_id:
+                        agent_message += f" <artefact>{artefact_id}</artefact>"
+                    
+                    # Call the agent
+                    answer = await agent_to_call.query(
+                        Messages().add_user_utterance(agent_message),
+                        notes=notes,
+                    )
+                    answer = self._make_output_visible(answer)
+            else:
+                # Handle regular message (no tool call)
+                answer = response.message
+                
+            # Add note for this step
             if notes is not None:
                 artefacts = get_artefacts_from_utterance_content(answer)
                 model_name = getattr(self._client, "model", None)
+                
+                # Determine agent name for the note
+                if response.tool_calls:
+                    agent_name = response.tool_calls[0].function["name"]
+                else:
+                    agent_name = self.get_name()
 
                 note = Note(
                     message=self._remove_and_extract_completion_tag(Note.clean_agent_tags(answer)),
@@ -67,65 +116,18 @@ class OrchestratorAgent(BaseAgent):
                 )
                 note.internal = False
                 notes.append(note)
+            
+            # Add the response to messages for next iteration
+            messages = messages.add_assistant_utterance(answer)
 
-            if agent_to_call is None and (
-                self.is_complete(answer) or answer.strip() == ""
-            ):
+            # Check if we should stop
+            if self.is_complete(answer) or answer.strip() == "":
                 # Generate summary artifact when task is completed
                 if self.is_complete(answer):
                     answer = await self._generate_and_add_summary(answer, notes)
                 break
-            if agent_to_call is not None:
-                # Check if agent has budget remaining
-                if agent_to_call.get_budget() <= 0:
-                    _logger.warning(
-                        f"Agent {agent_to_call.get_name()} has exhausted its budget"
-                    )
-                    answer = f"Agent {agent_to_call.get_name()} has exhausted its budget and cannot be called again."
-                else:
-                    # Consume budget before calling agent
-                    agent_to_call.consume_budget()
-                    _logger.info(
-                        f"Agent {agent_to_call.get_name()} called, remaining budget: {agent_to_call.get_budget()}"
-                    )
-
-                    answer = await agent_to_call.query(
-                        Messages().add_user_utterance(instruction),
-                        notes=notes,
-                    )
-                    answer = self._make_output_visible(answer)
-
-                if notes is not None:
-                    artefacts = get_artefacts_from_utterance_content(answer)
-                    extracted_agent_name = Note.extract_agent_name_from_tags(answer)
-                    final_agent_name = extracted_agent_name or agent_name
-
-                    # Get model name from the agent's client if available
-                    agent_model_name = (
-                        getattr(agent_to_call._client, "model", None)
-                        if agent_to_call
-                        else None
-                    )
-
-                    # Add cleaned user-facing note
-                    note = Note(
-                        message=Note.clean_agent_tags(answer),
-                        artefact_id=artefacts[0].id if artefacts else None,
-                        agent_name=final_agent_name,
-                        model_name=agent_model_name,
-                    )
-                    note.internal = False
-                    notes.append(note)
-
-                messages = messages.add_user_utterance(
-                    f"The answer from the agent is:\n\n{answer}\n\nWhen you are 100% sure about the answer and the task is done, write the tag {self._completing_tags[0]}."
-                )
-            else:
-                messages = messages.add_assistant_utterance(answer)
-                messages = messages.add_user_utterance(
-                    "You didn't call any agent. Is the answer finished or did you miss outputting the tags? Reminder: use the relevant html tags to call the agents.\n\n"
-                )
-        if not self.is_complete(answer) and step_index == self._max_steps - 1:
+        # Handle max steps reached
+        if not self.is_complete(answer):
             answer += f"\nThe Orchestrator agent has finished its maximum number of steps. {task_completed_tag}"
             # Generate summary artifact when max steps reached
             answer = await self._generate_and_add_summary(answer, notes)
@@ -195,6 +197,14 @@ class OrchestratorAgent(BaseAgent):
             for tag, agent in self._agents_map.items()
             if agent.get_budget() > 0
         }
+
+    def _get_tools(self) -> List[Tool]:
+        """Get tools for all agents that have budget remaining."""
+        available_agents = self._get_available_agents()
+        tools = []
+        for agent in available_agents.values():
+            tools.append(agent.get_tool())
+        return tools
 
     def map_answer_to_agent(self, answer: str) -> Tuple[BaseAgent | None, str]:
         # Only consider agents that still have budget

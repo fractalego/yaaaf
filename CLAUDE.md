@@ -34,7 +34,7 @@ YAAAF (Yet Another Autonomous Agents Framework) is a modular framework for build
 
 **Backend (`yaaaf/`):**
 - `components/agents/`: Specialized agents (SQL, visualization, web search, reflection, reviewer)
-- `components/data_types.py`: Core data structures (Messages, Utterances, PromptTemplate)
+- `components/data_types/`: Core data structures (Messages, Utterances, PromptTemplate)
 - `components/client.py`: LLM client implementations (OllamaClient)
 - `components/orchestrator_builder.py`: Factory for creating orchestrator with agents
 - `server/`: FastAPI server with streaming endpoints

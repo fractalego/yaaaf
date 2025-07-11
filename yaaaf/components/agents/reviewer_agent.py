@@ -8,6 +8,7 @@ from yaaaf.components.agents.artefact_utils import (
     get_artefacts_from_utterance_content,
     create_prompt_from_artefacts,
 )
+from yaaaf.components.extractors.artefact_extractor import ArtefactExtractor
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.prompts import (
@@ -34,20 +35,8 @@ class ReviewerAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         super().__init__()
         self._client = client
+        self._artefact_extractor = ArtefactExtractor(client)
 
-    def _add_internal_message(
-        self, message: str, notes: Optional[List[Note]], prefix: str = "Message"
-    ):
-        """Helper to add internal messages to notes"""
-        if notes is not None:
-            internal_note = Note(
-                message=f"[{prefix}] {message}",
-                artefact_id=None,
-                agent_name=self.get_name(),
-                model_name=getattr(self._client, "model", None),
-                internal=True,
-            )
-            notes.append(internal_note)
 
     @handle_exceptions
     async def query(
@@ -57,6 +46,12 @@ class ReviewerAgent(BaseAgent):
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
         )
+        
+        # Try to extract artefacts from notes if none found in utterance
+        artefact_list = await self._try_extract_artefacts_from_notes(
+            artefact_list, last_utterance, notes
+        )
+        
         if not artefact_list:
             return no_artefact_text
 
@@ -71,9 +66,10 @@ class ReviewerAgent(BaseAgent):
         df, model = get_table_and_model_from_artefacts(artefact_list)
         code_result = "no code could be executed"
         for step_idx in range(self._max_steps):
-            answer = await self._client.predict(
+            response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            answer = response.message
 
             # Log internal thinking step
             if (

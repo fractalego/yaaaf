@@ -8,6 +8,7 @@ from yaaaf.components.agents.artefact_utils import (
     get_table_and_model_from_artefacts,
     get_artefacts_from_utterance_content,
 )
+from yaaaf.components.extractors.artefact_extractor import ArtefactExtractor
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.prompts import (
@@ -33,6 +34,7 @@ class UrlReviewerAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         super().__init__()
         self._client = client
+        self._artefact_extractor = ArtefactExtractor(client)
 
     @handle_exceptions
     async def query(
@@ -42,6 +44,11 @@ class UrlReviewerAgent(BaseAgent):
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
         )
+        # Try to extract artefacts from notes if none found in utterance
+        artefact_list = await self._try_extract_artefacts_from_notes(
+            artefact_list, last_utterance, notes
+        )
+
         if not artefact_list:
             return no_artefact_text
 
@@ -53,9 +60,10 @@ class UrlReviewerAgent(BaseAgent):
         )
         output_df: pd.DataFrame = pd.DataFrame()
         for step_idx in range(self._max_steps):
-            answer = await self._client.predict(
+            response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            answer = response.message
 
             if (
                 notes is not None and step_idx > 0

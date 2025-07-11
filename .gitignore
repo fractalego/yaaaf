@@ -9,6 +9,7 @@ wheels/
 # Various files
 config.json
 TODO.txt
+yaaaf/client/standalone
 
 # Virtual environments
 .venv

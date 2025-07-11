@@ -10,6 +10,7 @@ from yaaaf.components.agents.artefact_utils import (
     get_artefacts_from_utterance_content,
     create_prompt_from_artefacts,
 )
+from yaaaf.components.extractors.artefact_extractor import ArtefactExtractor
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.hash_utils import create_hash
@@ -37,6 +38,7 @@ class MleAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         super().__init__()
         self._client = client
+        self._artefact_extractor = ArtefactExtractor(client)
 
     @handle_exceptions
     async def query(
@@ -46,6 +48,11 @@ class MleAgent(BaseAgent):
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
         )
+        # Try to extract artefacts from notes if none found in utterance
+        artefact_list = await self._try_extract_artefacts_from_notes(
+            artefact_list, last_utterance, notes
+        )
+
         if not artefact_list:
             return no_artefact_text
 
@@ -63,9 +70,10 @@ class MleAgent(BaseAgent):
         code = ""
         code_result = "No code found"
         for step_idx in range(self._max_steps):
-            answer = await self._client.predict(
+            response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            answer = response.message
 
             # Log internal thinking step
             if (

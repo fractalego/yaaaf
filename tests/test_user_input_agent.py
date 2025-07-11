@@ -5,6 +5,7 @@ from unittest.mock import Mock
 from yaaaf.components.agents.user_input_agent import UserInputAgent
 from yaaaf.components.client import OllamaClient
 from yaaaf.components.data_types import Messages
+from yaaaf.components.data_types.tools import ClientResponse
 
 
 class TestUserInputAgent(unittest.TestCase):
@@ -43,11 +44,13 @@ class TestUserInputAgent(unittest.TestCase):
 
         # Mock client response with question format
         async def mock_predict(*args, **kwargs):
-            return """I need more information to help you.
+            return ClientResponse(
+                message="""I need more information to help you.
             ```question
             What specific features would you like in your application?
             ```
             <taskpaused/>"""
+            )
 
         self.client.predict = mock_predict
 
@@ -66,7 +69,9 @@ class TestUserInputAgent(unittest.TestCase):
 
         # Mock client response with direct pause
         async def mock_predict(*args, **kwargs):
-            return "Could you please clarify what type of data analysis you need? <taskpaused/>"
+            return ClientResponse(
+                message="Could you please clarify what type of data analysis you need? <taskpaused/>"
+            )
 
         self.client.predict = mock_predict
 
@@ -83,7 +88,9 @@ class TestUserInputAgent(unittest.TestCase):
 
         # Mock client response that completes
         async def mock_predict(*args, **kwargs):
-            return "Based on your requirements, here's what I recommend: Use Python with Flask for your web application. <taskcompleted/>"
+            return ClientResponse(
+                message="Based on your requirements, here's what I recommend: Use Python with Flask for your web application. <taskcompleted/>"
+            )
 
         self.client.predict = mock_predict
 
@@ -106,14 +113,20 @@ class TestUserInputAgent(unittest.TestCase):
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return "I understand you want to create something. Let me think about what information I need."
+                return ClientResponse(
+                    message="I understand you want to create something. Let me think about what information I need."
+                )
             elif call_count == 2:
-                return """```question
+                return ClientResponse(
+                    message="""```question
                 What is your budget for this project?
                 ```
                 <taskpaused/>"""
+                )
             else:
-                return "Thank you for the information. <taskcompleted/>"
+                return ClientResponse(
+                    message="Thank you for the information. <taskcompleted/>"
+                )
 
         self.client.predict = mock_predict
 
@@ -133,14 +146,20 @@ class TestUserInputAgent(unittest.TestCase):
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return "I need to ask you something but forgot the format"
+                return ClientResponse(
+                    message="I need to ask you something but forgot the format"
+                )
             elif call_count == 2:
-                return """```question
+                return ClientResponse(
+                    message="""```question
                 How many users will be using this system?
                 ```
                 <taskpaused/>"""
+                )
             else:
-                return "Got it. <taskcompleted/>"
+                return ClientResponse(
+                    message="Got it. <taskcompleted/>"
+                )
 
         self.client.predict = mock_predict
 
@@ -157,7 +176,9 @@ class TestUserInputAgent(unittest.TestCase):
 
         # Mock client response that's empty
         async def mock_predict(*args, **kwargs):
-            return ""
+            return ClientResponse(
+                message=""
+            )
 
         self.client.predict = mock_predict
 
@@ -173,7 +194,9 @@ class TestUserInputAgent(unittest.TestCase):
 
         # Mock client response that never completes or pauses
         async def mock_predict(*args, **kwargs):
-            return "I'm still thinking about your request..."
+            return ClientResponse(
+                message="I'm still thinking about your request..."
+            )
 
         self.client.predict = mock_predict
 

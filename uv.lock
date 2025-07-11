@@ -2021,7 +2021,7 @@ wheels = [
 
 [[package]]
 name = "yaaaf"
-version = "0.0.8"
+version = "0.0.28"
 source = { editable = "." }
 dependencies = [
     { name = "bs4" },
@@ -2033,6 +2033,7 @@ dependencies = [
     { name = "nltk" },
     { name = "pandas" },
     { name = "pydantic" },
+    { name = "pydantic-ai" },
     { name = "pydantic-settings" },
     { name = "rank-bm25" },
     { name = "requests" },
@@ -2078,6 +2079,7 @@ requires-dist = [
     { name = "nltk", marker = "extra == 'nlp'", specifier = ">=3.6.0" },
     { name = "pandas", specifier = ">=1.3.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pydantic-ai", specifier = ">=0.2.18" },
     { name = "pydantic-ai", marker = "extra == 'mcp'", specifier = ">=0.2.0" },
     { name = "pydantic-ai-slim", extras = ["mcp"], marker = "extra == 'mcp'", specifier = ">=0.0.50" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },

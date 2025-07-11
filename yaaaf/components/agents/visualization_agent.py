@@ -13,6 +13,7 @@ from yaaaf.components.agents.artefact_utils import (
     get_artefacts_from_utterance_content,
     create_prompt_from_artefacts,
 )
+from yaaaf.components.extractors.artefact_extractor import ArtefactExtractor
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.hash_utils import create_hash
@@ -41,20 +42,8 @@ class VisualizationAgent(BaseAgent):
     def __init__(self, client: BaseClient):
         super().__init__()
         self._client = client
+        self._artefact_extractor = ArtefactExtractor(client)
 
-    def _add_internal_message(
-        self, message: str, notes: Optional[List[Note]], prefix: str = "Message"
-    ):
-        """Helper to add internal messages to notes"""
-        if notes is not None:
-            internal_note = Note(
-                message=f"[{prefix}] {message}",
-                artefact_id=None,
-                agent_name=self.get_name(),
-                model_name=getattr(self._client, "model", None),
-                internal=True,
-            )
-            notes.append(internal_note)
 
     @handle_exceptions
     async def query(
@@ -64,6 +53,12 @@ class VisualizationAgent(BaseAgent):
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
         )
+        
+        # Try to extract artefacts from notes if none found in utterance
+        artefact_list = await self._try_extract_artefacts_from_notes(
+            artefact_list, last_utterance, notes
+        )
+        
         if not artefact_list:
             return no_artefact_text
 
@@ -80,9 +75,10 @@ class VisualizationAgent(BaseAgent):
         df, model = get_table_and_model_from_artefacts(artefact_list)
         code = ""
         for step_idx in range(self._max_steps):
-            answer = await self._client.predict(
+            response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            answer = response.message
 
             # Log internal thinking step
             if (
@@ -167,7 +163,9 @@ class VisualizationAgent(BaseAgent):
     def get_description(self) -> str:
         return f"""
 Visualization agent: {self.get_info()}.
-To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEFACTS THAT DESCRIBE WHAT TO PLOT {self.get_closing_tag()}
-The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).
+To call this agent write {self.get_opening_tag()}ENGLISH QUERY THAT DESCRIBE WHAT TO PLOT AND <artefact> TABLE WITH NUMERICAL DATA {self.get_closing_tag()}
+The arguments within the tags must be: 
+a) instructions about what to look for in the data 
+2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above.
 The information about what to plot will be then used by the agent.
         """

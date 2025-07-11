@@ -9,7 +9,7 @@ from typing import Optional, List, TYPE_CHECKING
 from yaaaf.components.agents.tokens_utils import strip_thought_tokens
 
 if TYPE_CHECKING:
-    from yaaaf.components.data_types import Messages
+    from yaaaf.components.data_types import Messages, Tool, ClientResponse
 
 _logger = logging.getLogger(__name__)
 
@@ -41,14 +41,18 @@ class OllamaResponseError(Exception):
 
 class BaseClient:
     async def predict(
-        self, messages: "Messages", stop_sequences: Optional[List[str]] = None
-    ) -> str:
+        self,
+        messages: "Messages",
+        stop_sequences: Optional[List[str]] = None,
+        tools: Optional[List["Tool"]] = None,
+    ) -> "ClientResponse":
         """
         Predicts the next message based on the input messages and stop sequences.
 
         :param messages: The input messages.
         :param stop_sequences: Optional list of stop sequences.
-        :return: The predicted message.
+        :param tools: Optional list of tools available to the model.
+        :return: The predicted response containing message and tool calls.
         """
         pass
 
@@ -155,13 +159,22 @@ class OllamaClient(BaseClient):
         return None
 
     async def predict(
-        self, messages: "Messages", stop_sequences: Optional[List[str]] = None
-    ) -> str:
+        self,
+        messages: "Messages",
+        stop_sequences: Optional[List[str]] = None,
+        tools: Optional[List["Tool"]] = None,
+    ) -> "ClientResponse":
         _logger.debug(
             f"Making request to Ollama instance at {self.host} with model '{self.model}'"
         )
 
         headers = {"Content-Type": "application/json"}
+
+        # Convert tools to dict format for API if provided
+        tools_dict = None
+        if tools:
+            tools_dict = [tool.model_dump() for tool in tools]
+
         data = {
             "model": self.model,
             "temperature": self.temperature,
@@ -171,6 +184,7 @@ class OllamaClient(BaseClient):
                 "stop": stop_sequences,
             },
             "stream": False,
+            "tools": tools_dict,
         }
 
         try:
@@ -197,7 +211,30 @@ class OllamaClient(BaseClient):
             _logger.debug(f"Successfully received response from {self.host}")
             try:
                 response_data = json.loads(response.text)
-                return strip_thought_tokens(response_data["message"]["content"])
+
+                # Import ClientResponse and ToolCall here to avoid circular imports
+                from yaaaf.components.data_types import ClientResponse, ToolCall
+
+                message_content = strip_thought_tokens(
+                    response_data["message"]["content"]
+                )
+
+                # Extract tool calls if present
+                tool_calls = None
+                if (
+                    "message" in response_data
+                    and "tool_calls" in response_data["message"]
+                ):
+                    tool_calls = []
+                    for tool_call_data in response_data["message"]["tool_calls"]:
+                        tool_call = ToolCall(
+                            id=tool_call_data.get("id", ""),
+                            type=tool_call_data.get("type", "function"),
+                            function=tool_call_data.get("function", {}),
+                        )
+                        tool_calls.append(tool_call)
+
+                return ClientResponse(message=message_content, tool_calls=tool_calls)
             except (json.JSONDecodeError, KeyError) as e:
                 error_msg = f"Invalid response format from Ollama at {self.host}: {e}"
                 _logger.error(error_msg)

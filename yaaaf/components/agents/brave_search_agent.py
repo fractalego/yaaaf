@@ -182,6 +182,5 @@ class BraveSearchAgent(BaseAgent):
         return f"""
 Brave Web Search agent: {self.get_info()}
 This agent provides an interface to Brave Search engine.
-To call this agent write {self.get_opening_tag()} INFORMATION TO RETRIEVE {self.get_closing_tag()}
-Just write in clear and brief English the information you need to retrieve between these tags. 
+Just write in clear and brief English the information you need to retrieve from web search.
         """

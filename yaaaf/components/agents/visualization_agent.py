@@ -161,18 +161,11 @@ class VisualizationAgent(BaseAgent):
     def get_info() -> str:
         """Get a brief high-level description of what this agent does."""
         return (
-            "This agent is given the relevant artefact table and visualizes the results"
+            "This agent creates charts, graphs, and visualizations from tabular data"
         )
 
     def get_description(self) -> str:
-        return f"""
-Visualization agent: {self.get_info()}.
-To call this agent write {self.get_opening_tag()}ENGLISH QUERY THAT DESCRIBE WHAT TO PLOT AND <artefact> TABLE WITH NUMERICAL DATA {self.get_closing_tag()}
-The arguments within the tags must be: 
-a) instructions about what to look for in the data 
-2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above.
-The information about what to plot will be then used by the agent.
-        """
+        return f"{self.get_info()}. Provide clear instructions describing what to plot and what aspects of the data to visualize. The agent will create appropriate charts, graphs, or visualizations based on your instructions."
 
     def get_tool(self) -> "Tool":
         """

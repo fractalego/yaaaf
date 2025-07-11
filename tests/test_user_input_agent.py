@@ -24,8 +24,9 @@ class TestUserInputAgent(unittest.TestCase):
         description = self.agent.get_description()
         self.assertIn("User Input agent", description)
         self.assertIn("interact with the user", description)
-        self.assertIn("<userinputagent>", description)
-        self.assertIn("</userinputagent>", description)
+        # Test that XML tags are NOT in the description (tool-friendly)
+        self.assertNotIn("<userinputagent>", description)
+        self.assertNotIn("</userinputagent>", description)
 
     def test_opening_and_closing_tags(self):
         """Test that agent has correct HTML-like tags."""

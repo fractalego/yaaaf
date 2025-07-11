@@ -98,6 +98,6 @@ class UserInputAgent(BaseAgent):
 User Input agent: {self.get_info()}
 Use this agent when you need clarification, preferences, or additional details from the user.
 The agent will pause execution and wait for user responses when needed.
-To call this agent write {self.get_opening_tag()} TASK_THAT_NEEDS_USER_INPUT {self.get_closing_tag()}
+Describe the task that requires user input or clarification.
 The agent can ask questions and pause the workflow until the user provides answers.
         """

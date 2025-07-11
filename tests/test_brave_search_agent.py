@@ -54,8 +54,9 @@ class TestBraveSearchAgent(unittest.TestCase):
         description = self.agent.get_description()
         self.assertIn("Brave Web Search agent", description)
         self.assertIn("Brave Search engine", description)
-        self.assertIn(self.agent.get_opening_tag(), description)
-        self.assertIn(self.agent.get_closing_tag(), description)
+        # Test that XML tags are NOT in the description (tool-friendly)
+        self.assertNotIn(self.agent.get_opening_tag(), description)
+        self.assertNotIn(self.agent.get_closing_tag(), description)
 
     def test_get_name(self):
         """Test that get_name returns correct agent name."""

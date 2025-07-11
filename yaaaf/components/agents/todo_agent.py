@@ -144,5 +144,5 @@ Todo planning agent: {self.get_info()}.
 Always call this agent first to create a structured todo list and plan the next steps.
 Call this agent only once per task, it is not meant to be called multiple times.
 Budget: {self.get_budget()} call remaining.
-To call this agent write {self.get_opening_tag()} QUERY TO PLAN {self.get_closing_tag()}
+Provide the query that needs to be planned and organized into actionable steps.
         """

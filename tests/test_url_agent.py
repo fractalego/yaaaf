@@ -23,8 +23,9 @@ class TestURLAgent(unittest.TestCase):
         description = self.agent.get_description()
         self.assertIn("URL Analysis agent", description)
         self.assertIn("fetches content from URLs", description)
-        self.assertIn("<urlagent>", description)
-        self.assertIn("</urlagent>", description)
+        # Test that XML tags are NOT in the description (tool-friendly)
+        self.assertNotIn("<urlagent>", description)
+        self.assertNotIn("</urlagent>", description)
 
     @patch("requests.get")
     def test_fetch_url_content_success(self, mock_get):

@@ -30,7 +30,7 @@ class BaseAgent:
         return "Base agent with no specific functionality"
 
     def get_description(self) -> str:
-        return f"{self.get_info()}. This is just a Base agent. All it does is to say 'Unknown agent'. Budget: {self._budget} calls."
+        return f"{self.get_info()}. Provide clear instructions for what you want this agent to do. Budget: {self._budget} calls."
 
     def get_tool(self) -> "Tool":
         """
@@ -82,6 +82,7 @@ class BaseAgent:
 
     def get_closing_tag(self) -> str:
         return f"</{self.get_name()}>"
+
 
     def is_complete(self, answer: str) -> bool:
         if any(tag in answer for tag in self._completing_tags):

@@ -129,6 +129,5 @@ class SqlAgent(BaseAgent):
         return f"""
 SQL agent: {self.get_info()}.
 This agent provides an interface to a dataset through SQL queries. It includes table information and column names.
-To call this agent write {self.get_opening_tag()} INFORMATION TO RETRIEVE {self.get_closing_tag()}
 Do not write an SQL formula. Just write in clear and brief English the information you need to retrieve.
         """

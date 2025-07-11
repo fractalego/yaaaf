@@ -244,6 +244,5 @@ Use this agent when you need to:
 
 ⚠️ IMPORTANT: This agent will ask for user confirmation before executing any command for security reasons.
 
-To call this agent write {self.get_opening_tag()} FILESYSTEM_TASK_DESCRIPTION {self.get_closing_tag()}
-Describe what you need to accomplish with the filesystem in clear English.
+Provide a clear description of what you need to accomplish with the filesystem.
         """

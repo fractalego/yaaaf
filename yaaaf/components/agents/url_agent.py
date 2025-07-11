@@ -224,7 +224,7 @@ class URLAgent(BaseAgent):
         return f"""
 URL Analysis agent: {self.get_info()}
 This agent can extract information from web pages or find relevant URLs within the content.
-To call this agent write {self.get_opening_tag()} URL_TO_ANALYZE INSTRUCTION_FOR_ANALYSIS {self.get_closing_tag()}
+Provide the URL to analyze and specific instructions for what information to extract.
 The agent will either return:
 1. Text that answers your instruction based on the URL content
 2. A table of URLs found in the content that might be relevant to your instruction

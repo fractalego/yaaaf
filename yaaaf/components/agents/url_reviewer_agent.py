@@ -111,19 +111,10 @@ class UrlReviewerAgent(BaseAgent):
 
     @staticmethod
     def get_info() -> str:
-        return "This agent is given the relevant artefact table of web search results and retrieves the relevant information from these results."
+        return "This agent analyzes web search results and retrieves relevant information from URLs."
 
     def get_description(self) -> str:
-        return f"""
-Url Retriever agent: {self.get_info()}
-To call this agent write {self.get_opening_tag()} ENGLISH QUERY THAT DESCRIBE WHAT TO RETRIEVE AND <artefact> SEARCH RESULT ARTEFACT </artefact> {self.get_closing_tag()}
-This agent is called when you need to better look into the content of a url.
-The arguments within the tags must be: 
-1) instructions about what to look for in the data
-2) the artefacts <artefact type="search-result"> ... </artefact> that describe what was found by the other agents above.
-Both arguments are required.
-Do *not* use images in the arguments of this agent.
-        """
+        return f"{self.get_info()}. Provide clear instructions describing what specific information to retrieve from web search results. The agent will analyze the content and extract the requested information."
 
     def get_tool(self) -> "Tool":
         """

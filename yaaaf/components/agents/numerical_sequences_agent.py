@@ -117,21 +117,7 @@ class NumericalSequencesAgent(BaseAgent):
         return "This agent analyzes search results or text content and extracts numerical data into structured tables suitable for visualization."
 
     def get_description(self) -> str:
-        return f"""
-Numerical Sequences agent: {self.get_info()}
-To call this agent write {self.get_opening_tag()} ENGLISH QUERY DESCRIBING WHAT NUMERICAL DATA TO EXTRACT and <artefact> SEARCH RESULT ARTEFACT </artefact> {self.get_closing_tag()}
-This agent acts as an intermediary between search agents and visualization agents.
-The arguments within the tags must be: 
-1) instructions about what numerical patterns or data to extract (e.g., "extract yearly sales data", "find population trends by country")
-2) the artefacts <artefact type="search-result"> ... </artefact> that contain the raw data from search agents.
-Both arguments are required.
-This agent specializes in identifying and structuring:
-- Time series data (dates, years, months with values)
-- Statistical comparisons (counts, percentages, ratios)
-- Categorical numerical data (data organized by groups or categories)
-- Trends and patterns suitable for charts and graphs
-Do *not* use images in the arguments of this agent.
-        """
+        return f"{self.get_info()}. Provide clear instructions describing what numerical patterns or data to extract (e.g., 'extract yearly sales data', 'find population trends by country'). This agent specializes in identifying and structuring time series data, statistical comparisons, categorical numerical data, and trends suitable for visualization."
 
     def get_tool(self) -> "Tool":
         """

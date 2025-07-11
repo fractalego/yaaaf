@@ -14,7 +14,8 @@ recursive-include yaaaf/server *.json
 recursive-include yaaaf/components *.py
 recursive-include yaaaf/connectors *.py
 recursive-include yaaaf/client *.py
-recursive-include yaaaf/client/standalone *
+include yaaaf/client/standalone.zip
+
 
 # Exclude test files and development artifacts
 exclude tests/*

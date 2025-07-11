@@ -1,16 +1,81 @@
 import os
+import zipfile
+import subprocess
+import shutil
 
 _path = os.path.dirname(os.path.abspath(__file__))
+
+
+def _unzip_standalone_if_needed():
+    """Unzip the standalone build if it doesn't exist or zip is newer"""
+    zip_path = os.path.join(_path, "standalone.zip")
+    standalone_dir = os.path.join(_path, "standalone")
+    
+    # Check if zip file exists
+    if not os.path.exists(zip_path):
+        print(f"❌ Error: standalone.zip not found at {zip_path}")
+        print("Please run the frontend compile script first:")
+        print("cd frontend && ./compile.sh")
+        return False
+    
+    # Check if we need to unzip (standalone doesn't exist or zip is newer)
+    should_unzip = False
+    if not os.path.exists(standalone_dir):
+        print("📦 Standalone directory not found, extracting from zip...")
+        should_unzip = True
+    else:
+        # Compare modification times
+        zip_mtime = os.path.getmtime(zip_path)
+        standalone_mtime = os.path.getmtime(standalone_dir)
+        if zip_mtime > standalone_mtime:
+            print("📦 Zip file is newer than standalone directory, re-extracting...")
+            should_unzip = True
+    
+    if should_unzip:
+        try:
+            # Remove existing standalone directory if it exists
+            if os.path.exists(standalone_dir):
+                shutil.rmtree(standalone_dir)
+            
+            # Extract zip file
+            print("🗜️  Extracting standalone.zip...")
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(_path)
+            
+            print("✅ Successfully extracted standalone build")
+            
+            # Show extracted size
+            if os.path.exists(standalone_dir):
+                try:
+                    result = subprocess.run(
+                        ["du", "-sh", standalone_dir], 
+                        capture_output=True, text=True
+                    )
+                    if result.returncode == 0:
+                        size = result.stdout.split()[0]
+                        print(f"📏 Extracted size: {size}")
+                except:
+                    pass  # Size check is not critical
+            
+            return True
+        except Exception as e:
+            print(f"❌ Error extracting standalone.zip: {e}")
+            return False
+    else:
+        print("✅ Standalone build is up to date")
+        return True
 
 
 def run_frontend(
     port: int, use_https: bool = False, cert_path: str = None, key_path: str = None
 ):
-    server_path = os.path.join(_path, "standalone/apps/www", "server.js")
+    # First, ensure standalone build is extracted
+    if not _unzip_standalone_if_needed():
+        return 1
+    
+    server_path = os.path.join(_path, "standalone/", "server.js")
 
     # Check if Node.js is available
-    import subprocess
-    import shutil
 
     # Try different node command variations
     node_cmd = None

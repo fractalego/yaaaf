@@ -13,7 +13,7 @@ class ToolDescription(BaseModel):
 class MCPTools(BaseModel):
     server_description: str
     tools: List[ToolDescription]
-    server: Union[MCPServerSSE, MCPServerStdio]
+    server: Any
 
     class Config:
         arbitrary_types_allowed = True

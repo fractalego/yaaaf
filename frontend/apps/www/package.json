@@ -72,6 +72,7 @@
     "remeda": "^2.14.0",
     "shiki": "^1.22.0",
     "sonner": "^1.2.3",
+    "styled-jsx": "^5.1.7",
     "tailwind-merge": "^1.13.2",
     "tailwindcss-animate": "^1.0.5",
     "ts-morph": "^22.0.0",

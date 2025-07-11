@@ -1,1 +1,0 @@
-self.__NEXT_FONT_MANIFEST='{"pages":{},"app":{"/home/alce/work/home/alce/src/agents_framework/frontend/apps/www/app/layout":["static/media/bb3ef058b751a6ad-s.p.woff2","static/media/ec1a1eae803b668e-s.p.woff2"]},"appUsingSizeAdjust":true,"pagesUsingSizeAdjust":false}';

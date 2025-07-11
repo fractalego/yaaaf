@@ -20,6 +20,10 @@ from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Note
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from yaaaf.components.data_types import Tool
 from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
@@ -126,3 +130,34 @@ This agent is called when you need to check if the output of the sql agent answe
 The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).
 Do *not* use images in the arguments of this agent.
         """
+
+    def get_tool(self) -> "Tool":
+        """
+        Get a tool representation of this agent.
+        
+        Returns:
+            Tool: A tool data model that can be used to call this agent
+        """
+        from yaaaf.components.data_types import Tool, ToolFunction
+        
+        return Tool(
+            type="function",
+            function=ToolFunction(
+                name=self.get_name(),
+                description=self.get_info(),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "instruction": {
+                            "type": "string",
+                            "description": self.get_description()
+                        },
+                        "artefact_id": {
+                            "type": "string",
+                            "description": "ID of the artefact containing tables and models to search for specific information"
+                        }
+                    },
+                    "required": ["instruction", "artefact_id"]
+                }
+            )
+        )

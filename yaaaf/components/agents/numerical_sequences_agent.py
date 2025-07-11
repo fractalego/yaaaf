@@ -17,6 +17,10 @@ from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Note
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from yaaaf.components.data_types import Tool
 from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
@@ -128,3 +132,34 @@ This agent specializes in identifying and structuring:
 - Trends and patterns suitable for charts and graphs
 Do *not* use images in the arguments of this agent.
         """
+
+    def get_tool(self) -> "Tool":
+        """
+        Get a tool representation of this agent.
+        
+        Returns:
+            Tool: A tool data model that can be used to call this agent
+        """
+        from yaaaf.components.data_types import Tool, ToolFunction
+        
+        return Tool(
+            type="function",
+            function=ToolFunction(
+                name=self.get_name(),
+                description=self.get_info(),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "instruction": {
+                            "type": "string",
+                            "description": self.get_description()
+                        },
+                        "artefact_id": {
+                            "type": "string",
+                            "description": "ID of the search result artefact containing raw data to extract numerical sequences from"
+                        }
+                    },
+                    "required": ["instruction", "artefact_id"]
+                }
+            )
+        )

@@ -19,6 +19,10 @@ from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Note
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from yaaaf.components.data_types import Tool
 from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
@@ -116,7 +120,38 @@ To call this agent write {self.get_opening_tag()} ENGLISH QUERY THAT DESCRIBE WH
 This agent is called when you need to better look into the content of a url.
 The arguments within the tags must be: 
 1) instructions about what to look for in the data
-2) the artefacts <artefact type="search-result"> ... </artefact> that describe were found by the other agents above.
+2) the artefacts <artefact type="search-result"> ... </artefact> that describe what was found by the other agents above.
 Both arguments are required.
 Do *not* use images in the arguments of this agent.
         """
+
+    def get_tool(self) -> "Tool":
+        """
+        Get a tool representation of this agent.
+        
+        Returns:
+            Tool: A tool data model that can be used to call this agent
+        """
+        from yaaaf.components.data_types import Tool, ToolFunction
+        
+        return Tool(
+            type="function",
+            function=ToolFunction(
+                name=self.get_name(),
+                description=self.get_info(),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "instruction": {
+                            "type": "string",
+                            "description": self.get_description()
+                        },
+                        "artefact_id": {
+                            "type": "string",
+                            "description": "ID of the search result artefact containing URLs to analyze and retrieve content from"
+                        }
+                    },
+                    "required": ["instruction", "artefact_id"]
+                }
+            )
+        )

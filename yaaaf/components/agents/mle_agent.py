@@ -19,6 +19,10 @@ from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Note
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from yaaaf.components.data_types import Tool
 from yaaaf.components.agents.prompts import (
     mle_agent_prompt_template_without_model,
     mle_agent_prompt_template_with_model,
@@ -136,9 +140,40 @@ class MleAgent(BaseAgent):
 
     def get_description(self) -> str:
         return f"""
-Visualization agent: {self.get_info()}
+MLE agent: {self.get_info()}
 You can use linear interpolation, polynomial regression, SVM, logistic regression, decision trees, random forests.
 To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEFACTS THAT DESCRIBE WHAT TO APPLY THE SKLEARN MODEL TO {self.get_closing_tag()}
 The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).
 The information about what to plot will be then used by the agent.
         """
+
+    def get_tool(self) -> "Tool":
+        """
+        Get a tool representation of this agent.
+        
+        Returns:
+            Tool: A tool data model that can be used to call this agent
+        """
+        from yaaaf.components.data_types import Tool, ToolFunction
+        
+        return Tool(
+            type="function",
+            function=ToolFunction(
+                name=self.get_name(),
+                description=self.get_info(),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "instruction": {
+                            "type": "string",
+                            "description": self.get_description()
+                        },
+                        "artefact_id": {
+                            "type": "string",
+                            "description": "ID of the artefact containing tabular data for training sklearn machine learning models"
+                        }
+                    },
+                    "required": ["instruction", "artefact_id"]
+                }
+            )
+        )

@@ -23,5 +23,5 @@ class GoalExtractor(BaseExtractor):
         instructions = instructions.add_user_utterance(
             "Write below the goal in a single sentence"
         )
-        answer = await self._client.predict(instructions)
-        return answer
+        response = await self._client.predict(instructions)
+        return response.message

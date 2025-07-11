@@ -45,9 +45,10 @@ class OrchestratorAgent(BaseAgent):
         for step_index in range(self._max_steps):
             # Update system prompt with current budget information at each step
             messages = messages.set_system_prompt(self._get_system_prompt(goal))
-            answer = await self._client.predict(
+            response = await self._client.predict(
                 messages, stop_sequences=self._stop_sequences
             )
+            answer = response.message
             agent_to_call, instruction = self.map_answer_to_agent(answer)
             extracted_agent_name = Note.extract_agent_name_from_tags(answer)
             agent_name = extracted_agent_name or (

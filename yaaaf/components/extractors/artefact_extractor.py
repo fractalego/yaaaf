@@ -103,7 +103,8 @@ class ArtefactExtractor(BaseExtractor):
 
         try:
             # Get LLM response
-            answer = await self._client.predict(extraction_messages)
+            response = await self._client.predict(extraction_messages)
+            answer = response.message
             
             # Parse artefact IDs from response
             artefact_ids = []

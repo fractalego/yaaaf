@@ -1,10 +1,10 @@
 import logging
 from typing import Optional, List, TYPE_CHECKING
 
-from yaaaf.components.data_types import Note
+from yaaaf.components.data_types import Note, Tool, ToolFunction
 
 if TYPE_CHECKING:
-    from yaaaf.components.data_types import Messages, Utterance
+    from yaaaf.components.data_types import Messages, Utterance, Tool
     from yaaaf.components.agents.artefacts import Artefact
 
 _logger = logging.getLogger(__name__)
@@ -31,6 +31,31 @@ class BaseAgent:
 
     def get_description(self) -> str:
         return f"{self.get_info()}. This is just a Base agent. All it does is to say 'Unknown agent'. Budget: {self._budget} calls."
+
+    def get_tool(self) -> "Tool":
+        """
+        Get a tool representation of this agent.
+        
+        Returns:
+            Tool: A tool data model that can be used to call this agent
+        """
+        return Tool(
+            type="function",
+            function=ToolFunction(
+                name=self.get_name(),
+                description=self.get_info(),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "instruction": {
+                            "type": "string",
+                            "description": self.get_description()
+                        }
+                    },
+                    "required": ["instruction"]
+                }
+            )
+        )
 
     def get_budget(self) -> int:
         """Get the current budget (remaining calls) for this agent."""

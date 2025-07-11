@@ -91,9 +91,10 @@ class URLAgent(BaseAgent):
         current_output = "No output"
 
         for step_idx in range(self._max_steps):
-            answer = await self._client.predict(
+            response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            answer = response.message
 
             # Log internal thinking step
             if (
@@ -179,9 +180,10 @@ class URLAgent(BaseAgent):
                 else:
                     # Return text analysis
                     analysis_messages = Messages().add_user_utterance(analysis_prompt)
-                    current_output = await self._client.predict(
+                    response = await self._client.predict(
                         messages=analysis_messages
                     )
+                    current_output = response.message
 
                 messages = messages.add_user_utterance(
                     f"URL processed: {url}\nInstruction: {instruction}\nResult: {current_output}\n\n"

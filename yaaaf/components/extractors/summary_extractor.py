@@ -63,7 +63,8 @@ class SummaryExtractor(BaseExtractor):
         summary_messages = summary_messages.add_user_utterance(
             "Create the summary following the specified format."
         )
-        summary_content = await self._client.predict(summary_messages)
+        response = await self._client.predict(summary_messages)
+        summary_content = response.message
 
         # Create and store summary artifact
         summary_artifact = Artefact(

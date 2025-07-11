@@ -55,9 +55,10 @@ class TodoAgent(BaseAgent):
         )
         current_output: str = "No output"
         for step_idx in range(self._max_steps):
-            answer = await self._client.predict(
+            response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
+            answer = response.message
 
             # Log internal thinking step
             if (

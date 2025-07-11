@@ -151,8 +151,8 @@ class OrchestratorAgent(BaseAgent):
 
             # Check if we should stop
             if self.is_complete(answer) or answer.strip() == "":
-                # Generate summary artifact when task is completed
-                if self.is_complete(answer):
+                # Generate summary artifact when task is completed but not paused
+                if self.is_complete(answer) and not self.is_paused(answer):
                     answer = await self._generate_and_add_summary(answer, notes)
                 break
         # Handle max steps reached

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useChat, type UseChatOptions } from "@ai-sdk/react"
 
 import { cn } from "@/lib/utils"
@@ -14,6 +14,11 @@ import {
 } from "@/app/settings"
 
 import { getSessionId } from "./session"
+
+// Function to generate unique stream ID for each request
+function generateStreamId(): string {
+  return `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
 
 // Function to send feedback via frontend API route (avoids CORS issues)
 async function sendFeedback(
@@ -51,13 +56,14 @@ export default function ChatDemo() {
   )
 
   const sessionId = getSessionId()
+  const streamIdRef = useRef<string>()
 
   const {
     messages,
     input,
     handleInputChange,
-    handleSubmit,
-    append,
+    handleSubmit: originalHandleSubmit,
+    append: originalAppend,
     stop,
     isLoading,
     setMessages,
@@ -66,7 +72,30 @@ export default function ChatDemo() {
     body: {
       session_id: sessionId,
     },
+    fetch: async (url, options) => {
+      // Generate a new unique stream ID for each request
+      streamIdRef.current = generateStreamId()
+      console.log(`Generated new stream ID: ${streamIdRef.current}`)
+      
+      // Add the unique stream ID to the request body
+      const body = JSON.parse(options?.body as string)
+      body.stream_id = streamIdRef.current
+      
+      return fetch(url, {
+        ...options,
+        body: JSON.stringify(body),
+      })
+    },
   })
+
+  // Wrapper functions to ensure stream ID is generated for each request
+  const handleSubmit = (event?: { preventDefault?: () => void }) => {
+    return originalHandleSubmit(event)
+  }
+
+  const append = (message: { role: "user"; content: string }) => {
+    return originalAppend(message)
+  }
 
   // Handle feedback submission
   const handleRateResponse = async (
@@ -74,7 +103,9 @@ export default function ChatDemo() {
     rating: "thumbs-up" | "thumbs-down"
   ) => {
     console.log(`Rating message ${messageId} with ${rating}`)
-    await sendFeedback(sessionId, rating)
+    // Use the current stream ID or fallback to session ID for feedback
+    const feedbackStreamId = streamIdRef.current || sessionId
+    await sendFeedback(feedbackStreamId, rating)
   }
 
   return (

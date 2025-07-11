@@ -21,17 +21,21 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function POST(req: Request) {
-  const { messages, session_id } = await req.json()
-  const stream_id = session_id
+  const { messages, session_id, stream_id } = await req.json()
+  // Use the provided stream_id if available, otherwise fall back to session_id
+  const actualStreamId = stream_id || session_id
+  
+  console.log(`Frontend API: Processing request with session_id=${session_id}, stream_id=${stream_id}, actualStreamId=${actualStreamId}`)
+  
   messages.forEach((item: string) => {
     // @ts-ignore
     delete item["parts"]
   })
 
   try {
-    await createStream(stream_id, messages)
+    await createStream(actualStreamId, messages)
   } catch (error) {
-    console.error(`Frontend: Failed to create stream ${stream_id}:`, error)
+    console.error(`Frontend: Failed to create stream ${actualStreamId}:`, error)
     // Continue with streaming even if initial creation had issues
   }
 
@@ -50,7 +54,7 @@ export async function POST(req: Request) {
             "Cache-Control": "no-cache",
           },
           body: JSON.stringify({
-            stream_id,
+            stream_id: actualStreamId,
           }),
           signal: controller.signal,
         })
@@ -213,7 +217,7 @@ export async function POST(req: Request) {
         console.log("Frontend: Streaming ended normally")
       } catch (streamError) {
         console.error(
-          `Frontend: Streaming error for ${stream_id}:`,
+          `Frontend: Streaming error for ${actualStreamId}:`,
           streamError
         )
         dataStream.write(
@@ -238,7 +242,7 @@ async function createStream(
         Accept: "application/json",
       },
       body: JSON.stringify({
-        stream_id,
+        stream_id: stream_id,
         messages,
       }),
     })

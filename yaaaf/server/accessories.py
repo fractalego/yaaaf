@@ -15,6 +15,7 @@ _stream_id_to_messages: Dict[str, List[Note]] = {}
 async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
     try:
         notes: List[Note] = []
+        _logger.info(f"Accessories: Starting new computation for stream {stream_id}, clearing previous messages")
         _stream_id_to_messages[stream_id] = notes
 
         # Apply safety filter

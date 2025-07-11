@@ -127,6 +127,11 @@ async def stream_utterances(arguments: NewUtteranceArguments):
                 notes = get_utterances(stream_id)
                 new_notes = notes[current_index:]
                 current_index += len(new_notes)
+                
+                if i == 0:
+                    _logger.info(f"Routes: Starting streaming for {stream_id}, total notes: {len(notes)}")
+                if new_notes:
+                    _logger.info(f"Routes: Stream {stream_id} iteration {i}, new notes: {len(new_notes)}")
 
                 if new_notes:
                     # Reset empty check counter when we have data

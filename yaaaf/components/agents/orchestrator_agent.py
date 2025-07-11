@@ -125,7 +125,7 @@ class OrchestratorAgent(BaseAgent):
             else:
                 # Handle regular message (no tool call)
                 answer = response.message
-                
+
             # Add note for this step
             if notes is not None:
                 artefacts = get_artefacts_from_utterance_content(answer)
@@ -150,7 +150,7 @@ class OrchestratorAgent(BaseAgent):
             messages = messages.add_assistant_utterance(answer)
 
             # Check if we should stop
-            if self.is_complete(answer) or answer.strip() == "":
+            if self.is_complete(answer):
                 # Generate summary artifact when task is completed but not paused
                 if self.is_complete(answer) and not self.is_paused(answer):
                     answer = await self._generate_and_add_summary(answer, notes)

@@ -185,6 +185,7 @@ class OllamaClient(BaseClient):
             },
             "stream": False,
             "tools": tools_dict,
+            "think": False, # Disable thinking mode by default
         }
 
         try:

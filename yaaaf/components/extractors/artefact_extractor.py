@@ -118,10 +118,26 @@ class ArtefactExtractor(BaseExtractor):
                         artefact_ids.append(cleaned_line)
             
             _logger.info(f"Extracted {len(artefact_ids)} relevant artefact IDs for instruction: {instruction[:50]}...")
+            
+            # If no artefacts suggested by LLM, return the latest one from notes
+            if not artefact_ids:
+                _logger.info("No artefacts suggested by LLM, returning latest artefact from notes")
+                # Sort notes by timestamp (if available) or by order, get the latest
+                latest_note = max(notes_with_artefacts, key=lambda n: getattr(n, 'timestamp', 0), default=None)
+                if latest_note and latest_note.artefact_id:
+                    return [latest_note.artefact_id]
+                return []
+            
             return artefact_ids[:3]  # Return top 3 most relevant
             
         except Exception as e:
             _logger.error(f"Error extracting artefacts: {e}")
+            # If error occurs, return the latest artefact from notes as fallback
+            if notes_with_artefacts:
+                _logger.info("Error occurred, returning latest artefact from notes as fallback")
+                latest_note = max(notes_with_artefacts, key=lambda n: getattr(n, 'timestamp', 0), default=None)
+                if latest_note and latest_note.artefact_id:
+                    return [latest_note.artefact_id]
             return []
 
     def get_artefacts_by_ids(self, artefact_ids: List[str]) -> List[Artefact]:

@@ -6,6 +6,7 @@ from yaaaf.components.agents.artefact_utils import get_artefacts_from_utterance_
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.settings import task_completed_tag, task_paused_tag
+from yaaaf.components.agents.task_completed_agent import TaskCompletedAgent
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Note, Tool
 from yaaaf.components.agents.prompts import orchestrator_prompt_template
@@ -30,6 +31,10 @@ class OrchestratorAgent(BaseAgent):
         }
         self._goal_extractor = GoalExtractor(client)
         self._summary_extractor = SummaryExtractor(client)
+        
+        # Add TaskCompletedAgent by default
+        task_completed_agent = TaskCompletedAgent(client)
+        self.subscribe_agent(task_completed_agent)
 
     @handle_exceptions
     async def query(
@@ -82,16 +87,40 @@ class OrchestratorAgent(BaseAgent):
                     instruction = tool_args.get("instruction", "")
                     artefact_id = tool_args.get("artefact_id", None)
                     
-                    # Build the message for the agent
+                    # Build the XML tag message for visibility
+                    xml_tag_message = f"{agent_to_call.get_opening_tag()}{instruction}"
+                    if artefact_id:
+                        xml_tag_message += f" <artefact>{artefact_id}</artefact>"
+                    xml_tag_message += f"{agent_to_call.get_closing_tag()}"
+                    
+                    # Add the XML tag message to the conversation
+                    messages = messages.add_assistant_utterance(xml_tag_message)
+                    
+                    # Add note for the agent call
+                    if notes is not None:
+                        model_name = getattr(self._client, "model", None)
+                        call_note = Note(
+                            message=xml_tag_message,
+                            artefact_id=artefact_id,
+                            agent_name=self.get_name(),
+                            model_name=model_name,
+                        )
+                        call_note.internal = False
+                        notes.append(call_note)
+
+                    # Build the clean message for the agent (without XML tags)
                     agent_message = instruction
                     if artefact_id:
                         agent_message += f" <artefact>{artefact_id}</artefact>"
                     
                     # Call the agent
-                    answer = await agent_to_call.query(
+                    agent_response = await agent_to_call.query(
                         Messages().add_user_utterance(agent_message),
                         notes=notes,
                     )
+                    
+                    # Wrap the agent response in tags
+                    answer = f"{agent_to_call.get_opening_tag()}{agent_response}{agent_to_call.get_closing_tag()}"
                     answer = self._make_output_visible(answer)
             else:
                 # Handle regular message (no tool call)
@@ -178,8 +207,6 @@ class OrchestratorAgent(BaseAgent):
                 f"Agent with tag {agent.get_opening_tag()} already exists."
             )
         self._agents_map[agent.get_opening_tag()] = agent
-        self._stop_sequences.append(agent.get_closing_tag())
-
         _logger.info(
             f"Registered agent: {agent.get_name()} (tag: {agent.get_opening_tag()})"
         )

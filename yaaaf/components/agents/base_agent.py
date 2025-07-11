@@ -83,7 +83,6 @@ class BaseAgent:
     def get_closing_tag(self) -> str:
         return f"</{self.get_name()}>"
 
-
     def is_complete(self, answer: str) -> bool:
         if any(tag in answer for tag in self._completing_tags):
             return True

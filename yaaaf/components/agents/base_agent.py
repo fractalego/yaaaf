@@ -4,7 +4,7 @@ from typing import Optional, List, TYPE_CHECKING
 from yaaaf.components.data_types import Note, Tool, ToolFunction
 
 if TYPE_CHECKING:
-    from yaaaf.components.data_types import Messages, Utterance, Tool
+    from yaaaf.components.data_types import Messages, Utterance
     from yaaaf.components.agents.artefacts import Artefact
 
 _logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class BaseAgent:
     def get_description(self) -> str:
         return f"{self.get_info()}. Provide clear instructions for what you want this agent to do. Budget: {self._budget} calls."
 
-    def get_tool(self) -> "Tool":
+    def get_tool(self) -> Tool:
         """
         Get a tool representation of this agent.
         

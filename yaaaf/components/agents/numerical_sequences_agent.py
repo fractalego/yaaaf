@@ -16,11 +16,11 @@ from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages, Note
+from yaaaf.components.data_types import Messages, Note, Tool, ToolFunction
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from yaaaf.components.data_types import Tool
+    pass
 from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
@@ -119,15 +119,13 @@ class NumericalSequencesAgent(BaseAgent):
     def get_description(self) -> str:
         return f"{self.get_info()}. Provide clear instructions describing what numerical patterns or data to extract (e.g., 'extract yearly sales data', 'find population trends by country'). This agent specializes in identifying and structuring time series data, statistical comparisons, categorical numerical data, and trends suitable for visualization."
 
-    def get_tool(self) -> "Tool":
+    def get_tool(self) -> Tool:
         """
         Get a tool representation of this agent.
         
         Returns:
             Tool: A tool data model that can be used to call this agent
         """
-        from yaaaf.components.data_types import Tool, ToolFunction
-        
         return Tool(
             type="function",
             function=ToolFunction(

@@ -239,7 +239,7 @@ Orchestrator agent: This agent orchestrates the agents.
             agents_list="\n".join(
                 [
                     "* "
-                    + agent.get_description().strip()
+                    + f"{agent.get_name()}: {agent.get_description().strip()}"
                     + f" (Budget: {agent.get_budget()} calls)\n"
                     for agent in available_agents.values()
                 ]

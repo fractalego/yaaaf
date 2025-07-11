@@ -82,3 +82,4 @@ YAAAF (Yet Another Autonomous Agents Framework) is a modular framework for build
 - Frontend uses Turbo monorepo with pnpm for package management
 - Backend uses FastAPI with CORS enabled for frontend integration
 - Tests use Python's unittest framework, not pytest
+- Never declare imports at the beginning of a function. Always declare imports at the top of the file.

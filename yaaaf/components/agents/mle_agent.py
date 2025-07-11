@@ -18,11 +18,11 @@ from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages, Note
+from yaaaf.components.data_types import Messages, Note, Tool, ToolFunction
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from yaaaf.components.data_types import Tool
+    pass
 from yaaaf.components.agents.prompts import (
     mle_agent_prompt_template_without_model,
     mle_agent_prompt_template_with_model,
@@ -141,15 +141,13 @@ class MleAgent(BaseAgent):
     def get_description(self) -> str:
         return f"{self.get_info()}. Provide clear instructions describing what machine learning task to perform (prediction, classification, regression, etc.) and what patterns to look for in the data. Available algorithms include linear interpolation, polynomial regression, SVM, logistic regression, decision trees, and random forests."
 
-    def get_tool(self) -> "Tool":
+    def get_tool(self) -> Tool:
         """
         Get a tool representation of this agent.
         
         Returns:
             Tool: A tool data model that can be used to call this agent
         """
-        from yaaaf.components.data_types import Tool, ToolFunction
-        
         return Tool(
             type="function",
             function=ToolFunction(

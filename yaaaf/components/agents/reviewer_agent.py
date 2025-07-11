@@ -19,11 +19,11 @@ from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.agents.texts import no_artefact_text
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages, Note
+from yaaaf.components.data_types import Messages, Note, Tool, ToolFunction
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from yaaaf.components.data_types import Tool
+    pass
 from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
@@ -125,15 +125,13 @@ class ReviewerAgent(BaseAgent):
     def get_description(self) -> str:
         return f"{self.get_info()}. Provide clear instructions describing what specific information to search for or verify in the data. This agent is typically used to check if query results answer the overarching goal or to extract specific pieces of information."
 
-    def get_tool(self) -> "Tool":
+    def get_tool(self) -> Tool:
         """
         Get a tool representation of this agent.
         
         Returns:
             Tool: A tool data model that can be used to call this agent
         """
-        from yaaaf.components.data_types import Tool, ToolFunction
-        
         return Tool(
             type="function",
             function=ToolFunction(

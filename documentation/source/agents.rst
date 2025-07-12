@@ -177,24 +177,94 @@ ReflectionAgent
 RAGAgent
 ~~~~~~~~
 
-**Purpose**: Retrieval-augmented generation from document collections.
+**Purpose**: Retrieval-augmented generation from document collections with support for various file formats including PDFs with configurable chunking.
 
 **Capabilities**:
-   * Searches through document collections
-   * Retrieves relevant text passages
+   * Searches through document collections using BM25 indexing
+   * Retrieves relevant text passages based on semantic similarity
    * Generates responses based on retrieved content
-   * Supports multiple document sources
+   * Supports multiple document sources and formats
+   * **PDF Support**: Process PDF files with configurable page-level chunking
+   * **File Upload**: Dynamic file upload through frontend interface
+   * **Flexible Chunking**: Configure how PDF content is split (whole document, page-by-page, or custom chunk sizes)
+   * **Status Reporting**: Reports available sources to the orchestrator for better decision-making
 
 **Usage Tags**: ``<ragagent>...</ragagent>``
+
+**Supported File Formats**:
+   * Text files: ``.txt``, ``.md``, ``.html``, ``.htm``
+   * PDF files: ``.pdf`` (with configurable chunking)
 
 **Configuration**:
 
 .. code-block:: python
 
-   from yaaaf.components.sources.text_source import TextSource
+   from yaaaf.components.sources.rag_source import RAGSource
    
-   sources = [TextSource("documents/")]
+   # Create RAG sources from different file types
+   sources = []
+   
+   # Text file source
+   text_source = RAGSource("Document collection", "documents/")
+   sources.append(text_source)
+   
+   # PDF file with configurable chunking
+   pdf_source = RAGSource("PDF manual", "manual.pdf")
+   with open("manual.pdf", "rb") as f:
+       pdf_content = f.read()
+       # pages_per_chunk: -1 = whole document, 1 = page-by-page, N = N pages per chunk
+       pdf_source.add_pdf(pdf_content, "manual.pdf", pages_per_chunk=-1)
+   sources.append(pdf_source)
+   
    rag_agent = RAGAgent(client, sources)
+
+**File Upload via Frontend**:
+
+The RAG agent supports dynamic file uploads through the frontend interface:
+
+1. **Upload Interface**: Click the paperclip icon in the chat input area
+2. **File Selection**: Drag and drop or click to select supported files
+3. **PDF Options**: For PDF files, choose between:
+   
+   * **Whole document** (default): Process entire PDF as one searchable chunk
+   * **Page by page**: Split PDF into individual page chunks for more granular retrieval
+
+4. **Description**: Add a description after upload to help with retrieval
+5. **Automatic Indexing**: Files are automatically indexed and available for queries
+
+**PDF Chunking Strategies**:
+
+* **Whole Document** (``pages_per_chunk=-1``): Best for shorter documents or when context across pages is important
+* **Page-by-Page** (``pages_per_chunk=1``): Better for longer documents, technical manuals, or when specific page references are needed
+* **Custom Chunks** (``pages_per_chunk=N``): Group multiple pages together for balanced context and granularity
+
+**Example Queries**:
+   * "What does the manual say about installation?"
+   * "Find information about troubleshooting network issues"
+   * "Search for pricing information in the uploaded documents"
+   * "What are the safety guidelines mentioned in the PDF?"
+
+**API Integration**:
+
+The RAG agent integrates with the file upload API:
+
+.. code-block:: bash
+
+   # Upload a file with default chunking (whole document for PDFs)
+   curl -X POST "http://localhost:4000/upload_file_to_rag" \
+        -F "file=@document.pdf" \
+        -F "pages_per_chunk=-1"
+
+**Status Reporting**:
+
+The RAG agent reports its available sources to the orchestrator, helping it make better routing decisions:
+
+.. code-block:: text
+
+   Available RAG sources (3 total):
+     1. Uploaded file: manual.pdf
+     2. File/Directory: Technical documentation
+     3. Uploaded file: company_policies.txt
 
 ReviewerAgent
 ~~~~~~~~~~~~

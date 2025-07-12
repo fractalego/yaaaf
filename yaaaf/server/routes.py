@@ -8,7 +8,7 @@ import hashlib
 from typing import List
 from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
-from fastapi import UploadFile, HTTPException
+from fastapi import UploadFile, HTTPException, Form
 
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.data_types import Utterance, Messages, Note
@@ -185,7 +185,7 @@ def get_agents_config() -> List[AgentInfo]:
 _uploaded_rag_sources = {}
 
 
-async def upload_file_to_rag(file: UploadFile) -> FileUploadResponse:
+async def upload_file_to_rag(file: UploadFile, pages_per_chunk: int = Form(-1)) -> FileUploadResponse:
     """Upload a file and add it to the RAG agent sources"""
     try:
         # Check if RAG agent is configured
@@ -224,8 +224,8 @@ async def upload_file_to_rag(file: UploadFile) -> FileUploadResponse:
         rag_source = RAGSource(description=initial_description, source_path=f"uploaded_{source_id}")
         
         if file_extension == 'pdf':
-            # Handle PDF files
-            rag_source.add_pdf(content, file.filename)
+            # Handle PDF files with configurable chunking
+            rag_source.add_pdf(content, file.filename, pages_per_chunk=pages_per_chunk)
         else:
             # Handle text files
             # Try to decode as UTF-8, fallback to latin-1

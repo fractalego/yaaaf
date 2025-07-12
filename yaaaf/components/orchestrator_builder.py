@@ -80,11 +80,12 @@ class OrchestratorBuilder:
                 if os.path.isfile(source_config.path):
                     # Single file
                     if source_config.path.lower().endswith(".pdf"):
-                        # Handle single PDF file
+                        # Handle single PDF file with configurable chunking (default: 1 page per chunk)
                         with open(source_config.path, "rb") as pdf_file:
                             pdf_content = pdf_file.read()
                             filename = os.path.basename(source_config.path)
-                            rag_source.add_pdf(pdf_content, filename)
+                            # Use default chunking of no chunking (-1), can be made configurable later
+                            rag_source.add_pdf(pdf_content, filename, pages_per_chunk=-1)
                     else:
                         # Handle text files
                         text_content = self._load_text_from_file(source_config.path)
@@ -98,10 +99,11 @@ class OrchestratorBuilder:
                                 text_content = self._load_text_from_file(file_path)
                                 rag_source.add_text(text_content)
                             elif filename.lower().endswith(".pdf"):
-                                # Handle PDF files page by page
+                                # Handle PDF files with configurable chunking (default: no chunking)
                                 with open(file_path, "rb") as pdf_file:
                                     pdf_content = pdf_file.read()
-                                    rag_source.add_pdf(pdf_content, filename)
+                                    # Use default chunking of no chunking (-1), can be made configurable later
+                                    rag_source.add_pdf(pdf_content, filename, pages_per_chunk=-1)
 
                 rag_sources.append(rag_source)
         return rag_sources

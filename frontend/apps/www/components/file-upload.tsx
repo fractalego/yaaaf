@@ -30,6 +30,7 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
     sourceId: string
     filename: string
   } | null>(null)
+  const [chunkingMode, setChunkingMode] = useState<"whole" | "pages">("whole") // Default: no chunking
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const supportedTypes = [".txt", ".md", ".html", ".htm", ".pdf"]
@@ -40,6 +41,7 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
     setDescription("")
     setError(null)
     setUploadResult(null)
+    setChunkingMode("whole") // Reset to default
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
@@ -63,8 +65,14 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
     setFile(selectedFile)
     setError(null)
     
-    // Immediately start upload and indexing
-    await uploadFile(selectedFile)
+    // For PDF files, show chunking options first; for other files, upload immediately
+    if (selectedFile.name.toLowerCase().endsWith('.pdf')) {
+      // Stay in select step to show chunking options
+      return
+    } else {
+      // Immediately start upload for non-PDF files
+      await uploadFile(selectedFile)
+    }
   }
 
   const uploadFile = async (fileToUpload: File) => {
@@ -74,6 +82,12 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
     try {
       const formData = new FormData()
       formData.append("file", fileToUpload)
+      
+      // Add chunking parameter for PDF files
+      if (fileToUpload.name.toLowerCase().endsWith('.pdf')) {
+        const pagesPerChunk = chunkingMode === "whole" ? "-1" : "1"
+        formData.append("pages_per_chunk", pagesPerChunk)
+      }
 
       const response = await fetch("http://localhost:4000/upload_file_to_rag", {
         method: "POST",
@@ -194,6 +208,50 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
                 </div>
               </div>
             </div>
+
+            {/* PDF Chunking Options */}
+            {file && file.name.toLowerCase().endsWith('.pdf') && (
+              <div className="space-y-4 rounded-lg border p-4">
+                <div className="text-sm font-medium">PDF Processing Options</div>
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="chunking"
+                      value="whole"
+                      checked={chunkingMode === "whole"}
+                      onChange={(e) => setChunkingMode(e.target.value as "whole" | "pages")}
+                      className="h-4 w-4"
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">Whole document</div>
+                      <div className="text-xs text-muted-foreground">Process entire PDF as one chunk (recommended)</div>
+                    </div>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="chunking"
+                      value="pages"
+                      checked={chunkingMode === "pages"}
+                      onChange={(e) => setChunkingMode(e.target.value as "whole" | "pages")}
+                      className="h-4 w-4"
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">Page by page</div>
+                      <div className="text-xs text-muted-foreground">Split PDF into individual page chunks</div>
+                    </div>
+                  </label>
+                </div>
+                <Button 
+                  onClick={() => uploadFile(file)} 
+                  className="w-full"
+                  disabled={!file}
+                >
+                  Upload PDF
+                </Button>
+              </div>
+            )}
 
             {/* Error Message */}
             {error && (

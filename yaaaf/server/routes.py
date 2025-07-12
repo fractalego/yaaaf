@@ -1,14 +1,19 @@
 import asyncio
 import logging
 import threading
+import os
+import tempfile
+import hashlib
 
 from typing import List
 from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
+from fastapi import UploadFile, HTTPException
 
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.data_types import Utterance, Messages, Note
 from yaaaf.components.orchestrator_builder import OrchestratorBuilder
+from yaaaf.components.sources.rag_source import RAGSource
 from yaaaf.server.accessories import do_compute, get_utterances
 from yaaaf.server.config import get_config
 
@@ -118,6 +123,23 @@ class AgentInfo(BaseModel):
     type: str  # "agent" or "source" or "tool"
 
 
+class FileUploadResponse(BaseModel):
+    success: bool
+    message: str
+    source_id: str
+    filename: str
+
+
+class UpdateDescriptionRequest(BaseModel):
+    source_id: str
+    description: str
+
+
+class UpdateDescriptionResponse(BaseModel):
+    success: bool
+    message: str
+
+
 def get_agents_config() -> List[AgentInfo]:
     """Get list of configured agents and their information"""
     try:
@@ -157,6 +179,109 @@ def get_agents_config() -> List[AgentInfo]:
     except Exception as e:
         _logger.error(f"Routes: Failed to get agents config: {e}")
         raise
+
+
+# Global variable to store uploaded RAG sources
+_uploaded_rag_sources = {}
+
+
+async def upload_file_to_rag(file: UploadFile) -> FileUploadResponse:
+    """Upload a file and add it to the RAG agent sources"""
+    try:
+        # Check if RAG agent is configured
+        config = get_config()
+        has_rag_agent = False
+        for agent_config in config.agents:
+            agent_name = agent_config if isinstance(agent_config, str) else agent_config.name
+            if agent_name == "rag":
+                has_rag_agent = True
+                break
+        
+        if not has_rag_agent:
+            raise HTTPException(status_code=400, detail="RAG agent is not configured")
+        
+        # Validate file type
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+        
+        file_extension = file.filename.lower().split('.')[-1]
+        if file_extension not in ['txt', 'md', 'html', 'htm']:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported file type. Only .txt, .md, .html, .htm files are supported"
+            )
+        
+        # Read file content
+        content = await file.read()
+        
+        # Try to decode as UTF-8, fallback to latin-1
+        try:
+            text_content = content.decode('utf-8')
+        except UnicodeDecodeError:
+            try:
+                text_content = content.decode('latin-1')
+            except UnicodeDecodeError:
+                raise HTTPException(status_code=400, detail="File encoding is not supported")
+        
+        # Create a unique source ID based on filename and content
+        source_id = hashlib.md5(f"{file.filename}_{text_content[:100]}".encode()).hexdigest()
+        
+        # Use filename as initial description
+        initial_description = f"Uploaded file: {file.filename}"
+        
+        # Create RAG source and index the content
+        rag_source = RAGSource(description=initial_description, source_path=f"uploaded_{source_id}")
+        rag_source.add_text(text_content)
+        
+        # Store the source globally so it can be used by the orchestrator
+        _uploaded_rag_sources[source_id] = rag_source
+        
+        _logger.info(f"Successfully uploaded and indexed file {file.filename} with source ID {source_id}")
+        
+        return FileUploadResponse(
+            success=True,
+            message=f"File '{file.filename}' uploaded and indexed successfully",
+            source_id=source_id,
+            filename=file.filename
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Routes: Failed to upload file: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
+
+
+def update_rag_source_description(request: UpdateDescriptionRequest) -> UpdateDescriptionResponse:
+    """Update the description of an uploaded RAG source"""
+    try:
+        source_id = request.source_id
+        new_description = request.description
+        
+        if source_id not in _uploaded_rag_sources:
+            raise HTTPException(status_code=404, detail="Source not found")
+        
+        # Update the description
+        rag_source = _uploaded_rag_sources[source_id]
+        rag_source._description = new_description
+        
+        _logger.info(f"Updated description for source {source_id}")
+        
+        return UpdateDescriptionResponse(
+            success=True,
+            message="Description updated successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Routes: Failed to update description: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update description: {str(e)}")
+
+
+def get_uploaded_rag_sources():
+    """Get all uploaded RAG sources"""
+    return list(_uploaded_rag_sources.values())
 
 
 async def stream_utterances(arguments: NewUtteranceArguments):

@@ -11,6 +11,8 @@ from yaaaf.server.routes import (
     get_all_utterances,
     get_query_suggestions,
     get_agents_config,
+    upload_file_to_rag,
+    update_rag_source_description,
     stream_utterances,
 )
 from yaaaf.server.feedback import save_feedback
@@ -29,6 +31,8 @@ app.add_api_route(
     "/get_query_suggestions", endpoint=get_query_suggestions, methods=["POST"]
 )
 app.add_api_route("/get_agents_config", endpoint=get_agents_config, methods=["GET"])
+app.add_api_route("/upload_file_to_rag", endpoint=upload_file_to_rag, methods=["POST"])
+app.add_api_route("/update_rag_description", endpoint=update_rag_source_description, methods=["POST"])
 app.add_api_route("/save_feedback", endpoint=save_feedback, methods=["POST"])
 
 

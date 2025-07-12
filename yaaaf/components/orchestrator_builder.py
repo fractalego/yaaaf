@@ -56,6 +56,19 @@ class OrchestratorBuilder:
     def _create_rag_sources(self) -> List[RAGSource]:
         """Create RAG sources from text-type sources in config."""
         rag_sources = []
+        
+        # Add uploaded sources if available
+        try:
+            from yaaaf.server.routes import get_uploaded_rag_sources
+            uploaded_sources = get_uploaded_rag_sources()
+            rag_sources.extend(uploaded_sources)
+            _logger.info(f"Added {len(uploaded_sources)} uploaded RAG sources")
+        except ImportError:
+            # Routes module might not be available in some contexts
+            pass
+        except Exception as e:
+            _logger.warning(f"Could not load uploaded RAG sources: {e}")
+        
         for source_config in self.config.sources:
             if source_config.type == "text":
                 description = getattr(source_config, "description", source_config.name)

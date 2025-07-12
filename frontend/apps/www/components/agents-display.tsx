@@ -83,6 +83,7 @@ export function AgentsDisplay() {
     return acc
   }, {} as Record<string, AgentInfo[]>)
 
+
   if (loading) {
     return (
       <div className="border-b border-border/50 p-4">

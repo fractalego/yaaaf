@@ -26,6 +26,8 @@ interface ChatPropsBase {
   ) => void
   setMessages?: (messages: any[]) => void
   onArtifactClick?: (artifactId: string) => void
+  hasRagAgent?: boolean
+  onFileUpload?: (sourceId: string, fileName: string) => void
 }
 
 interface ChatPropsWithoutSuggestions extends ChatPropsBase {
@@ -53,6 +55,8 @@ export function Chat({
   onRateResponse,
   setMessages,
   onArtifactClick,
+  hasRagAgent,
+  onFileUpload,
 }: ChatProps) {
   const lastMessage = messages.at(-1)
   const isEmpty = messages.length === 0
@@ -188,6 +192,8 @@ export function Chat({
           isGenerating={isGenerating}
           onRateResponse={onRateResponse}
           lastMessageId={lastAssistantMessageId}
+          hasRagAgent={hasRagAgent}
+          onFileUpload={onFileUpload}
         />
       </ChatForm>
       {isEmpty && append && suggestions ? (

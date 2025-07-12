@@ -10,6 +10,7 @@ from yaaaf.server.routes import (
     get_image,
     get_all_utterances,
     get_query_suggestions,
+    get_agents_config,
     stream_utterances,
 )
 from yaaaf.server.feedback import save_feedback
@@ -27,6 +28,7 @@ app.add_api_route("/get_image", endpoint=get_image, methods=["POST"])
 app.add_api_route(
     "/get_query_suggestions", endpoint=get_query_suggestions, methods=["POST"]
 )
+app.add_api_route("/get_agents_config", endpoint=get_agents_config, methods=["GET"])
 app.add_api_route("/save_feedback", endpoint=save_feedback, methods=["POST"])
 
 

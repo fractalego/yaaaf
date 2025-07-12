@@ -112,6 +112,53 @@ def get_query_suggestions(query: str) -> List[str]:
         raise
 
 
+class AgentInfo(BaseModel):
+    name: str
+    description: str
+    type: str  # "agent" or "source" or "tool"
+
+
+def get_agents_config() -> List[AgentInfo]:
+    """Get list of configured agents and their information"""
+    try:
+        config = get_config()
+        builder = OrchestratorBuilder(config)
+        
+        agent_info_list = []
+        
+        # Add configured agents
+        for agent_config in config.agents:
+            agent_name = builder._get_agent_name(agent_config)
+            if agent_name in builder._agents_map:
+                agent_class = builder._agents_map[agent_name]
+                agent_info_list.append(AgentInfo(
+                    name=agent_name,
+                    description=agent_class.get_info(),
+                    type="agent"
+                ))
+        
+        # Add data sources
+        for source_config in config.sources:
+            agent_info_list.append(AgentInfo(
+                name=source_config.name or "Unknown Source",
+                description=f"{source_config.type} source: {source_config.path}",
+                type="source"
+            ))
+        
+        # Add tools
+        for tool_config in config.tools:
+            agent_info_list.append(AgentInfo(
+                name=tool_config.name,
+                description=tool_config.description,
+                type="tool"
+            ))
+        
+        return agent_info_list
+    except Exception as e:
+        _logger.error(f"Routes: Failed to get agents config: {e}")
+        raise
+
+
 async def stream_utterances(arguments: NewUtteranceArguments):
     """Real-time streaming endpoint for utterances"""
 

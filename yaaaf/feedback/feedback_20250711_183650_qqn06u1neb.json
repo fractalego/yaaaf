@@ -1,0 +1,73 @@
+{
+  "timestamp": "2025-07-11T18:36:50.384668",
+  "stream_id": "qqn06u1neb",
+  "rating": "thumbs-down",
+  "system_configuration": {
+    "default_client": {
+      "model": "qwen2.5:32b",
+      "temperature": 0.5,
+      "max_tokens": 1024,
+      "host": "http://localhost:11434"
+    },
+    "agents": [
+      {
+        "name": "todo",
+        "model": "qwen2.5:32b",
+        "temperature": 0.5,
+        "max_tokens": 1024,
+        "host": "http://localhost:11434"
+      },
+      {
+        "name": "visualization",
+        "model": "qwen2.5:32b",
+        "temperature": 0.5,
+        "max_tokens": 1024,
+        "host": "http://localhost:11434"
+      },
+      {
+        "name": "url_reviewer",
+        "model": "qwen2.5:32b",
+        "temperature": 0.5,
+        "max_tokens": 1024,
+        "host": "http://localhost:11434"
+      },
+      {
+        "name": "brave_search",
+        "model": "qwen2.5:32b",
+        "temperature": 0.5,
+        "max_tokens": 1024,
+        "host": "http://localhost:11434"
+      },
+      {
+        "name": "url",
+        "model": "qwen2.5:32b",
+        "temperature": 0.5,
+        "max_tokens": 1024,
+        "host": "http://localhost:11434"
+      },
+      {
+        "name": "user_input",
+        "model": "qwen2.5:32b",
+        "temperature": 0.5,
+        "max_tokens": 1024,
+        "host": "http://localhost:11434"
+      },
+      {
+        "name": "numerical_sequences",
+        "model": "qwen2.5:32b",
+        "temperature": 0.5,
+        "max_tokens": 1024,
+        "host": "http://localhost:11434"
+      }
+    ],
+    "sources": [],
+    "safety_filter": {
+      "enabled": false,
+      "blocked_keywords": [],
+      "blocked_patterns": [],
+      "custom_message": "I cannot answer that <taskcompleted/>"
+    }
+  },
+  "notes": [],
+  "artifacts": []
+}

@@ -20,6 +20,10 @@ The only html tags they understand are these ones: {all_tags_list}. Use these ta
 
 {budget_info}
 
+== SYSTEM STATUS ==
+The following status information has been reported by various agents:
+{status_info}
+
 The goal to reach is the following:
 {goal}
 

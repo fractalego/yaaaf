@@ -115,6 +115,29 @@ class RAGAgent(BaseAgent):
             f"The result is in this artefact <artefact type='table'>{rag_id}</artefact>"
         )
 
+    def get_status_info(self) -> str:
+        """Report status information about available RAG sources."""
+        if not self._sources:
+            return "No RAG sources available"
+        
+        status_parts = []
+        status_parts.append(f"Available RAG sources ({len(self._sources)} total):")
+        
+        for i, source in enumerate(self._sources, 1):
+            # Get source description and path info
+            description = source.get_description()
+            source_path = getattr(source, 'source_path', 'Unknown path')
+            
+            # Format source info
+            if source_path.startswith('uploaded_'):
+                source_type = "Uploaded file"
+            else:
+                source_type = "File/Directory"
+            
+            status_parts.append(f"  {i}. {source_type}: {description}")
+        
+        return "\n".join(status_parts)
+
     @staticmethod
     def get_info() -> str:
         """Get a brief high-level description of what this agent does."""

@@ -205,33 +205,39 @@ async def upload_file_to_rag(file: UploadFile) -> FileUploadResponse:
             raise HTTPException(status_code=400, detail="No filename provided")
         
         file_extension = file.filename.lower().split('.')[-1]
-        if file_extension not in ['txt', 'md', 'html', 'htm']:
+        if file_extension not in ['txt', 'md', 'html', 'htm', 'pdf']:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Unsupported file type. Only .txt, .md, .html, .htm files are supported"
+                detail=f"Unsupported file type. Only .txt, .md, .html, .htm, .pdf files are supported"
             )
         
         # Read file content
         content = await file.read()
         
-        # Try to decode as UTF-8, fallback to latin-1
-        try:
-            text_content = content.decode('utf-8')
-        except UnicodeDecodeError:
-            try:
-                text_content = content.decode('latin-1')
-            except UnicodeDecodeError:
-                raise HTTPException(status_code=400, detail="File encoding is not supported")
-        
         # Create a unique source ID based on filename and content
-        source_id = hashlib.md5(f"{file.filename}_{text_content[:100]}".encode()).hexdigest()
+        source_id = hashlib.md5(f"{file.filename}_{str(len(content))}".encode()).hexdigest()
         
         # Use filename as initial description
         initial_description = f"Uploaded file: {file.filename}"
         
         # Create RAG source and index the content
         rag_source = RAGSource(description=initial_description, source_path=f"uploaded_{source_id}")
-        rag_source.add_text(text_content)
+        
+        if file_extension == 'pdf':
+            # Handle PDF files
+            rag_source.add_pdf(content, file.filename)
+        else:
+            # Handle text files
+            # Try to decode as UTF-8, fallback to latin-1
+            try:
+                text_content = content.decode('utf-8')
+            except UnicodeDecodeError:
+                try:
+                    text_content = content.decode('latin-1')
+                except UnicodeDecodeError:
+                    raise HTTPException(status_code=400, detail="File encoding is not supported")
+            
+            rag_source.add_text(text_content)
         
         # Store the source globally so it can be used by the orchestrator
         _uploaded_rag_sources[source_id] = rag_source

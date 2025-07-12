@@ -196,6 +196,21 @@ class OrchestratorAgent(BaseAgent):
             if agent.get_budget() > 0
         }
 
+    def _get_system_status(self) -> str:
+        """Collect status information from all agents."""
+        status_entries = []
+        
+        for agent in self._agents_map.values():
+            if hasattr(agent, 'get_status_info'):
+                status = agent.get_status_info()
+                if status.strip():
+                    status_entries.append(f"• {agent.get_name()}: {status}")
+        
+        if not status_entries:
+            return "No special conditions reported by agents."
+        
+        return "\n".join(status_entries)
+
     def map_answer_to_agent(self, answer: str) -> Tuple[BaseAgent | None, str]:
         # Only consider agents that still have budget
         available_agents = self._get_available_agents()
@@ -251,7 +266,9 @@ Orchestrator agent: This agent orchestrates the agents.
                 ]
             ),
             budget_info=budget_info,
+            status_info=self._get_system_status(),
             goal=goal,
+            task_completed_tag=task_completed_tag,
         )
 
     def _sanitize_dataframe_for_markdown(self, df) -> str:

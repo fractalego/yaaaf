@@ -79,17 +79,29 @@ class OrchestratorBuilder:
                 # Load text content from file or directory
                 if os.path.isfile(source_config.path):
                     # Single file
-                    text_content = self._load_text_from_file(source_config.path)
-                    rag_source.add_text(text_content)
+                    if source_config.path.lower().endswith(".pdf"):
+                        # Handle single PDF file
+                        with open(source_config.path, "rb") as pdf_file:
+                            pdf_content = pdf_file.read()
+                            filename = os.path.basename(source_config.path)
+                            rag_source.add_pdf(pdf_content, filename)
+                    else:
+                        # Handle text files
+                        text_content = self._load_text_from_file(source_config.path)
+                        rag_source.add_text(text_content)
                 elif os.path.isdir(source_config.path):
                     # Directory of files
                     for filename in os.listdir(source_config.path):
                         file_path = os.path.join(source_config.path, filename)
-                        if os.path.isfile(file_path) and filename.lower().endswith(
-                            (".txt", ".md", ".html", ".htm")
-                        ):
-                            text_content = self._load_text_from_file(file_path)
-                            rag_source.add_text(text_content)
+                        if os.path.isfile(file_path):
+                            if filename.lower().endswith((".txt", ".md", ".html", ".htm")):
+                                text_content = self._load_text_from_file(file_path)
+                                rag_source.add_text(text_content)
+                            elif filename.lower().endswith(".pdf"):
+                                # Handle PDF files page by page
+                                with open(file_path, "rb") as pdf_file:
+                                    pdf_content = pdf_file.read()
+                                    rag_source.add_pdf(pdf_content, filename)
 
                 rag_sources.append(rag_source)
         return rag_sources

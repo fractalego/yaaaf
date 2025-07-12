@@ -32,7 +32,7 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
   } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const supportedTypes = [".txt", ".md", ".html", ".htm"]
+  const supportedTypes = [".txt", ".md", ".html", ".htm", ".pdf"]
 
   const resetState = () => {
     setStep("select")

@@ -107,6 +107,7 @@ python -m yaaaf frontend 3000
 | **WebSearchAgent** | Web search | `<websearchagent>` | DuckDuckGo search integration |
 | **ReflectionAgent** | Planning & reasoning | `<reflectionagent>` | Step-by-step problem breakdown |
 | **RAGAgent** | Document retrieval | `<ragagent>` | Retrieval-augmented generation |
+| **TodoAgent** | Task planning | `<todoagent>` | Creates structured todo lists for complex tasks |
 | **MleAgent** | Machine learning | `<mleagent>` | sklearn model training & analysis |
 | **ReviewerAgent** | Data analysis | `<revieweragent>` | Extract insights from artifacts |
 | **ToolAgent** | External tools | `<toolagent>` | MCP (Model Context Protocol) integration - SSE & stdio |

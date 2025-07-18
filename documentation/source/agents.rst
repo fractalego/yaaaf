@@ -266,6 +266,69 @@ The RAG agent reports its available sources to the orchestrator, helping it make
      2. File/Directory: Technical documentation
      3. Uploaded file: company_policies.txt
 
+TodoAgent
+~~~~~~~~~
+
+**Purpose**: Creates structured todo lists for planning complex query responses.
+
+**Capabilities**:
+   * Analyzes complex queries and breaks them down into actionable todo items
+   * Creates prioritized task lists with specific agent assignments
+   * Generates structured markdown tables with ID, Task, Status, Priority, and Agent/Tool columns
+   * Helps orchestrate multi-step workflows
+   * Provides strategic planning for complex multi-agent tasks
+   * Single-use agent (budget of 1 call per query)
+
+**Usage Tags**: ``<todoagent>...</todoagent>``
+
+**Key Features**:
+   * **Strategic Planning**: Breaks complex queries into manageable steps
+   * **Agent Assignment**: Identifies which specific agents should handle each task
+   * **Priority Management**: Assigns priority levels (high, medium, low) to tasks
+   * **Status Tracking**: Maintains task status (pending, in_progress, completed)
+   * **Artifact Creation**: Generates structured todo-list artifacts for reference
+
+**Table Structure**:
+
+The TodoAgent creates markdown tables with the following columns:
+
+.. code-block:: text
+
+   | ID | Task | Status | Priority | Agent/Tool |
+   | --- | ---- | ------ | -------- | ----------- |
+   | 1 | Analyze sales data | pending | high | SqlAgent |
+   | 2 | Create visualization | pending | medium | VisualizationAgent |
+   | 3 | Research market trends | pending | low | WebSearchAgent |
+
+**Example Queries**:
+   * "Plan how to analyze customer churn and create recommendations"
+   * "Break down the steps needed to create a comprehensive sales report"
+   * "Create a todo list for implementing a new feature analysis workflow"
+
+**Usage Notes**:
+   * **Single Call**: TodoAgent has a budget of 1 call per query - use it strategically
+   * **First Step**: Best used as the first agent in complex workflows
+   * **Planning Focus**: Designed for planning, not execution
+   * **Agent Awareness**: Knows about all available agents and their capabilities
+
+**Example**:
+
+.. code-block:: text
+
+   <todoagent>
+   I need to analyze our customer database, create visualizations, and provide insights. 
+   Please create a structured plan for this analysis.
+   </todoagent>
+
+**Workflow Integration**:
+
+The TodoAgent is typically used in this pattern:
+
+1. **Initial Planning**: TodoAgent creates structured todo list
+2. **Task Execution**: Other agents execute individual tasks from the list
+3. **Progress Tracking**: Each task's status can be updated as work progresses
+4. **Reference**: Todo list artifact serves as a roadmap for the entire workflow
+
 ReviewerAgent
 ~~~~~~~~~~~~
 

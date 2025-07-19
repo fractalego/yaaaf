@@ -205,14 +205,14 @@ async def upload_file_to_rag(file: UploadFile, pages_per_chunk: int = Form(-1)) 
     try:
         # Check if document retriever agent is configured
         config = get_config()
-        has_rag_agent = False
+        has_document_retriever_agent = False
         for agent_config in config.agents:
             agent_name = agent_config if isinstance(agent_config, str) else agent_config.name
-            if agent_name == "rag":
-                has_rag_agent = True
+            if agent_name == "document_retriever":
+                has_document_retriever_agent = True
                 break
         
-        if not has_rag_agent:
+        if not has_document_retriever_agent:
             raise HTTPException(status_code=400, detail="Document retriever agent is not configured")
         
         # Validate file type

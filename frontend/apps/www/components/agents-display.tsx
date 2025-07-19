@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react"
 import { Bot, ChevronDown, ChevronRight, Database, Wrench } from "lucide-react"
 
+import { Badge } from "@/registry/new-york/ui/badge"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/registry/new-york/ui/collapsible"
-import { Badge } from "@/registry/new-york/ui/badge"
 
 interface AgentInfo {
   name: string
@@ -82,7 +82,6 @@ export function AgentsDisplay() {
     acc[agent.type].push(agent)
     return acc
   }, {} as Record<string, AgentInfo[]>)
-
 
   if (loading) {
     return (

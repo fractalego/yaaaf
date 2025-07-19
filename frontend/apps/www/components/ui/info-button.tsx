@@ -57,7 +57,7 @@ export function InfoButton({
           <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
             {message}
           </div>
-          
+
           <div>
             <h3 className="mb-3 text-sm font-medium">System Configuration</h3>
             <div className="rounded-lg border">

@@ -4,8 +4,10 @@ import threading
 import os
 import tempfile
 import hashlib
+import sqlite3
+import pandas as pd
 
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 from fastapi import UploadFile, HTTPException, Form
@@ -138,6 +140,19 @@ class UpdateDescriptionRequest(BaseModel):
 class UpdateDescriptionResponse(BaseModel):
     success: bool
     message: str
+
+
+class SqlUpdateResponse(BaseModel):
+    success: bool
+    message: str
+    table_name: str
+    rows_inserted: int
+
+
+class SqlSourceInfo(BaseModel):
+    name: str
+    path: str
+    tables: List[str]
 
 
 def get_agents_config() -> List[AgentInfo]:
@@ -288,6 +303,150 @@ def update_rag_source_description(request: UpdateDescriptionRequest) -> UpdateDe
 def get_uploaded_rag_sources():
     """Get all uploaded RAG sources"""
     return list(_uploaded_rag_sources.values())
+
+
+def get_sql_sources() -> List[SqlSourceInfo]:
+    """Get list of configured SQL sources"""
+    try:
+        config = get_config()
+        sql_sources = []
+        
+        for source_config in config.sources:
+            if source_config.type == "sqlite":
+                # Ensure database file exists - create empty one if it doesn't
+                import os
+                if not os.path.exists(source_config.path):
+                    try:
+                        # Create directory if it doesn't exist
+                        os.makedirs(os.path.dirname(source_config.path), exist_ok=True)
+                        # Create empty database file
+                        with sqlite3.connect(source_config.path) as conn:
+                            conn.execute("SELECT 1")  # Simple query to initialize the database
+                        _logger.info(f"Created new database file at '{source_config.path}'")
+                    except Exception as e:
+                        _logger.error(f"Could not create database file at {source_config.path}: {e}")
+                
+                # Get table names from the database
+                tables = []
+                try:
+                    with sqlite3.connect(source_config.path) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                        tables = [row[0] for row in cursor.fetchall()]
+                except Exception as e:
+                    _logger.warning(f"Could not read tables from {source_config.path}: {e}")
+                
+                sql_sources.append(SqlSourceInfo(
+                    name=source_config.name,
+                    path=source_config.path,
+                    tables=tables
+                ))
+        
+        return sql_sources
+    except Exception as e:
+        _logger.error(f"Routes: Failed to get SQL sources: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get SQL sources: {str(e)}")
+
+
+async def update_sql_source(
+    file: UploadFile, 
+    table_name: str = Form(...), 
+    database_name: Optional[str] = Form(None),
+    replace_table: bool = Form(False)
+) -> SqlUpdateResponse:
+    """Update SQL source by uploading CSV or Excel file"""
+    try:
+        # Check if SQL agent is configured
+        config = get_config()
+        sql_sources = [s for s in config.sources if s.type == "sqlite"]
+        
+        if not sql_sources:
+            raise HTTPException(status_code=400, detail="No SQL sources configured")
+        
+        # Use specified database or default to first one
+        if database_name:
+            target_source = next((s for s in sql_sources if s.name == database_name), None)
+            if not target_source:
+                raise HTTPException(status_code=400, detail=f"Database '{database_name}' not found")
+        else:
+            target_source = sql_sources[0]
+        
+        # Validate file type
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+        
+        file_extension = file.filename.lower().split('.')[-1]
+        if file_extension not in ['csv', 'xlsx', 'xls']:
+            raise HTTPException(
+                status_code=400, 
+                detail="Unsupported file type. Only .csv, .xlsx, .xls files are supported"
+            )
+        
+        # Read file content
+        content = await file.read()
+        
+        # Parse file into DataFrame
+        try:
+            if file_extension == 'csv':
+                # Try different encodings for CSV
+                try:
+                    df = pd.read_csv(pd.io.common.BytesIO(content), encoding='utf-8')
+                except UnicodeDecodeError:
+                    df = pd.read_csv(pd.io.common.BytesIO(content), encoding='latin-1')
+            else:  # Excel files
+                df = pd.read_excel(pd.io.common.BytesIO(content))
+                
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
+        
+        if df.empty:
+            raise HTTPException(status_code=400, detail="File contains no data")
+        
+        # Clean column names (remove spaces, special characters)
+        df.columns = df.columns.str.strip().str.replace(' ', '_').str.replace('[^a-zA-Z0-9_]', '', regex=True)
+        
+        # Insert data into SQLite database
+        try:
+            # Ensure database file exists - create empty one if it doesn't
+            import os
+            if not os.path.exists(target_source.path):
+                # Create directory if it doesn't exist
+                os.makedirs(os.path.dirname(target_source.path), exist_ok=True)
+                # Create empty database file
+                with sqlite3.connect(target_source.path) as conn:
+                    conn.execute("SELECT 1")  # Simple query to initialize the database
+                _logger.info(f"Created new database file at '{target_source.path}'")
+            
+            with sqlite3.connect(target_source.path) as conn:
+                if replace_table:
+                    # Drop table if it exists and replace_table is True
+                    conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+                    df.to_sql(table_name, conn, index=False, if_exists='replace')
+                    action = "replaced"
+                else:
+                    # Append to existing table or create new one
+                    df.to_sql(table_name, conn, index=False, if_exists='append')
+                    action = "updated"
+                
+                rows_inserted = len(df)
+                
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to update database: {str(e)}")
+        
+        _logger.info(f"Successfully {action} table '{table_name}' in database '{target_source.name}' with {rows_inserted} rows")
+        
+        return SqlUpdateResponse(
+            success=True,
+            message=f"Successfully {action} table '{table_name}' with {rows_inserted} rows",
+            table_name=table_name,
+            rows_inserted=rows_inserted
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Routes: Failed to update SQL source: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update SQL source: {str(e)}")
 
 
 async def stream_utterances(arguments: NewUtteranceArguments):

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useChat, type UseChatOptions } from "@ai-sdk/react"
 
 import { cn } from "@/lib/utils"
@@ -13,7 +13,11 @@ import {
   query_suggestions,
 } from "@/app/settings"
 
-import { getSessionIdForNewMessage, markSessionAsPaused, getSessionId } from "./session"
+import {
+  getSessionId,
+  getSessionIdForNewMessage,
+  markSessionAsPaused,
+} from "./session"
 
 // Function to send feedback via frontend API route (avoids CORS issues)
 async function sendFeedback(
@@ -50,8 +54,11 @@ export default function ChatDemo() {
     null
   )
   const [hasRagAgent, setHasRagAgent] = useState<boolean>(false)
+  const [hasSqlAgent, setHasSqlAgent] = useState<boolean>(false)
 
-  const [currentSessionId, setCurrentSessionId] = useState<string>(getSessionIdForNewMessage())
+  const [currentSessionId, setCurrentSessionId] = useState<string>(
+    getSessionIdForNewMessage()
+  )
 
   const {
     messages,
@@ -83,14 +90,17 @@ export default function ChatDemo() {
   // Check for paused messages and mark session accordingly
   useEffect(() => {
     const lastMessage = messages[messages.length - 1]
-    if (lastMessage?.role === "assistant" && lastMessage?.content?.includes("<taskpaused/>")) {
+    if (
+      lastMessage?.role === "assistant" &&
+      lastMessage?.content?.includes("<taskpaused/>")
+    ) {
       markSessionAsPaused()
     }
   }, [messages])
 
-  // Check for RAG agent on component mount
+  // Check for agents on component mount
   useEffect(() => {
-    const checkRagAgent = async () => {
+    const checkAgents = async () => {
       try {
         const response = await fetch("http://localhost:4000/get_agents_config")
         if (response.ok) {
@@ -98,14 +108,18 @@ export default function ChatDemo() {
           const ragAgentPresent = agents.some(
             (agent: any) => agent.name === "rag" && agent.type === "agent"
           )
+          const sqlAgentPresent = agents.some(
+            (agent: any) => agent.name === "sql" && agent.type === "agent"
+          )
           setHasRagAgent(ragAgentPresent)
+          setHasSqlAgent(sqlAgentPresent)
         }
       } catch (error) {
-        console.error("Failed to check for RAG agent:", error)
+        console.error("Failed to check for agents:", error)
       }
     }
 
-    checkRagAgent()
+    checkAgents()
   }, [])
 
   // Handle feedback submission
@@ -117,9 +131,21 @@ export default function ChatDemo() {
     await sendFeedback(getSessionId(), rating)
   }
 
-  // Handle file upload
+  // Handle file upload (for RAG)
   const handleFileUpload = (sourceId: string, fileName: string) => {
     console.log(`File uploaded: ${fileName} with source ID: ${sourceId}`)
+    // You could add a toast notification here or update UI to show upload success
+  }
+
+  // Handle SQL upload
+  const handleSqlUpload = (
+    tableName: string,
+    fileName: string,
+    rowsInserted: number
+  ) => {
+    console.log(
+      `SQL file uploaded: ${fileName} to table ${tableName} with ${rowsInserted} rows`
+    )
     // You could add a toast notification here or update UI to show upload success
   }
 
@@ -164,7 +190,9 @@ export default function ChatDemo() {
               onArtifactClick={setSelectedArtifactId}
               onRateResponse={handleRateResponse}
               hasRagAgent={hasRagAgent}
+              hasSqlAgent={hasSqlAgent}
               onFileUpload={handleFileUpload}
+              onSqlUpload={handleSqlUpload}
             />
           </div>
         </div>

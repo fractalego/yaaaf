@@ -16,3 +16,6 @@ yaaaf/client/standalone
 
 # IDE
 .idea
+
+# Database
+data/database.db

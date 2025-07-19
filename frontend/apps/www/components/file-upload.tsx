@@ -1,10 +1,17 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { Upload, X, FileText, AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
+import { useRef, useState } from "react"
+import {
+  AlertCircle,
+  CheckCircle2,
+  FileText,
+  Loader2,
+  Upload,
+  X,
+} from "lucide-react"
 
-import { Button } from "@/registry/new-york/ui/button"
 import { Badge } from "@/registry/new-york/ui/badge"
+import { Button } from "@/registry/new-york/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -55,18 +62,23 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
   }
 
   const handleFileSelect = async (selectedFile: File) => {
-    const fileExtension = "." + selectedFile.name.split(".").pop()?.toLowerCase()
-    
+    const fileExtension =
+      "." + selectedFile.name.split(".").pop()?.toLowerCase()
+
     if (!supportedTypes.includes(fileExtension)) {
-      setError(`Unsupported file type. Only ${supportedTypes.join(", ")} files are supported.`)
+      setError(
+        `Unsupported file type. Only ${supportedTypes.join(
+          ", "
+        )} files are supported.`
+      )
       return
     }
 
     setFile(selectedFile)
     setError(null)
-    
+
     // For PDF files, show chunking options first; for other files, upload immediately
-    if (selectedFile.name.toLowerCase().endsWith('.pdf')) {
+    if (selectedFile.name.toLowerCase().endsWith(".pdf")) {
       // Stay in select step to show chunking options
       return
     } else {
@@ -82,9 +94,9 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
     try {
       const formData = new FormData()
       formData.append("file", fileToUpload)
-      
+
       // Add chunking parameter for PDF files
-      if (fileToUpload.name.toLowerCase().endsWith('.pdf')) {
+      if (fileToUpload.name.toLowerCase().endsWith(".pdf")) {
         const pagesPerChunk = chunkingMode === "whole" ? "-1" : "1"
         formData.append("pages_per_chunk", pagesPerChunk)
       }
@@ -102,9 +114,9 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
       const result = await response.json()
       setUploadResult({
         sourceId: result.source_id,
-        filename: result.filename
+        filename: result.filename,
       })
-      
+
       // Move to description step
       setStep("description")
     } catch (err) {
@@ -119,16 +131,19 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
     setStep("uploading") // Show loading while updating description
 
     try {
-      const response = await fetch("http://localhost:4000/update_rag_description", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          source_id: uploadResult.sourceId,
-          description: description.trim(),
-        }),
-      })
+      const response = await fetch(
+        "http://localhost:4000/update_rag_description",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            source_id: uploadResult.sourceId,
+            description: description.trim(),
+          }),
+        }
+      )
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -137,7 +152,7 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
 
       // Success!
       setStep("complete")
-      
+
       // Call the callback if provided
       if (onFileUpload) {
         onFileUpload(uploadResult.sourceId, uploadResult.filename)
@@ -147,9 +162,10 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
       setTimeout(() => {
         handleDialogChange(false)
       }, 1500)
-      
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update description")
+      setError(
+        err instanceof Error ? err.message : "Failed to update description"
+      )
       setStep("description")
     }
   }
@@ -162,9 +178,9 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     if (step !== "select") return
-    
+
     const files = Array.from(e.dataTransfer.files)
     if (files.length > 0) {
       handleFileSelect(files[0])
@@ -197,7 +213,8 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
               <div className="flex flex-col items-center gap-2">
                 <Upload className="h-8 w-8 text-muted-foreground" />
                 <div className="text-sm">
-                  <span className="font-medium">Click to upload</span> or drag and drop
+                  <span className="font-medium">Click to upload</span> or drag
+                  and drop
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {supportedTypes.map((type) => (
@@ -210,41 +227,51 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
             </div>
 
             {/* PDF Chunking Options */}
-            {file && file.name.toLowerCase().endsWith('.pdf') && (
+            {file && file.name.toLowerCase().endsWith(".pdf") && (
               <div className="space-y-4 rounded-lg border p-4">
-                <div className="text-sm font-medium">PDF Processing Options</div>
+                <div className="text-sm font-medium">
+                  PDF Processing Options
+                </div>
                 <div className="space-y-2">
-                  <label className="flex items-center space-x-2 cursor-pointer">
+                  <label className="flex cursor-pointer items-center space-x-2">
                     <input
                       type="radio"
                       name="chunking"
                       value="whole"
                       checked={chunkingMode === "whole"}
-                      onChange={(e) => setChunkingMode(e.target.value as "whole" | "pages")}
+                      onChange={(e) =>
+                        setChunkingMode(e.target.value as "whole" | "pages")
+                      }
                       className="h-4 w-4"
                     />
                     <div className="flex-1">
                       <div className="text-sm font-medium">Whole document</div>
-                      <div className="text-xs text-muted-foreground">Process entire PDF as one chunk (recommended)</div>
+                      <div className="text-xs text-muted-foreground">
+                        Process entire PDF as one chunk (recommended)
+                      </div>
                     </div>
                   </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
+                  <label className="flex cursor-pointer items-center space-x-2">
                     <input
                       type="radio"
                       name="chunking"
                       value="pages"
                       checked={chunkingMode === "pages"}
-                      onChange={(e) => setChunkingMode(e.target.value as "whole" | "pages")}
+                      onChange={(e) =>
+                        setChunkingMode(e.target.value as "whole" | "pages")
+                      }
                       className="h-4 w-4"
                     />
                     <div className="flex-1">
                       <div className="text-sm font-medium">Page by page</div>
-                      <div className="text-xs text-muted-foreground">Split PDF into individual page chunks</div>
+                      <div className="text-xs text-muted-foreground">
+                        Split PDF into individual page chunks
+                      </div>
                     </div>
                   </label>
                 </div>
-                <Button 
-                  onClick={() => uploadFile(file)} 
+                <Button
+                  onClick={() => uploadFile(file)}
                   className="w-full"
                   disabled={!file}
                 >
@@ -269,7 +296,9 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
             <div className="flex items-center gap-3">
               <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
               <span className="text-sm font-medium">
-                {uploadResult ? "Updating description..." : "Uploading and indexing file..."}
+                {uploadResult
+                  ? "Updating description..."
+                  : "Uploading and indexing file..."}
               </span>
             </div>
             {file && (
@@ -298,7 +327,9 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
               <div className="flex items-center gap-3 rounded-lg border p-3">
                 <FileText className="h-8 w-8 text-blue-500" />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium">{uploadResult.filename}</div>
+                  <div className="truncate font-medium">
+                    {uploadResult.filename}
+                  </div>
                   <div className="text-sm text-muted-foreground">
                     Ready for searching
                   </div>
@@ -320,7 +351,8 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
                 autoFocus
               />
               <p className="text-xs text-muted-foreground">
-                This helps the AI understand your document and provide better search results.
+                This helps the AI understand your document and provide better
+                search results.
               </p>
             </div>
 
@@ -334,7 +366,10 @@ export function FileUpload({ onFileUpload, children }: FileUploadProps) {
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => handleDialogChange(false)}>
+              <Button
+                variant="outline"
+                onClick={() => handleDialogChange(false)}
+              >
                 Skip
               </Button>
               <Button

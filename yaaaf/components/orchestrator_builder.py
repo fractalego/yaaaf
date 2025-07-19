@@ -56,6 +56,19 @@ class OrchestratorBuilder:
     def _create_rag_sources(self) -> List[RAGSource]:
         """Create RAG sources from text-type sources in config."""
         rag_sources = []
+        
+        # Add uploaded sources if available
+        try:
+            from yaaaf.server.routes import get_uploaded_rag_sources
+            uploaded_sources = get_uploaded_rag_sources()
+            rag_sources.extend(uploaded_sources)
+            _logger.info(f"Added {len(uploaded_sources)} uploaded RAG sources")
+        except ImportError:
+            # Routes module might not be available in some contexts
+            pass
+        except Exception as e:
+            _logger.warning(f"Could not load uploaded RAG sources: {e}")
+        
         for source_config in self.config.sources:
             if source_config.type == "text":
                 description = getattr(source_config, "description", source_config.name)
@@ -66,17 +79,31 @@ class OrchestratorBuilder:
                 # Load text content from file or directory
                 if os.path.isfile(source_config.path):
                     # Single file
-                    text_content = self._load_text_from_file(source_config.path)
-                    rag_source.add_text(text_content)
+                    if source_config.path.lower().endswith(".pdf"):
+                        # Handle single PDF file with configurable chunking (default: 1 page per chunk)
+                        with open(source_config.path, "rb") as pdf_file:
+                            pdf_content = pdf_file.read()
+                            filename = os.path.basename(source_config.path)
+                            # Use default chunking of no chunking (-1), can be made configurable later
+                            rag_source.add_pdf(pdf_content, filename, pages_per_chunk=-1)
+                    else:
+                        # Handle text files
+                        text_content = self._load_text_from_file(source_config.path)
+                        rag_source.add_text(text_content)
                 elif os.path.isdir(source_config.path):
                     # Directory of files
                     for filename in os.listdir(source_config.path):
                         file_path = os.path.join(source_config.path, filename)
-                        if os.path.isfile(file_path) and filename.lower().endswith(
-                            (".txt", ".md", ".html", ".htm")
-                        ):
-                            text_content = self._load_text_from_file(file_path)
-                            rag_source.add_text(text_content)
+                        if os.path.isfile(file_path):
+                            if filename.lower().endswith((".txt", ".md", ".html", ".htm")):
+                                text_content = self._load_text_from_file(file_path)
+                                rag_source.add_text(text_content)
+                            elif filename.lower().endswith(".pdf"):
+                                # Handle PDF files with configurable chunking (default: no chunking)
+                                with open(file_path, "rb") as pdf_file:
+                                    pdf_content = pdf_file.read()
+                                    # Use default chunking of no chunking (-1), can be made configurable later
+                                    rag_source.add_pdf(pdf_content, filename, pages_per_chunk=-1)
 
                 rag_sources.append(rag_source)
         return rag_sources
@@ -122,15 +149,39 @@ class OrchestratorBuilder:
 
         return mcp_tools
 
-    def _get_sqlite_source(self):
-        """Get the first SQLite source from config."""
+    def _create_sql_sources(self) -> List[SqliteSource]:
+        """Create SQL sources from sqlite-type sources in config."""
+        sql_sources = []
+        
         for source_config in self.config.sources:
             if source_config.type == "sqlite":
-                return SqliteSource(
+                # Ensure database file exists - create empty one if it doesn't
+                import os
+                if not os.path.exists(source_config.path):
+                    try:
+                        # Create directory if it doesn't exist
+                        os.makedirs(os.path.dirname(source_config.path), exist_ok=True)
+                        # Create empty database file
+                        import sqlite3
+                        with sqlite3.connect(source_config.path) as conn:
+                            conn.execute("SELECT 1")  # Simple query to initialize the database
+                        _logger.info(f"Created new database file at '{source_config.path}'")
+                    except Exception as e:
+                        _logger.error(f"Could not create database file at {source_config.path}: {e}")
+                        continue
+                
+                sql_source = SqliteSource(
                     name=source_config.name,
                     db_path=source_config.path,
                 )
-        return None
+                sql_sources.append(sql_source)
+        
+        return sql_sources
+
+    def _get_sqlite_source(self):
+        """Get the first SQLite source from config (deprecated - use _create_sql_sources instead)."""
+        sql_sources = self._create_sql_sources()
+        return sql_sources[0] if sql_sources else None
 
     def _create_client_for_agent(self, agent_config) -> OllamaClient:
         """Create a client for an agent, using agent-specific settings if available."""
@@ -237,7 +288,7 @@ class OrchestratorBuilder:
         )
 
         # Prepare sources
-        sqlite_source = self._get_sqlite_source()
+        sql_sources = self._create_sql_sources()
         rag_sources = self._create_rag_sources()
 
         # Prepare MCP tools
@@ -257,10 +308,10 @@ class OrchestratorBuilder:
             # Create agent-specific client
             agent_client = self._create_client_for_agent(agent_config)
 
-            if agent_name == "sql" and sqlite_source is not None:
+            if agent_name == "sql" and sql_sources:
                 orchestrator.subscribe_agent(
                     self._agents_map[agent_name](
-                        client=agent_client, source=sqlite_source
+                        client=agent_client, sources=sql_sources
                     )
                 )
             elif agent_name == "rag" and rag_sources:

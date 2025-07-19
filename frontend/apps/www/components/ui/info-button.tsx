@@ -4,6 +4,7 @@ import React from "react"
 import { Info } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { AgentsDisplay } from "@/components/agents-display"
 import { Button } from "@/registry/default/ui/button"
 import {
   Dialog,
@@ -44,7 +45,7 @@ export function InfoButton({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Info className="h-5 w-5 text-blue-500" />
@@ -52,9 +53,16 @@ export function InfoButton({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="mt-4">
+        <div className="mt-4 space-y-6">
           <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
             {message}
+          </div>
+
+          <div>
+            <h3 className="mb-3 text-sm font-medium">System Configuration</h3>
+            <div className="rounded-lg border">
+              <AgentsDisplay />
+            </div>
           </div>
         </div>
       </DialogContent>

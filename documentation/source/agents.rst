@@ -177,24 +177,157 @@ ReflectionAgent
 RAGAgent
 ~~~~~~~~
 
-**Purpose**: Retrieval-augmented generation from document collections.
+**Purpose**: Retrieval-augmented generation from document collections with support for various file formats including PDFs with configurable chunking.
 
 **Capabilities**:
-   * Searches through document collections
-   * Retrieves relevant text passages
+   * Searches through document collections using BM25 indexing
+   * Retrieves relevant text passages based on semantic similarity
    * Generates responses based on retrieved content
-   * Supports multiple document sources
+   * Supports multiple document sources and formats
+   * **PDF Support**: Process PDF files with configurable page-level chunking
+   * **File Upload**: Dynamic file upload through frontend interface
+   * **Flexible Chunking**: Configure how PDF content is split (whole document, page-by-page, or custom chunk sizes)
+   * **Status Reporting**: Reports available sources to the orchestrator for better decision-making
 
 **Usage Tags**: ``<ragagent>...</ragagent>``
+
+**Supported File Formats**:
+   * Text files: ``.txt``, ``.md``, ``.html``, ``.htm``
+   * PDF files: ``.pdf`` (with configurable chunking)
 
 **Configuration**:
 
 .. code-block:: python
 
-   from yaaaf.components.sources.text_source import TextSource
+   from yaaaf.components.sources.rag_source import RAGSource
    
-   sources = [TextSource("documents/")]
+   # Create RAG sources from different file types
+   sources = []
+   
+   # Text file source
+   text_source = RAGSource("Document collection", "documents/")
+   sources.append(text_source)
+   
+   # PDF file with configurable chunking
+   pdf_source = RAGSource("PDF manual", "manual.pdf")
+   with open("manual.pdf", "rb") as f:
+       pdf_content = f.read()
+       # pages_per_chunk: -1 = whole document, 1 = page-by-page, N = N pages per chunk
+       pdf_source.add_pdf(pdf_content, "manual.pdf", pages_per_chunk=-1)
+   sources.append(pdf_source)
+   
    rag_agent = RAGAgent(client, sources)
+
+**File Upload via Frontend**:
+
+The RAG agent supports dynamic file uploads through the frontend interface:
+
+1. **Upload Interface**: Click the paperclip icon in the chat input area
+2. **File Selection**: Drag and drop or click to select supported files
+3. **PDF Options**: For PDF files, choose between:
+   
+   * **Whole document** (default): Process entire PDF as one searchable chunk
+   * **Page by page**: Split PDF into individual page chunks for more granular retrieval
+
+4. **Description**: Add a description after upload to help with retrieval
+5. **Automatic Indexing**: Files are automatically indexed and available for queries
+
+**PDF Chunking Strategies**:
+
+* **Whole Document** (``pages_per_chunk=-1``): Best for shorter documents or when context across pages is important
+* **Page-by-Page** (``pages_per_chunk=1``): Better for longer documents, technical manuals, or when specific page references are needed
+* **Custom Chunks** (``pages_per_chunk=N``): Group multiple pages together for balanced context and granularity
+
+**Example Queries**:
+   * "What does the manual say about installation?"
+   * "Find information about troubleshooting network issues"
+   * "Search for pricing information in the uploaded documents"
+   * "What are the safety guidelines mentioned in the PDF?"
+
+**API Integration**:
+
+The RAG agent integrates with the file upload API:
+
+.. code-block:: bash
+
+   # Upload a file with default chunking (whole document for PDFs)
+   curl -X POST "http://localhost:4000/upload_file_to_rag" \
+        -F "file=@document.pdf" \
+        -F "pages_per_chunk=-1"
+
+**Status Reporting**:
+
+The RAG agent reports its available sources to the orchestrator, helping it make better routing decisions:
+
+.. code-block:: text
+
+   Available RAG sources (3 total):
+     1. Uploaded file: manual.pdf
+     2. File/Directory: Technical documentation
+     3. Uploaded file: company_policies.txt
+
+TodoAgent
+~~~~~~~~~
+
+**Purpose**: Creates structured todo lists for planning complex query responses.
+
+**Capabilities**:
+   * Analyzes complex queries and breaks them down into actionable todo items
+   * Creates prioritized task lists with specific agent assignments
+   * Generates structured markdown tables with ID, Task, Status, Priority, and Agent/Tool columns
+   * Helps orchestrate multi-step workflows
+   * Provides strategic planning for complex multi-agent tasks
+   * Single-use agent (budget of 1 call per query)
+
+**Usage Tags**: ``<todoagent>...</todoagent>``
+
+**Key Features**:
+   * **Strategic Planning**: Breaks complex queries into manageable steps
+   * **Agent Assignment**: Identifies which specific agents should handle each task
+   * **Priority Management**: Assigns priority levels (high, medium, low) to tasks
+   * **Status Tracking**: Maintains task status (pending, in_progress, completed)
+   * **Artifact Creation**: Generates structured todo-list artifacts for reference
+
+**Table Structure**:
+
+The TodoAgent creates markdown tables with the following columns:
+
+.. code-block:: text
+
+   | ID | Task | Status | Priority | Agent/Tool |
+   | --- | ---- | ------ | -------- | ----------- |
+   | 1 | Analyze sales data | pending | high | SqlAgent |
+   | 2 | Create visualization | pending | medium | VisualizationAgent |
+   | 3 | Research market trends | pending | low | WebSearchAgent |
+
+**Example Queries**:
+   * "Plan how to analyze customer churn and create recommendations"
+   * "Break down the steps needed to create a comprehensive sales report"
+   * "Create a todo list for implementing a new feature analysis workflow"
+
+**Usage Notes**:
+   * **Single Call**: TodoAgent has a budget of 1 call per query - use it strategically
+   * **First Step**: Best used as the first agent in complex workflows
+   * **Planning Focus**: Designed for planning, not execution
+   * **Agent Awareness**: Knows about all available agents and their capabilities
+
+**Example**:
+
+.. code-block:: text
+
+   <todoagent>
+   I need to analyze our customer database, create visualizations, and provide insights. 
+   Please create a structured plan for this analysis.
+   </todoagent>
+
+**Workflow Integration**:
+
+The TodoAgent is typically used in this pattern:
+
+1. **Initial Planning**: TodoAgent creates structured todo list
+2. **Task Execution**: Other agents execute individual tasks from the list
+3. **Progress Tracking**: Each task's status can be updated as work progresses
+4. **Reference**: Todo list artifact serves as a roadmap for the entire workflow
 
 ReviewerAgent
 ~~~~~~~~~~~~

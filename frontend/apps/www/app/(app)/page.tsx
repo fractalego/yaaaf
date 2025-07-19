@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useChat, type UseChatOptions } from "@ai-sdk/react"
 
 import { cn } from "@/lib/utils"
@@ -13,7 +13,11 @@ import {
   query_suggestions,
 } from "@/app/settings"
 
-import { getSessionId } from "./session"
+import {
+  getSessionId,
+  getSessionIdForNewMessage,
+  markSessionAsPaused,
+} from "./session"
 
 // Function to send feedback via frontend API route (avoids CORS issues)
 async function sendFeedback(
@@ -49,24 +53,74 @@ export default function ChatDemo() {
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(
     null
   )
+  const [hasRagAgent, setHasRagAgent] = useState<boolean>(false)
+  const [hasSqlAgent, setHasSqlAgent] = useState<boolean>(false)
 
-  const sessionId = getSessionId()
+  const [currentSessionId, setCurrentSessionId] = useState<string>(
+    getSessionIdForNewMessage()
+  )
 
   const {
     messages,
     input,
     handleInputChange,
-    handleSubmit,
-    append,
+    handleSubmit: originalHandleSubmit,
+    append: originalAppend,
     stop,
     isLoading,
     setMessages,
   } = useChat({
     api: "/api/chat",
     body: {
-      session_id: sessionId,
+      session_id: currentSessionId,
     },
   })
+
+  // Custom handlers that update session ID before calling original handlers
+  const handleSubmit = (event?: { preventDefault?: () => void }) => {
+    setCurrentSessionId(getSessionIdForNewMessage())
+    originalHandleSubmit(event)
+  }
+
+  const append = (message: { role: "user"; content: string }) => {
+    setCurrentSessionId(getSessionIdForNewMessage())
+    originalAppend(message)
+  }
+
+  // Check for paused messages and mark session accordingly
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1]
+    if (
+      lastMessage?.role === "assistant" &&
+      lastMessage?.content?.includes("<taskpaused/>")
+    ) {
+      markSessionAsPaused()
+    }
+  }, [messages])
+
+  // Check for agents on component mount
+  useEffect(() => {
+    const checkAgents = async () => {
+      try {
+        const response = await fetch("http://localhost:4000/get_agents_config")
+        if (response.ok) {
+          const agents = await response.json()
+          const ragAgentPresent = agents.some(
+            (agent: any) => agent.name === "rag" && agent.type === "agent"
+          )
+          const sqlAgentPresent = agents.some(
+            (agent: any) => agent.name === "sql" && agent.type === "agent"
+          )
+          setHasRagAgent(ragAgentPresent)
+          setHasSqlAgent(sqlAgentPresent)
+        }
+      } catch (error) {
+        console.error("Failed to check for agents:", error)
+      }
+    }
+
+    checkAgents()
+  }, [])
 
   // Handle feedback submission
   const handleRateResponse = async (
@@ -74,7 +128,25 @@ export default function ChatDemo() {
     rating: "thumbs-up" | "thumbs-down"
   ) => {
     console.log(`Rating message ${messageId} with ${rating}`)
-    await sendFeedback(sessionId, rating)
+    await sendFeedback(getSessionId(), rating)
+  }
+
+  // Handle file upload (for RAG)
+  const handleFileUpload = (sourceId: string, fileName: string) => {
+    console.log(`File uploaded: ${fileName} with source ID: ${sourceId}`)
+    // You could add a toast notification here or update UI to show upload success
+  }
+
+  // Handle SQL upload
+  const handleSqlUpload = (
+    tableName: string,
+    fileName: string,
+    rowsInserted: number
+  ) => {
+    console.log(
+      `SQL file uploaded: ${fileName} to table ${tableName} with ${rowsInserted} rows`
+    )
+    // You could add a toast notification here or update UI to show upload success
   }
 
   return (
@@ -117,6 +189,10 @@ export default function ChatDemo() {
               suggestions={query_suggestions.split(",")}
               onArtifactClick={setSelectedArtifactId}
               onRateResponse={handleRateResponse}
+              hasRagAgent={hasRagAgent}
+              hasSqlAgent={hasSqlAgent}
+              onFileUpload={handleFileUpload}
+              onSqlUpload={handleSqlUpload}
             />
           </div>
         </div>

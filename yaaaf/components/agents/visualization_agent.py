@@ -102,9 +102,14 @@ class VisualizationAgent(BaseAgent):
                 redirected_output = sys.stdout = StringIO()
                 global_variables = globals().copy()
                 global_variables.update({"dataframe": df, "sklearn_model": model})
-                exec(code, global_variables)
-                sys.stdout = old_stdout
-                code_result = redirected_output.getvalue()
+                try:
+                    exec(code, global_variables)
+                    sys.stdout = old_stdout
+                    code_result = redirected_output.getvalue()
+                except Exception as e:
+                    sys.stdout = old_stdout
+                    code_result = f"Error executing code: {str(e)}"
+                    _logger.error(f"Error executing code: {str(e)}")
                 if code_result.strip() == "":
                     code_result = ""
 

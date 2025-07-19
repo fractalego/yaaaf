@@ -4,11 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yaaaf"
-<<<<<<< HEAD
-version = "0.0.28"
-=======
 version = "0.0.31"
->>>>>>> 10d30b3d (re-built frontend)
 description = "YAAAF (Yet Another Autonomous Agents Framework) - A modular framework for building intelligent agentic applications with Python backend and Next.js frontend"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -37,10 +33,12 @@ dependencies = [
     "matplotlib>=3.5.0",
     "mdpd>=0.2.1",
     "nltk>=3.9.1",
+    "openpyxl>=3.1.5",
     "pandas>=1.3.0",
     "pydantic>=2.0.0",
     "pydantic-ai>=0.2.18",
     "pydantic-settings>=2.8.1",
+    "pypdf2>=3.0.1",
     "rank-bm25>=0.2.2",
     "requests>=2.25.0",
     "scikit-learn>=1.0.0",

@@ -10,7 +10,12 @@ from yaaaf.server.routes import (
     get_image,
     get_all_utterances,
     get_query_suggestions,
+    get_agents_config,
+    upload_file_to_rag,
+    update_rag_source_description,
     stream_utterances,
+    get_sql_sources,
+    update_sql_source,
 )
 from yaaaf.server.feedback import save_feedback
 from yaaaf.server.server_settings import server_settings
@@ -27,6 +32,11 @@ app.add_api_route("/get_image", endpoint=get_image, methods=["POST"])
 app.add_api_route(
     "/get_query_suggestions", endpoint=get_query_suggestions, methods=["POST"]
 )
+app.add_api_route("/get_agents_config", endpoint=get_agents_config, methods=["GET"])
+app.add_api_route("/upload_file_to_rag", endpoint=upload_file_to_rag, methods=["POST"])
+app.add_api_route("/update_rag_description", endpoint=update_rag_source_description, methods=["POST"])
+app.add_api_route("/get_sql_sources", endpoint=get_sql_sources, methods=["GET"])
+app.add_api_route("/update_sql_source", endpoint=update_sql_source, methods=["POST"])
 app.add_api_route("/save_feedback", endpoint=save_feedback, methods=["POST"])
 
 
@@ -67,5 +77,9 @@ def run_server(host: str, port: int):
 
 if __name__ == "__main__":
     if not os.environ.get("YAAF_CONFIG"):
-        os.environ["YAAF_CONFIG"] = "default_config.json"
+        # Look for config.json in current directory, otherwise use default
+        if os.path.exists("config.json"):
+            os.environ["YAAF_CONFIG"] = "config.json"
+        else:
+            os.environ["YAAF_CONFIG"] = "default_config.json"
     run_server(host=server_settings.host, port=server_settings.port)

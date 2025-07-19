@@ -26,6 +26,14 @@ interface ChatPropsBase {
   ) => void
   setMessages?: (messages: any[]) => void
   onArtifactClick?: (artifactId: string) => void
+  hasRagAgent?: boolean
+  hasSqlAgent?: boolean
+  onFileUpload?: (sourceId: string, fileName: string) => void
+  onSqlUpload?: (
+    tableName: string,
+    fileName: string,
+    rowsInserted: number
+  ) => void
 }
 
 interface ChatPropsWithoutSuggestions extends ChatPropsBase {
@@ -53,6 +61,10 @@ export function Chat({
   onRateResponse,
   setMessages,
   onArtifactClick,
+  hasRagAgent,
+  hasSqlAgent,
+  onFileUpload,
+  onSqlUpload,
 }: ChatProps) {
   const lastMessage = messages.at(-1)
   const isEmpty = messages.length === 0
@@ -188,6 +200,10 @@ export function Chat({
           isGenerating={isGenerating}
           onRateResponse={onRateResponse}
           lastMessageId={lastAssistantMessageId}
+          hasRagAgent={hasRagAgent}
+          hasSqlAgent={hasSqlAgent}
+          onFileUpload={onFileUpload}
+          onSqlUpload={onSqlUpload}
         />
       </ChatForm>
       {isEmpty && append && suggestions ? (

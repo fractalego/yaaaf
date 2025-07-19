@@ -5,6 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { motion } from "framer-motion"
 import { Ban, ChevronRight, Code2, Loader2, Terminal } from "lucide-react"
 
+import { unescapeHtmlContent } from "@/lib/html-escape"
 import { cn } from "@/lib/utils"
 import {
   Collapsible,
@@ -192,10 +193,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   if (parts && parts.length > 0) {
     return parts.map((part, index) => {
       if (part.type === "text") {
-        let text = part.text
-        text = text.replaceAll("<br/>", "\n")
-        text = text.replaceAll("&quot;", '"')
-        text = text.replaceAll("&nbsp;&nbsp;&nbsp;&nbsp;", "\t")
+        let text = unescapeHtmlContent(part.text)
         return (
           <div
             className={cn(

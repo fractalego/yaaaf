@@ -152,6 +152,181 @@ Configures backend endpoints:
    export const get_utterances_url = `http://localhost:${port}/get_utterances`
    export const complete_tag = "<taskcompleted/>"
 
+File Upload System
+-----------------
+
+The frontend includes a comprehensive file upload system for the RAG agent, allowing users to upload and manage document sources dynamically.
+
+File Upload Component
+~~~~~~~~~~~~~~~~~~~~
+
+**Location**: ``apps/www/components/file-upload.tsx``
+
+The file upload component provides:
+
+* **Drag and Drop Interface**: Intuitive file selection
+* **Format Support**: Text files (``.txt``, ``.md``, ``.html``, ``.htm``) and PDF files (``.pdf``)
+* **PDF Processing Options**: Configurable chunking for PDF files
+* **Progress Tracking**: Upload progress and status feedback
+* **Error Handling**: Clear error messages for unsupported files or upload failures
+
+**Usage**:
+
+.. code-block:: tsx
+
+   import { FileUpload } from "@/components/file-upload"
+   
+   function ChatInput() {
+     return (
+       <div className="input-area">
+         <FileUpload onFileUpload={handleFileUpload}>
+           <Button variant="ghost" size="icon">
+             <Paperclip className="h-4 w-4" />
+           </Button>
+         </FileUpload>
+       </div>
+     )
+   }
+
+PDF Processing Options
+~~~~~~~~~~~~~~~~~~~~~
+
+When uploading PDF files, users can choose between two processing modes:
+
+1. **Whole Document** (Default):
+   
+   * Processes the entire PDF as a single searchable chunk
+   * Best for shorter documents or when context across pages is important
+   * API parameter: ``pages_per_chunk=-1``
+
+2. **Page by Page**:
+   
+   * Splits the PDF into individual page chunks
+   * Better for longer documents, technical manuals, or when specific page references are needed
+   * API parameter: ``pages_per_chunk=1``
+
+**User Interface**:
+
+.. code-block:: text
+
+   PDF Processing Options
+   ----------------------
+   ○ Whole document (recommended)
+     Process entire PDF as one chunk
+   
+   ○ Page by page
+     Split PDF into individual page chunks
+
+Upload Workflow
+~~~~~~~~~~~~~~
+
+The upload process follows a multi-step workflow:
+
+1. **File Selection**: User selects or drags a file into the upload area
+2. **Format Validation**: System checks file type and displays supported formats
+3. **PDF Options** (PDF files only): User selects chunking preference
+4. **Upload & Processing**: File is uploaded and processed by the backend
+5. **Description**: User adds a description to help with future retrieval
+6. **Completion**: File is indexed and available for RAG queries
+
+**Upload States**:
+
+.. code-block:: typescript
+
+   type UploadStep = "select" | "uploading" | "description" | "complete"
+   
+   interface UploadState {
+     step: UploadStep
+     file: File | null
+     chunkingMode: "whole" | "pages"
+     description: string
+     error: string | null
+   }
+
+Backend API Integration
+~~~~~~~~~~~~~~~~~~~~~~
+
+The frontend communicates with the backend through the file upload API:
+
+**Endpoint**: ``POST /upload_file_to_rag``
+
+**Parameters**:
+
+.. code-block:: typescript
+
+   interface UploadRequest {
+     file: File                    // The uploaded file
+     pages_per_chunk?: number      // PDF chunking: -1 (whole) or 1 (pages)
+   }
+
+**Response**:
+
+.. code-block:: typescript
+
+   interface UploadResponse {
+     success: boolean
+     message: string
+     source_id: string            // Unique identifier for the uploaded source
+     filename: string
+   }
+
+**Example Request**:
+
+.. code-block:: javascript
+
+   const formData = new FormData()
+   formData.append("file", file)
+   
+   // For PDF files, add chunking preference
+   if (file.name.toLowerCase().endsWith('.pdf')) {
+     const pagesPerChunk = chunkingMode === "whole" ? "-1" : "1"
+     formData.append("pages_per_chunk", pagesPerChunk)
+   }
+   
+   const response = await fetch("http://localhost:4000/upload_file_to_rag", {
+     method: "POST",
+     body: formData,
+   })
+
+Error Handling
+~~~~~~~~~~~~~
+
+The upload system provides comprehensive error handling:
+
+* **File Type Validation**: Only supported formats are accepted
+* **Size Limits**: Backend enforces reasonable file size limits
+* **Network Errors**: Connection issues are handled gracefully
+* **Processing Errors**: PDF parsing errors are reported to the user
+
+**Error Display**:
+
+.. code-block:: jsx
+
+   {error && (
+     <div className="error-message">
+       <AlertCircle className="h-4 w-4" />
+       {error}
+     </div>
+   )}
+
+Agents Display Integration
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Location**: ``apps/www/components/agents-display.tsx``
+
+The agents display component shows available RAG sources:
+
+* Lists all configured agents and their capabilities
+* Shows uploaded file sources with descriptions
+* Provides real-time status of available RAG sources
+* Integrates with the info popup in the chat interface
+
+**Features**:
+   * Dynamic source listing
+   * File type indicators
+   * Upload status tracking
+   * Source descriptions
+
 Component Registry
 -----------------
 

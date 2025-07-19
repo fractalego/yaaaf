@@ -1,9 +1,18 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from "react"
-import { ArrowUp, Square, ThumbsDown, ThumbsUp } from "lucide-react"
+import {
+  ArrowUp,
+  Database,
+  Paperclip,
+  Square,
+  ThumbsDown,
+  ThumbsUp,
+} from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { FileUpload } from "@/components/file-upload"
+import { SqlUpload } from "@/components/sql-upload"
 import { useAutosizeTextArea } from "@/registry/default/hooks/use-autosize-textarea"
 import { Button } from "@/registry/default/ui/button"
 import { InterruptPrompt } from "@/registry/default/ui/interrupt-prompt"
@@ -20,6 +29,14 @@ interface MessageInputProps
     rating: "thumbs-up" | "thumbs-down"
   ) => void
   lastMessageId?: string
+  hasRagAgent?: boolean
+  hasSqlAgent?: boolean
+  onFileUpload?: (sourceId: string, fileName: string) => void
+  onSqlUpload?: (
+    tableName: string,
+    fileName: string,
+    rowsInserted: number
+  ) => void
 }
 
 export function MessageInput({
@@ -32,6 +49,10 @@ export function MessageInput({
   enableInterrupt = true,
   onRateResponse,
   lastMessageId,
+  hasRagAgent = false,
+  hasSqlAgent = false,
+  onFileUpload,
+  onSqlUpload,
   ...props
 }: MessageInputProps) {
   const [showInterruptPrompt, setShowInterruptPrompt] = useState(false)
@@ -130,7 +151,37 @@ export function MessageInput({
         </div>
       </div>
 
-      <div className="absolute right-3 top-3 z-20 flex gap-2">
+      <div className="absolute right-3 top-3 z-20 flex gap-1">
+        {/* File Upload Button - Show only if RAG agent is present */}
+        {hasRagAgent && (
+          <FileUpload onFileUpload={onFileUpload}>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              aria-label="Upload document"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+          </FileUpload>
+        )}
+
+        {/* SQL Upload Button - Show only if SQL agent is present */}
+        {hasSqlAgent && (
+          <SqlUpload onFileUpload={onSqlUpload}>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              aria-label="Upload CSV/Excel to database"
+            >
+              <Database className="h-4 w-4" />
+            </Button>
+          </SqlUpload>
+        )}
+
         {isGenerating && stop ? (
           <Button
             type="button"

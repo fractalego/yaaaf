@@ -5,17 +5,17 @@ import remarkGfm from "remark-gfm"
 
 import { processTableCellContent } from "@/lib/url-utils"
 import { cn } from "@/lib/utils"
+import { AnswererAgent } from "@/registry/custom/answerer-agent"
 import { Artefact } from "@/registry/custom/artefact"
 import { BashAgent } from "@/registry/custom/bash-agent"
 import { BraveSearchAgent } from "@/registry/custom/brave-search-agent"
 import { Complete } from "@/registry/custom/complete"
+import { DocumentRetrieverAgent } from "@/registry/custom/document-retriever-agent"
 import { DuckDuckGoSearchAgent } from "@/registry/custom/duck-duck-go-search-agent"
 import { ImageOutput } from "@/registry/custom/image-output"
 import { MleAgent } from "@/registry/custom/mle-agent"
 import { NumericalSequencesAgent } from "@/registry/custom/numerical-sequences-agent"
 import { Paused } from "@/registry/custom/paused"
-import { DocumentRetrieverAgent } from "@/registry/custom/document-retriever-agent"
-import { AnswererAgent } from "@/registry/custom/answerer-agent"
 import { ReviewerAgent } from "@/registry/custom/reviewer-agent"
 import { SqlAgent } from "@/registry/custom/sql-agent"
 import { TodoAgent } from "@/registry/custom/todo-agent"
@@ -240,7 +240,10 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     },
     documentretrieveragent: ({ children, ...props }: any) => {
       return (
-        <DocumentRetrieverAgent text={children} modelName={props["data-model"]}></DocumentRetrieverAgent>
+        <DocumentRetrieverAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></DocumentRetrieverAgent>
       )
     },
     urlagent: ({ children, ...props }: any) => {
@@ -279,7 +282,10 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     },
     answereragent: ({ children, ...props }: any) => {
       return (
-        <AnswererAgent text={children} modelName={props["data-model"]}></AnswererAgent>
+        <AnswererAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></AnswererAgent>
       )
     },
     h1: withClass("h1", "text-2xl font-semibold"),

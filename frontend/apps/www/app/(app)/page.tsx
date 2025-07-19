@@ -53,7 +53,8 @@ export default function ChatDemo() {
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(
     null
   )
-  const [hasDocumentRetrieverAgent, setHasDocumentRetrieverAgent] = useState<boolean>(false)
+  const [hasDocumentRetrieverAgent, setHasDocumentRetrieverAgent] =
+    useState<boolean>(false)
   const [hasSqlAgent, setHasSqlAgent] = useState<boolean>(false)
 
   const [currentSessionId, setCurrentSessionId] = useState<string>(
@@ -107,12 +108,16 @@ export default function ChatDemo() {
           const agents = await response.json()
           console.log("Received agents config:", agents)
           const documentRetrieverAgentPresent = agents.some(
-            (agent: any) => agent.name === "document_retriever" && agent.type === "agent"
+            (agent: any) =>
+              agent.name === "document_retriever" && agent.type === "agent"
           )
           const sqlAgentPresent = agents.some(
             (agent: any) => agent.name === "sql" && agent.type === "agent"
           )
-          console.log("Document retriever agent present:", documentRetrieverAgentPresent)
+          console.log(
+            "Document retriever agent present:",
+            documentRetrieverAgentPresent
+          )
           console.log("SQL agent present:", sqlAgentPresent)
           setHasDocumentRetrieverAgent(documentRetrieverAgentPresent)
           setHasSqlAgent(sqlAgentPresent)

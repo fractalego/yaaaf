@@ -196,14 +196,14 @@ def get_agents_config() -> List[AgentInfo]:
         raise
 
 
-# Global variable to store uploaded RAG sources
+# Global variable to store uploaded document sources
 _uploaded_rag_sources = {}
 
 
 async def upload_file_to_rag(file: UploadFile, pages_per_chunk: int = Form(-1)) -> FileUploadResponse:
-    """Upload a file and add it to the RAG agent sources"""
+    """Upload a file and add it to the document retriever agent sources"""
     try:
-        # Check if RAG agent is configured
+        # Check if document retriever agent is configured
         config = get_config()
         has_rag_agent = False
         for agent_config in config.agents:
@@ -213,7 +213,7 @@ async def upload_file_to_rag(file: UploadFile, pages_per_chunk: int = Form(-1)) 
                 break
         
         if not has_rag_agent:
-            raise HTTPException(status_code=400, detail="RAG agent is not configured")
+            raise HTTPException(status_code=400, detail="Document retriever agent is not configured")
         
         # Validate file type
         if not file.filename:
@@ -235,7 +235,7 @@ async def upload_file_to_rag(file: UploadFile, pages_per_chunk: int = Form(-1)) 
         # Use filename as initial description
         initial_description = f"Uploaded file: {file.filename}"
         
-        # Create RAG source and index the content
+        # Create document source and index the content
         rag_source = RAGSource(description=initial_description, source_path=f"uploaded_{source_id}")
         
         if file_extension == 'pdf':
@@ -274,7 +274,7 @@ async def upload_file_to_rag(file: UploadFile, pages_per_chunk: int = Form(-1)) 
 
 
 def update_rag_source_description(request: UpdateDescriptionRequest) -> UpdateDescriptionResponse:
-    """Update the description of an uploaded RAG source"""
+    """Update the description of an uploaded document source"""
     try:
         source_id = request.source_id
         new_description = request.description
@@ -301,7 +301,7 @@ def update_rag_source_description(request: UpdateDescriptionRequest) -> UpdateDe
 
 
 def get_uploaded_rag_sources():
-    """Get all uploaded RAG sources"""
+    """Get all uploaded document sources"""
     return list(_uploaded_rag_sources.values())
 
 

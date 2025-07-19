@@ -318,6 +318,12 @@ Orchestrator agent: This agent orchestrates the agents.
                         )
                     )
                 )
+        
+        # Truncate all cells to 200 characters max
+        for col in df_clean.columns:
+            df_clean[col] = df_clean[col].astype(str).apply(
+                lambda x: x[:200] + "..." if len(x) > 200 else x
+            )
 
         # Check if we need to truncate
         is_truncated = len(df_clean) > max_rows

@@ -15,7 +15,7 @@ class TestOrchestratorBuilder(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_build_with_rag_agent_and_text_source(self):
-        """Test that the orchestrator builder correctly builds RAG agent with text sources."""
+        """Test that the orchestrator builder correctly builds document retriever agent with text sources."""
         # Create a minimal config with RAG agent and text source
         config = Settings(
             client=ClientSettings(
@@ -39,14 +39,14 @@ class TestOrchestratorBuilder(unittest.IsolatedAsyncioTestCase):
         # Verify the orchestrator was created
         self.assertIsNotNone(orchestrator)
 
-        # Verify that the RAG agent was subscribed
+        # Verify that the document retriever agent was subscribed
         self.assertEqual(len(orchestrator._agents_map), 1)
 
-        # Get the RAG agent
+        # Get the document retriever agent
         rag_agent = list(orchestrator._agents_map.values())[0]
-        self.assertEqual(rag_agent.__class__.__name__, "RAGAgent")
+        self.assertEqual(rag_agent.__class__.__name__, "DocumentRetrieverAgent")
 
-        # Verify the RAG agent has sources
+        # Verify the document retriever agent has sources
         self.assertGreater(len(rag_agent._sources), 0)
 
         # Verify the source has the correct description
@@ -90,7 +90,7 @@ class TestOrchestratorBuilder(unittest.IsolatedAsyncioTestCase):
                 agent.__class__.__name__ for agent in orchestrator._agents_map.values()
             ]
             self.assertIn("SqlAgent", agent_classes)
-            self.assertIn("RAGAgent", agent_classes)
+            self.assertIn("DocumentRetrieverAgent", agent_classes)
 
         finally:
             # Clean up temporary file
@@ -98,7 +98,7 @@ class TestOrchestratorBuilder(unittest.IsolatedAsyncioTestCase):
                 os.unlink(temp_db_path)
 
     def test_create_rag_sources_from_directory(self):
-        """Test that the builder can create RAG sources from a directory of text files."""
+        """Test that the builder can create document sources from a directory of text files."""
         # Create a temporary directory with test files
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create test text files
@@ -131,7 +131,7 @@ class TestOrchestratorBuilder(unittest.IsolatedAsyncioTestCase):
             builder = OrchestratorBuilder(config)
             rag_sources = builder._create_rag_sources()
 
-            # Verify RAG source was created
+            # Verify document source was created
             self.assertEqual(len(rag_sources), 1)
 
             rag_source = rag_sources[0]
@@ -169,7 +169,7 @@ class TestOrchestratorBuilder(unittest.IsolatedAsyncioTestCase):
                 os.unlink(temp_file_path)
 
     async def test_rag_agent_integration_with_archaeology_file(self):
-        """Integration test: Test RAG agent with the actual archaeology file."""
+        """Integration test: Test document retriever agent with the actual archaeology file."""
         # Skip if the archaeology file doesn't exist
         if not os.path.exists(self.archaeology_file):
             self.skipTest(f"Archaeology file not found at {self.archaeology_file}")
@@ -205,7 +205,7 @@ class TestOrchestratorBuilder(unittest.IsolatedAsyncioTestCase):
             answer = asyncio.run(orchestrator.query(messages))
             self.assertIsInstance(answer, str)
             self.assertGreater(len(answer), 0)
-            # Should contain an artifact reference for the RAG results
+            # Should contain an artifact reference for the document retrieval results
             self.assertIn("artefact", answer.lower())
         except Exception as e:
             # If the test fails due to LLM unavailability, just verify the setup worked

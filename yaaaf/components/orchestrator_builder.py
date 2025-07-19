@@ -5,7 +5,7 @@ from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaaf.components.agents.todo_agent import TodoAgent
 from yaaaf.components.agents.reviewer_agent import ReviewerAgent
 from yaaaf.components.agents.sql_agent import SqlAgent
-from yaaaf.components.agents.rag_agent import RAGAgent
+from yaaaf.components.agents.document_retriever_agent import DocumentRetrieverAgent
 from yaaaf.components.agents.url_agent import URLAgent
 from yaaaf.components.agents.url_reviewer_agent import UrlReviewerAgent
 from yaaaf.components.agents.user_input_agent import UserInputAgent
@@ -31,7 +31,7 @@ class OrchestratorBuilder:
             "todo": TodoAgent,
             "visualization": VisualizationAgent,
             "sql": SqlAgent,
-            "rag": RAGAgent,
+            "rag": DocumentRetrieverAgent,
             "reviewer": ReviewerAgent,
             "websearch": DuckDuckGoSearchAgent,
             "brave_search": BraveSearchAgent,
@@ -54,7 +54,7 @@ class OrchestratorBuilder:
                 return f.read()
 
     def _create_rag_sources(self) -> List[RAGSource]:
-        """Create RAG sources from text-type sources in config."""
+        """Create document sources from text-type sources in config."""
         rag_sources = []
         
         # Add uploaded sources if available
@@ -62,12 +62,12 @@ class OrchestratorBuilder:
             from yaaaf.server.routes import get_uploaded_rag_sources
             uploaded_sources = get_uploaded_rag_sources()
             rag_sources.extend(uploaded_sources)
-            _logger.info(f"Added {len(uploaded_sources)} uploaded RAG sources")
+            _logger.info(f"Added {len(uploaded_sources)} uploaded document sources")
         except ImportError:
             # Routes module might not be available in some contexts
             pass
         except Exception as e:
-            _logger.warning(f"Could not load uploaded RAG sources: {e}")
+            _logger.warning(f"Could not load uploaded document sources: {e}")
         
         for source_config in self.config.sources:
             if source_config.type == "text":

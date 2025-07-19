@@ -9,13 +9,13 @@ from yaaaf.components.agents.base_agent import BaseAgent
 from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, PromptTemplate, Note
-from yaaaf.components.agents.prompts import rag_agent_prompt_template
+from yaaaf.components.agents.prompts import document_retriever_agent_prompt_template
 from yaaaf.components.sources.rag_source import RAGSource
 from yaaaf.components.decorators import handle_exceptions
 
 
-class RAGAgent(BaseAgent):
-    _system_prompt: PromptTemplate = rag_agent_prompt_template
+class DocumentRetrieverAgent(BaseAgent):
+    _system_prompt: PromptTemplate = document_retriever_agent_prompt_template
     _completing_tags: List[str] = [task_completed_tag]
     _output_tag = "```retrieved"
     _stop_sequences = [task_completed_tag]
@@ -54,7 +54,7 @@ class RAGAgent(BaseAgent):
             ):  # Skip first step to avoid duplication with orchestrator
                 model_name = getattr(self._client, "model", None)
                 internal_note = Note(
-                    message=f"[RAG Step {step_idx}] {answer}",
+                    message=f"[Document Retrieval Step {step_idx}] {answer}",
                     artefact_id=None,
                     agent_name=self.get_name(),
                     model_name=model_name,
@@ -101,27 +101,27 @@ class RAGAgent(BaseAgent):
         df = pd.DataFrame(
             {"retrieved text chunks": all_retrieved_nodes, "source": all_sources}
         )
-        rag_id: str = str(hash(str(messages))).replace("-", "")
+        retrieval_id: str = str(hash(str(messages))).replace("-", "")
         self._storage.store_artefact(
-            rag_id,
+            retrieval_id,
             Artefact(
                 type=Artefact.Types.TABLE,
                 description=str(messages),
                 data=df,
-                id=rag_id,
+                id=retrieval_id,
             ),
         )
         return (
-            f"The result is in this artefact <artefact type='table'>{rag_id}</artefact>"
+            f"The result is in this artefact <artefact type='table'>{retrieval_id}</artefact>"
         )
 
     def get_status_info(self) -> str:
-        """Report status information about available RAG sources."""
+        """Report status information about available document sources."""
         if not self._sources:
-            return "No RAG sources available"
+            return "No document sources available"
         
         status_parts = []
-        status_parts.append(f"Available RAG sources ({len(self._sources)} total):")
+        status_parts.append(f"Available document sources ({len(self._sources)} total):")
         
         for i, source in enumerate(self._sources, 1):
             # Get source description and path info
@@ -142,13 +142,13 @@ class RAGAgent(BaseAgent):
     def get_info() -> str:
         """Get a brief high-level description of what this agent does."""
         return (
-            "This agent queries the RAG sources and retrieves the relevant information"
+            "This agent searches document sources and retrieves relevant information"
         )
 
     def get_description(self) -> str:
         return f"""
-RAG agent: {self.get_info()}.
+Document Retriever agent: {self.get_info()}.
 Each source is a folder containing a list of documents.
-This agent accepts a query in plain English and returns the relevant documents from the sources.
-These documents provide the information needed to answer the user's question.
+This agent accepts a query in plain English and returns relevant document chunks from the sources.
+These document chunks provide the information needed to answer the user's question.
         """

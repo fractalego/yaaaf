@@ -4,7 +4,7 @@ import unittest
 
 from typing import List
 
-from yaaaf.components.agents.rag_agent import RAGAgent
+from yaaaf.components.agents.document_retriever_agent import DocumentRetrieverAgent
 from yaaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
 from yaaaf.components.client import OllamaClient
 from yaaaf.components.data_types import Messages, Note
@@ -24,7 +24,7 @@ _overlap = 100
 ]
 
 
-class TestSqlAgent(unittest.TestCase):
+class TestDocumentRetrieverAgent(unittest.TestCase):
     def test_single_source(self):
         client = OllamaClient(
             model="qwen2.5:32b",
@@ -35,7 +35,7 @@ class TestSqlAgent(unittest.TestCase):
             "What constitutes an excavation priority area in archaeology?"
         )
         notes: List[Note] = []
-        agent = RAGAgent(client, sources=[_source])
+        agent = DocumentRetrieverAgent(client, sources=[_source])
         answer = asyncio.run(
             agent.query(
                 messages=messages,

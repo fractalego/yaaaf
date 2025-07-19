@@ -126,23 +126,28 @@ When you are done output the tag {task_completed_tag}.
 )
 
 
-rag_agent_prompt_template = PromptTemplate(
+document_retriever_agent_prompt_template = PromptTemplate(
     prompt="""
-Your task is to retrieve information from a collection of texts and pages organised in a list of folders. 
-The folders indices with their relative descriptions are given below.
+Your task is to retrieve relevant information from document collections organized in folders. 
+The available document sources with their descriptions are listed below.
 <folders>
 {folders}
 </folders>
 
-Each folder can be queried with a specific query in plain English.
-In the end, you need to output a markdown table with the folder_index and the English query to run on for each folder to answer the user's question.
-You can think step-by-step on the actions to take.
-However the final output needs to be a markdown table.
-This output *must* be between the markdown tags ```retrieved ... ```
-The markdown table must have the following columns: 
+Each document source can be searched with a specific query in plain English.
+Analyze the user's question and determine which document sources to search and what queries to use.
+Create targeted search queries that will find the most relevant information to answer the user's question.
+
+Output a markdown table with the folder_index and the search query for each document source.
+You can think step-by-step about the best search strategy.
+However, the final output must be a markdown table between the tags ```retrieved ... ```
+
+The markdown table must have exactly these columns: 
 | folder_index | query |
 | ----------- | ----------- |
 | ....| ..... | 
+
+Each query should be specific and focused on finding information relevant to answering the user's question.
     """
 )
 

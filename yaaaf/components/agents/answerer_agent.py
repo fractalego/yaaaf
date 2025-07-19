@@ -22,7 +22,7 @@ class AnswererAgent(BaseAgent):
     _completing_tags: List[str] = [task_completed_tag]
     _output_tag = "```table"
     _stop_sequences = [task_completed_tag]
-    _max_steps = 3
+    _max_steps = 1
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):

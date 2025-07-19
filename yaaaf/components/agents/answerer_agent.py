@@ -168,5 +168,12 @@ class AnswererAgent(BaseAgent):
 Answerer agent: {self.get_info()}.
 This agent processes artifacts from multiple sources (document retrieval, SQL queries, web search, etc.)
 and generates a structured research answer with proper citations.
-Output format: markdown table with | paragraph | source | columns.
+The arguments within the tags must be: 
+1) instructions about what to look for in the data
+2) the artefacts <artefact> ... </artefact> that describe what was found by the other agents above.
+
+Output format: markdown table with columns
+| paragraph | source |
+| --- | --- |
+| ... | ... |
         """

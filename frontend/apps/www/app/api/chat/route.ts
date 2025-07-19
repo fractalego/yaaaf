@@ -1,5 +1,6 @@
 import { createDataStreamResponse } from "ai"
 
+import { escapeHtmlContent } from "@/lib/html-escape"
 import {
   complete_tag,
   create_stream_url,
@@ -117,12 +118,7 @@ export async function POST(req: Request) {
                     utterance += " 🤔 <em>(Waiting for your response...)</em>"
                   }
 
-                  utterance = utterance.replaceAll("\n", "<br/>")
-                  utterance = utterance.replaceAll('"', "&quot;")
-                  utterance = utterance.replaceAll(
-                    "\t",
-                    "&nbsp;&nbsp;&nbsp;&nbsp;"
-                  )
+                  utterance = escapeHtmlContent(utterance)
 
                   messageCount++
 

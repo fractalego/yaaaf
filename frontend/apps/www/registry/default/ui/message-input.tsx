@@ -29,7 +29,7 @@ interface MessageInputProps
     rating: "thumbs-up" | "thumbs-down"
   ) => void
   lastMessageId?: string
-  hasRagAgent?: boolean
+  hasDocumentRetrieverAgent?: boolean
   hasSqlAgent?: boolean
   onFileUpload?: (sourceId: string, fileName: string) => void
   onSqlUpload?: (
@@ -49,7 +49,7 @@ export function MessageInput({
   enableInterrupt = true,
   onRateResponse,
   lastMessageId,
-  hasRagAgent = false,
+  hasDocumentRetrieverAgent = false,
   hasSqlAgent = false,
   onFileUpload,
   onSqlUpload,
@@ -152,8 +152,8 @@ export function MessageInput({
       </div>
 
       <div className="absolute right-3 top-3 z-20 flex gap-1">
-        {/* File Upload Button - Show only if RAG agent is present */}
-        {hasRagAgent && (
+        {/* File Upload Button - Show only if Document Retriever agent is present */}
+        {hasDocumentRetrieverAgent && (
           <FileUpload onFileUpload={onFileUpload}>
             <Button
               type="button"

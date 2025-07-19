@@ -189,7 +189,7 @@ DocumentRetrieverAgent
    * **Flexible Chunking**: Configure how PDF content is split (whole document, page-by-page, or custom chunk sizes)
    * **Status Reporting**: Reports available sources to the orchestrator for better decision-making
 
-**Usage Tags**: ``<ragagent>...</ragagent>``
+**Usage Tags**: ``<documentretrieveragent>...</documentretrieveragent>``
 
 **Supported File Formats**:
    * Text files: ``.txt``, ``.md``, ``.html``, ``.htm``

@@ -106,7 +106,7 @@ python -m yaaaf frontend 3000
 | **VisualizationAgent** | Charts & graphs | `<visualizationagent>` | Matplotlib visualizations from data |
 | **WebSearchAgent** | Web search | `<websearchagent>` | DuckDuckGo search integration |
 | **ReflectionAgent** | Planning & reasoning | `<reflectionagent>` | Step-by-step problem breakdown |
-| **DocumentRetrieverAgent** | Document retrieval | `<ragagent>` | Document search and retrieval from configured sources |
+| **DocumentRetrieverAgent** | Document retrieval | `<documentretrieveragent>` | Document search and retrieval from configured sources |
 | **TodoAgent** | Task planning | `<todoagent>` | Creates structured todo lists for complex tasks |
 | **MleAgent** | Machine learning | `<mleagent>` | sklearn model training & analysis |
 | **ReviewerAgent** | Data analysis | `<revieweragent>` | Extract insights from artifacts |

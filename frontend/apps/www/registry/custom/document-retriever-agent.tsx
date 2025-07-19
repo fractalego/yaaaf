@@ -4,7 +4,7 @@ import * as React from "react"
 
 import { ModelIndicator } from "./model-indicator"
 
-function RagAgent(element: { text: string; modelName?: string }) {
+function DocumentRetrieverAgent(element: { text: string; modelName?: string }) {
   return (
     <div className="inline-block bg-slate-100 dark:bg-slate-800 dark:text-white p-3 text-xl rounded-sm">
       <div className="flex items-center gap-2 mb-1">
@@ -30,7 +30,7 @@ function RagAgent(element: { text: string; modelName?: string }) {
           </svg>
         </div>
         <span className="flex-1 text-xs text-slate-600 dark:text-slate-400 opacity-70 font-mono">
-          RAG Agent
+          Document Retriever Agent
         </span>
         {element.modelName && (
           <ModelIndicator
@@ -45,5 +45,5 @@ function RagAgent(element: { text: string; modelName?: string }) {
   )
 }
 
-RagAgent.displayName = "RagAgent"
-export { RagAgent }
+DocumentRetrieverAgent.displayName = "DocumentRetrieverAgent"
+export { DocumentRetrieverAgent }

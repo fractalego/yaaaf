@@ -53,7 +53,7 @@ export default function ChatDemo() {
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(
     null
   )
-  const [hasRagAgent, setHasRagAgent] = useState<boolean>(false)
+  const [hasDocumentRetrieverAgent, setHasDocumentRetrieverAgent] = useState<boolean>(false)
   const [hasSqlAgent, setHasSqlAgent] = useState<boolean>(false)
 
   const [currentSessionId, setCurrentSessionId] = useState<string>(
@@ -105,13 +105,13 @@ export default function ChatDemo() {
         const response = await fetch("http://localhost:4000/get_agents_config")
         if (response.ok) {
           const agents = await response.json()
-          const ragAgentPresent = agents.some(
+          const documentRetrieverAgentPresent = agents.some(
             (agent: any) => agent.name === "rag" && agent.type === "agent"
           )
           const sqlAgentPresent = agents.some(
             (agent: any) => agent.name === "sql" && agent.type === "agent"
           )
-          setHasRagAgent(ragAgentPresent)
+          setHasDocumentRetrieverAgent(documentRetrieverAgentPresent)
           setHasSqlAgent(sqlAgentPresent)
         }
       } catch (error) {
@@ -131,7 +131,7 @@ export default function ChatDemo() {
     await sendFeedback(getSessionId(), rating)
   }
 
-  // Handle file upload (for RAG)
+  // Handle file upload (for Document Retriever Agent)
   const handleFileUpload = (sourceId: string, fileName: string) => {
     console.log(`File uploaded: ${fileName} with source ID: ${sourceId}`)
     // You could add a toast notification here or update UI to show upload success
@@ -189,7 +189,7 @@ export default function ChatDemo() {
               suggestions={query_suggestions.split(",")}
               onArtifactClick={setSelectedArtifactId}
               onRateResponse={handleRateResponse}
-              hasRagAgent={hasRagAgent}
+              hasDocumentRetrieverAgent={hasDocumentRetrieverAgent}
               hasSqlAgent={hasSqlAgent}
               onFileUpload={handleFileUpload}
               onSqlUpload={handleSqlUpload}

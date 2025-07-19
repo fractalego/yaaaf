@@ -196,7 +196,7 @@ class TestOrchestratorBuilder(unittest.IsolatedAsyncioTestCase):
         from yaaaf.components.data_types import Messages
 
         messages = Messages().add_user_utterance(
-            "<ragagent>What is archaeology and what are its main methods?</ragagent>"
+            "<documentretrieveragent>What is archaeology and what are its main methods?</documentretrieveragent>"
         )
 
         # This is an integration test - it requires a working LLM

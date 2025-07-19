@@ -88,12 +88,13 @@ export default function ChatDemo() {
     originalAppend(message)
   }
 
-  // Check for paused messages and mark session accordingly
+  // Check for paused or completed messages and mark session accordingly
   useEffect(() => {
     const lastMessage = messages[messages.length - 1]
     if (
       lastMessage?.role === "assistant" &&
-      lastMessage?.content?.includes("<taskpaused/>")
+      (lastMessage?.content?.includes("<taskpaused/>") ||
+       lastMessage?.content?.includes("<taskcompleted/>"))
     ) {
       markSessionAsPaused()
     }

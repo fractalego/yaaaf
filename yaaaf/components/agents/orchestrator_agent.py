@@ -217,8 +217,9 @@ class OrchestratorAgent(BaseAgent):
 
         for tag, agent in available_agents.items():
             if tag in answer:
+                opening_tag = agent.get_opening_tag().replace(">", ".*?>")
                 matches = re.findall(
-                    rf"{agent.get_opening_tag()}(.+)", answer, re.DOTALL | re.MULTILINE
+                    rf"{opening_tag}(.+)", answer, re.DOTALL | re.MULTILINE
                 )
                 if matches:
                     return agent, matches[0]

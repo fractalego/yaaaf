@@ -174,10 +174,10 @@ ReflectionAgent
    How should I approach analyzing customer churn in our database?
    </reflectionagent>
 
-RAGAgent
-~~~~~~~~
+DocumentRetrieverAgent
+~~~~~~~~~~~~~~~~~~~~~~
 
-**Purpose**: Retrieval-augmented generation from document collections with support for various file formats including PDFs with configurable chunking.
+**Purpose**: Document search and retrieval from configured document collections with support for various file formats including PDFs with configurable chunking.
 
 **Capabilities**:
    * Searches through document collections using BM25 indexing
@@ -216,11 +216,11 @@ RAGAgent
        pdf_source.add_pdf(pdf_content, "manual.pdf", pages_per_chunk=-1)
    sources.append(pdf_source)
    
-   rag_agent = RAGAgent(client, sources)
+   document_retriever_agent = DocumentRetrieverAgent(client, sources)
 
 **File Upload via Frontend**:
 
-The RAG agent supports dynamic file uploads through the frontend interface:
+The Document Retriever agent supports dynamic file uploads through the frontend interface:
 
 1. **Upload Interface**: Click the paperclip icon in the chat input area
 2. **File Selection**: Drag and drop or click to select supported files
@@ -246,7 +246,7 @@ The RAG agent supports dynamic file uploads through the frontend interface:
 
 **API Integration**:
 
-The RAG agent integrates with the file upload API:
+The Document Retriever agent integrates with the file upload API:
 
 .. code-block:: bash
 
@@ -257,11 +257,11 @@ The RAG agent integrates with the file upload API:
 
 **Status Reporting**:
 
-The RAG agent reports its available sources to the orchestrator, helping it make better routing decisions:
+The Document Retriever agent reports its available sources to the orchestrator, helping it make better routing decisions:
 
 .. code-block:: text
 
-   Available RAG sources (3 total):
+   Available document sources (3 total):
      1. Uploaded file: manual.pdf
      2. File/Directory: Technical documentation
      3. Uploaded file: company_policies.txt
@@ -524,9 +524,9 @@ Agents requiring data sources need proper configuration:
    sqlite_source = SqliteSource("data/database.db")
    sql_agent = SqlAgent(client, sqlite_source)
    
-   # RAG Agent with document sources
+   # Document Retriever Agent with document sources
    text_sources = [TextSource("documents/folder1/"), TextSource("documents/folder2/")]
-   rag_agent = RAGAgent(client, text_sources)
+   document_retriever_agent = DocumentRetrieverAgent(client, text_sources)
 
 Agent Registry
 ~~~~~~~~~~~~~

@@ -4,7 +4,7 @@ YAAAF is a modular framework for building intelligent agentic applications with 
 
 ## 🚀 Key Features
 
-- **🤖 Modular Agent System**: Specialized agents for SQL, visualization, web search, ML, RAG, and more
+- **🤖 Modular Agent System**: Specialized agents for SQL, visualization, web search, ML, document retrieval, and more
 - **🎯 Orchestrator Pattern**: Central coordinator that intelligently routes queries to appropriate agents
 - **🔌 MCP Integration**: Full support for Model Context Protocol (MCP) with SSE and stdio transports
 - **⚡ Real-time Streaming**: Live updates through WebSocket-like streaming with structured Note objects
@@ -106,7 +106,7 @@ python -m yaaaf frontend 3000
 | **VisualizationAgent** | Charts & graphs | `<visualizationagent>` | Matplotlib visualizations from data |
 | **WebSearchAgent** | Web search | `<websearchagent>` | DuckDuckGo search integration |
 | **ReflectionAgent** | Planning & reasoning | `<reflectionagent>` | Step-by-step problem breakdown |
-| **RAGAgent** | Document retrieval | `<ragagent>` | Retrieval-augmented generation |
+| **DocumentRetrieverAgent** | Document retrieval | `<ragagent>` | Document search and retrieval from configured sources |
 | **TodoAgent** | Task planning | `<todoagent>` | Creates structured todo lists for complex tasks |
 | **MleAgent** | Machine learning | `<mleagent>` | sklearn model training & analysis |
 | **ReviewerAgent** | Data analysis | `<revieweragent>` | Extract insights from artifacts |

@@ -44,7 +44,6 @@ You can think step-by-step on the actions to take.
 However the final output needs to be an SQL instruction string.
 This output *must* be between the markdown tags ```sql SQL INSTRUCTION STRING ```
 Only give one SQL instruction string per answer.
-Limit the number of output rows to 20 at most.
     """
 )
 

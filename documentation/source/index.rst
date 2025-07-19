@@ -72,6 +72,7 @@ YAAAF includes several built-in agents:
 * **BraveSearchAgent**: Privacy-focused web search using Brave's independent search API
 * **ReflectionAgent**: Provides step-by-step reasoning and planning
 * **DocumentRetrieverAgent**: Document search and retrieval from configured sources
+* **AnswererAgent**: Synthesizes multiple artifacts into comprehensive research answers
 * **TodoAgent**: Creates structured todo lists for planning complex multi-agent tasks
 * **ToolAgent**: Advanced integration with MCP (Model Context Protocol) tools and external services
 

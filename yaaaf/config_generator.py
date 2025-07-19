@@ -26,7 +26,8 @@ class ConfigGenerator:
             "reflection": "Step-by-step reasoning and thinking about tasks",
             "visualization": "Creates charts and visualizations from data",
             "sql": "Executes SQL queries against databases (requires SQLite sources)",
-            "rag": "Retrieval-Augmented Generation using text sources",
+            "document_retriever": "Document search and retrieval from configured sources",
+            "answerer": "Synthesizes multiple artifacts into comprehensive research answers",
             "reviewer": "Analyzes artifacts and validates results",
             "websearch": "Performs web searches using DuckDuckGo",
             "url": "Analyzes content from URLs based on instructions",
@@ -187,11 +188,11 @@ class ConfigGenerator:
         print("\n📚 Text Sources (for RAG)")
         print("-" * 30)
 
-        if "rag" not in self.config["agents"]:
-            print("ℹ️  RAG agent not enabled. Skipping text sources.")
+        if "document_retriever" not in self.config["agents"]:
+            print("ℹ️  Document retriever agent not enabled. Skipping text sources.")
             return
 
-        print("Add text files or folders for the RAG agent to use.")
+        print("Add text files or folders for the document retriever agent to use.")
         print("Supported formats: .txt, .md, .html, .htm")
 
         while True:

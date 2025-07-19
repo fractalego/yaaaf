@@ -15,6 +15,7 @@ import { MleAgent } from "@/registry/custom/mle-agent"
 import { NumericalSequencesAgent } from "@/registry/custom/numerical-sequences-agent"
 import { Paused } from "@/registry/custom/paused"
 import { DocumentRetrieverAgent } from "@/registry/custom/document-retriever-agent"
+import { AnswererAgent } from "@/registry/custom/answerer-agent"
 import { ReviewerAgent } from "@/registry/custom/reviewer-agent"
 import { SqlAgent } from "@/registry/custom/sql-agent"
 import { TodoAgent } from "@/registry/custom/todo-agent"
@@ -274,6 +275,11 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
     bashagent: ({ children, ...props }: any) => {
       return (
         <BashAgent text={children} modelName={props["data-model"]}></BashAgent>
+      )
+    },
+    answereragent: ({ children, ...props }: any) => {
+      return (
+        <AnswererAgent text={children} modelName={props["data-model"]}></AnswererAgent>
       )
     },
     h1: withClass("h1", "text-2xl font-semibold"),

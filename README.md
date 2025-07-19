@@ -107,6 +107,7 @@ python -m yaaaf frontend 3000
 | **WebSearchAgent** | Web search | `<websearchagent>` | DuckDuckGo search integration |
 | **ReflectionAgent** | Planning & reasoning | `<reflectionagent>` | Step-by-step problem breakdown |
 | **DocumentRetrieverAgent** | Document retrieval | `<documentretrieveragent>` | Document search and retrieval from configured sources |
+| **AnswererAgent** | Research synthesis | `<answereragent>` | Synthesizes multiple artifacts into comprehensive research answers |
 | **TodoAgent** | Task planning | `<todoagent>` | Creates structured todo lists for complex tasks |
 | **MleAgent** | Machine learning | `<mleagent>` | sklearn model training & analysis |
 | **ReviewerAgent** | Data analysis | `<revieweragent>` | Extract insights from artifacts |
@@ -235,13 +236,14 @@ YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM pr
     },
     "sql",
     {
-      "name": "rag",
+      "name": "document_retriever",
       "model": "qwen2.5:14b", 
       "temperature": 0.8,
       "max_tokens": 4096,
       "host": "http://localhost:11435"
     },
     "reviewer",
+    "answerer",
     "websearch",
     "url_reviewer",
     "bash",

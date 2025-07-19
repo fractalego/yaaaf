@@ -266,6 +266,75 @@ The Document Retriever agent reports its available sources to the orchestrator, 
      2. File/Directory: Technical documentation
      3. Uploaded file: company_policies.txt
 
+AnswererAgent
+~~~~~~~~~~~~~
+
+**Purpose**: Synthesizes information from multiple artifacts to generate comprehensive, well-cited research answers.
+
+**Capabilities**:
+   * Processes multiple artifacts from different agents simultaneously
+   * Analyzes data from Document Retriever, SQL Agent, Web Search, and other agents
+   * Generates structured research answers with proper citations
+   * Creates markdown tables with paragraph and source columns
+   * Provides comprehensive coverage of research queries
+   * Maintains logical flow and coherent narrative
+
+**Usage Tags**: ``<answereragent>...</answereragent>``
+
+**Key Features**:
+   * **Multi-Source Analysis**: Processes artifacts from document retrieval, SQL queries, web search, and other agents
+   * **Citation Management**: Automatically extracts and formats citations from artifact metadata
+   * **Structured Output**: Generates well-organized tables with paragraph and source columns
+   * **Comprehensive Synthesis**: Combines information from diverse sources into coherent answers
+   * **Quality Validation**: Ensures proper table format and citation accuracy
+
+**Input Requirements**:
+The AnswererAgent requires one or more artifacts to analyze. These can include:
+   * Document chunks from DocumentRetrieverAgent
+   * Query results from SqlAgent
+   * Search results from WebSearchAgent
+   * Analysis results from other agents
+
+**Output Format**:
+The agent generates a markdown table with exactly these columns:
+
+.. code-block:: text
+
+   | paragraph | source |
+   | --------- | ------ |
+   | Comprehensive paragraph answering part of the research query | Specific citation/source for the information |
+   | Additional insights from different sources | Database/Document/URL reference |
+
+**Example Usage**:
+
+.. code-block:: text
+
+   <answereragent>
+   Please analyze the following artifacts and provide a comprehensive answer about AI market trends:
+   <artefact type='table'>document_search_results_123</artefact>
+   <artefact type='table'>market_data_sql_456</artefact>
+   <artefact type='table'>web_search_trends_789</artefact>
+   </answereragent>
+
+**Example Output Table**:
+
+.. code-block:: text
+
+   | paragraph | source |
+   | --------- | ------ |
+   | The AI market is experiencing unprecedented growth, with revenues reaching $150 billion in 2023 according to recent industry data. | Market Analysis Database - Q3 2023 Report |
+   | Enterprise adoption of AI solutions has increased by 40% year-over-year, particularly in healthcare and finance sectors. | Industry Survey Document: "AI Adoption Trends 2023.pdf" |
+   | Recent web sources indicate that generative AI tools are driving much of this growth, with ChatGPT reaching 100 million users. | Web Search: TechCrunch article "AI Market Boom 2023" |
+
+**Workflow Integration**:
+The AnswererAgent is typically used as a final synthesis step:
+
+1. **Data Collection**: Other agents gather information (documents, database queries, web search)
+2. **Artifact Generation**: Each agent creates artifacts with their findings
+3. **Synthesis Request**: AnswererAgent is called with multiple artifact references
+4. **Analysis & Integration**: Agent processes all artifacts and identifies key insights
+5. **Structured Output**: Generates comprehensive answer with proper citations
+
 TodoAgent
 ~~~~~~~~~
 

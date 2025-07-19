@@ -24,6 +24,7 @@ from yaaaf.components.agents.visualization_agent import VisualizationAgent
 from yaaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
 from yaaaf.components.agents.todo_agent import TodoAgent
 from yaaaf.components.agents.document_retriever_agent import DocumentRetrieverAgent
+from yaaaf.components.agents.answerer_agent import AnswererAgent
 
 # Client and configuration
 from yaaaf.components.client import BaseClient, OllamaClient
@@ -52,6 +53,7 @@ __all__ = [
     "DuckDuckGoSearchAgent",
     "TodoAgent",
     "DocumentRetrieverAgent",
+    "AnswererAgent",
     # Client implementations
     "OllamaClient",
     # Configuration

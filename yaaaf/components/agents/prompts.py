@@ -429,3 +429,45 @@ Focus on extracting meaningful numerical relationships that would be useful for 
 If multiple numerical sequences are found, create separate tables for each distinct dataset.
 """
 )
+
+
+answerer_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to analyze multiple input artifacts from different agents and generate a comprehensive answer to a research query.
+
+You will receive artifacts from various sources including:
+- Document Retriever Agent: Relevant text chunks from documents
+- SQL Agent: Query results from databases  
+- Web Search Agent: Search results from the internet
+- Other agents: Additional relevant data
+
+Input Artifacts:
+{artifacts_content}
+
+Instructions:
+1. Analyze ALL provided artifacts carefully
+2. Extract relevant information that answers the research query
+3. Synthesize information from multiple sources
+4. Create a coherent, well-structured answer
+5. Provide proper citations for each piece of information
+
+Output Format:
+Create a markdown table with exactly these columns:
+| paragraph | source |
+
+Where:
+- paragraph: A coherent paragraph answering part of the research query
+- source: The specific source/citation for that information (extracted from the artifact metadata)
+
+Requirements:
+- Each paragraph should be self-contained and informative
+- Include specific data, facts, or insights from the artifacts
+- Cite sources accurately (use artifact descriptions, URLs, table names, document names, etc.)
+- Ensure comprehensive coverage of the research query
+- Maintain logical flow between paragraphs
+
+This output *must* be between the markdown tags ```table ... ```.
+
+Focus on creating a thorough, well-cited answer that leverages all available information sources.
+    """
+)

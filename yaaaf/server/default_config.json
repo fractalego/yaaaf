@@ -17,10 +17,10 @@
     "reviewer",
     "websearch",
     "url",
-    "url_reviewer",
     "user_input",
     "bash",
-    "numerical_sequences"
+    "numerical_sequences",
+    "answerer"
   ],
   "sources": [
     {

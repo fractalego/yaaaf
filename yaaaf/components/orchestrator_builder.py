@@ -32,7 +32,7 @@ class OrchestratorBuilder:
             "todo": TodoAgent,
             "visualization": VisualizationAgent,
             "sql": SqlAgent,
-            "rag": DocumentRetrieverAgent,
+            "document_retriever": DocumentRetrieverAgent,
             "reviewer": ReviewerAgent,
             "websearch": DuckDuckGoSearchAgent,
             "brave_search": BraveSearchAgent,
@@ -241,8 +241,10 @@ class OrchestratorBuilder:
 
         # Agents section
         agents_info = ["**Available Agents:**"]
-        for agent_name, agent_class in self._agents_map.items():
-            if agent_name != "todo":
+        configured_agents = [self._get_agent_name(agent_config) for agent_config in self.config.agents]
+        for agent_name in configured_agents:
+            if agent_name != "todo" and agent_name in self._agents_map:
+                agent_class = self._agents_map[agent_name]
                 agents_info.append(f"• {agent_name}: {agent_class.get_info()}")
 
         sections.append("\n".join(agents_info))
@@ -316,7 +318,7 @@ class OrchestratorBuilder:
                         client=agent_client, sources=sql_sources
                     )
                 )
-            elif agent_name == "rag" and rag_sources:
+            elif agent_name == "document_retriever" and rag_sources:
                 orchestrator.subscribe_agent(
                     self._agents_map[agent_name](
                         client=agent_client, sources=rag_sources
@@ -333,7 +335,7 @@ class OrchestratorBuilder:
                         agents_and_sources_and_tools_list=agents_sources_tools_list,
                     )
                 )
-            elif agent_name not in ["sql", "rag", "tool", "todo"]:
+            elif agent_name not in ["sql", "document_retriever", "tool", "todo"]:
                 orchestrator.subscribe_agent(
                     self._agents_map[agent_name](client=agent_client)
                 )

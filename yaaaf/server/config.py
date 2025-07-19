@@ -96,7 +96,7 @@ def _get_simple_config() -> Settings:
             "reviewer",
             "answerer",
             "websearch",
-            "url_reviewer",
+            "answerer",
             "user_input",
             "url",
         ],

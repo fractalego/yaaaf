@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Callable
 from pydantic import BaseModel, Field
 
 from yaaaf.components.agents.settings import task_completed_tag, task_paused_tag
@@ -50,6 +50,20 @@ class Messages(BaseModel):
     def add_user_utterance(self, content: str) -> "Messages":
         user_utterance = Utterance(role="user", content=content)
         return Messages(utterances=self.utterances + [user_utterance])
+
+    def apply(self, f: Callable) -> "Messages":
+        """
+        Apply a function to each utterance in the messages.
+
+        Args:
+            f: A function that takes an Utterance and returns a modified Utterance.
+
+        Returns:
+            A new Messages object with the modified utterances.
+        """
+        for utterance in self.utterances:
+            utterance.content = f(utterance.content)
+        return self
 
     def __repr__(self):
         return "\n".join(

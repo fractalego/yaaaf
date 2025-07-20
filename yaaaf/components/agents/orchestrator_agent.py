@@ -37,6 +37,7 @@ class OrchestratorAgent(BaseAgent):
     ) -> str:
         # Reset all agent budgets at the start of each query
         self._reset_all_agent_budgets()
+        messages = messages.apply(self.simplify_agents_tags)
 
         # Extract goal once at the beginning
         goal = await self._goal_extractor.extract(messages)
@@ -48,7 +49,7 @@ class OrchestratorAgent(BaseAgent):
             response = await self._client.predict(
                 messages, stop_sequences=self._stop_sequences
             )
-            answer = response.message
+            answer = self.simplify_agents_tags(response.message)
             agent_to_call, instruction = self.map_answer_to_agent(answer)
             extracted_agent_name = Note.extract_agent_name_from_tags(answer)
             agent_name = extracted_agent_name or (
@@ -211,18 +212,27 @@ class OrchestratorAgent(BaseAgent):
         
         return "\n".join(status_entries)
 
-    def map_answer_to_agent(self, answer: str) -> Tuple[BaseAgent | None, str]:
-        # Only consider agents that still have budget
-        available_agents = self._get_available_agents()
 
-        for tag, agent in available_agents.items():
-            if tag in answer:
-                opening_tag = agent.get_opening_tag().replace(">", ".*?>")
-                matches = re.findall(
-                    rf"{opening_tag}(.+)", answer, re.DOTALL | re.MULTILINE
-                )
-                if matches:
-                    return agent, matches[0]
+    def simplify_agents_tags(self, answer: str) -> str:
+        available_agents = self._get_available_agents()
+        for _, agent in available_agents.items():
+            opening_tag = agent.get_opening_tag().replace(">", ".*?>")
+            # This is to avoid confusing the frontend
+            answer = re.sub(
+                rf"{opening_tag}", agent.get_opening_tag(), answer, flags=re.DOTALL
+            )
+
+        return answer
+
+    def map_answer_to_agent(self, answer: str) -> Tuple[BaseAgent | None, str]:
+        available_agents = self._get_available_agents()
+        for _, agent in available_agents.items():
+            opening_tag = agent.get_opening_tag().replace(">", ".*?>")
+            matches = re.findall(
+                rf"{opening_tag}(.+)", answer, re.DOTALL | re.MULTILINE
+            )
+            if matches:
+                return agent, matches[0]
 
         return None, ""
 

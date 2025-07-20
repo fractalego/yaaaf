@@ -22,13 +22,14 @@ class AnswererAgent(BaseAgent):
     _completing_tags: List[str] = [task_completed_tag]
     _output_tag = "```table"
     _stop_sequences = [task_completed_tag]
-    _max_steps = 1
+    _max_steps = 3
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):
         super().__init__()
         self._client = client
         self._artefact_extractor = ArtefactExtractor(client)
+        self.set_budget(1)
 
     @handle_exceptions
     async def query(

@@ -314,22 +314,11 @@ The arguments column should contain valid JSON that matches the tool's input sch
 
 url_agent_prompt_template = PromptTemplate(
     prompt="""
-Your task is to analyze content from URLs based on specific instructions.
+URL: {url}
+Content from the URL:
+{content}
 
-You will be given a URL and an instruction about what to look for in that URL.
-Your job is to process the request and output the URL and instruction in the correct format.
-
-Parse the user's request to extract:
-1. The URL to analyze
-2. The instruction about what to look for
-
-Output format must be:
-```url
-URL_HERE
-INSTRUCTION_HERE
-```
-
-Think step-by-step about what the user wants to find in the URL and format your response accordingly.
+Please analyze the content and respond with text that answers the user's request.
 """
 )
 

@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { useChat, type UseChatOptions } from "@ai-sdk/react"
+import { CheckSquare } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { InfoButton } from "@/components/ui/info-button"
+import { TodoListModal } from "@/components/ui/todo-list-modal"
 import { ArtefactPanel } from "@/registry/custom/artefact-panel"
+import { Button } from "@/registry/default/ui/button"
 import { Chat } from "@/registry/default/ui/chat"
 import {
   info_button_message,
@@ -56,6 +59,7 @@ export default function ChatDemo() {
   const [hasDocumentRetrieverAgent, setHasDocumentRetrieverAgent] =
     useState<boolean>(false)
   const [hasSqlAgent, setHasSqlAgent] = useState<boolean>(false)
+  const [isTodoModalOpen, setIsTodoModalOpen] = useState<boolean>(false)
 
   const [currentSessionId, setCurrentSessionId] = useState<string>(
     getSessionIdForNewMessage()
@@ -94,7 +98,7 @@ export default function ChatDemo() {
     if (
       lastMessage?.role === "assistant" &&
       (lastMessage?.content?.includes("<taskpaused/>") ||
-       lastMessage?.content?.includes("<taskcompleted/>"))
+        lastMessage?.content?.includes("<taskcompleted/>"))
     ) {
       markSessionAsPaused()
     }
@@ -171,18 +175,29 @@ export default function ChatDemo() {
           )}
         >
           <div className="mx-auto flex h-full w-full max-w-6xl flex-col">
-            {/* Header with Info Button */}
+            {/* Header with Info Button and Todo Button */}
             <div className="flex items-center justify-between border-b border-border/50 p-4">
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-semibold text-foreground">
                   YAAAF Chat
                 </h1>
               </div>
-              <InfoButton
-                title={info_button_title}
-                message={info_button_message}
-                className="text-muted-foreground hover:text-foreground"
-              />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsTodoModalOpen(true)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <CheckSquare className="mr-2 h-4 w-4" />
+                  Todo List
+                </Button>
+                <InfoButton
+                  title={info_button_title}
+                  message={info_button_message}
+                  className="text-muted-foreground hover:text-foreground"
+                />
+              </div>
             </div>
 
             <Chat
@@ -216,6 +231,13 @@ export default function ChatDemo() {
           </div>
         )}
       </div>
+
+      {/* Todo List Modal */}
+      <TodoListModal
+        isOpen={isTodoModalOpen}
+        onClose={() => setIsTodoModalOpen(false)}
+        streamId={currentSessionId}
+      />
     </div>
   )
 }

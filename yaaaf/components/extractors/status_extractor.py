@@ -71,21 +71,20 @@ class StatusExtractor:
             )
 
             if updated:
-                # Create updated artifact with new status
-                new_artifact_id = create_hash(df.to_markdown())
+                # Update existing artifact with same ID
                 updated_artifact = Artefact(
                     type=Artefact.Types.TODO_LIST,
                     data=df,
                     description=f"Updated todo list with LLM-evaluated status from {agent_name}",
                     code=None,
-                    id=new_artifact_id,
+                    id=todo_artifact_id,  # Reuse same ID
                 )
 
-                self._storage.store_artefact(new_artifact_id, updated_artifact)
+                self._storage.store_artefact(todo_artifact_id, updated_artifact)
                 _logger.info(
-                    f"Updated todo list artifact with LLM evaluation: {new_artifact_id}"
+                    f"Updated todo list artifact with LLM evaluation: {todo_artifact_id}"
                 )
-                return new_artifact_id, False
+                return todo_artifact_id, False
 
         except Exception as e:
             _logger.error(f"Failed to update todo status: {e}")

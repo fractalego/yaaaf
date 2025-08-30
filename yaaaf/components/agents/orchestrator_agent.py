@@ -128,12 +128,14 @@ class OrchestratorAgent(BaseAgent):
                         and agent_to_call
                         and agent_to_call.get_name() != "TodoAgent"
                     ):
+                        _logger.info(f"Calling status extractor for agent {final_agent_name} with response: {answer[:200]}...")
                         (
                             updated_artifact_id,
                             needs_replanning,
                         ) = await self._status_extractor.extract_and_update_status(
                             answer, final_agent_name, self._current_todo_artifact_id
                         )
+                        _logger.info(f"Status extractor returned: updated_id={updated_artifact_id}, needs_replanning={needs_replanning}")
 
                         if needs_replanning:
                             # Restore todo agent budget and mark for replanning

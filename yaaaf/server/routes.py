@@ -1,8 +1,6 @@
 import asyncio
 import logging
 import threading
-import os
-import tempfile
 import hashlib
 import sqlite3
 import pandas as pd
@@ -106,23 +104,31 @@ def get_latest_todo_artifact(arguments: LatestTodoArguments) -> ArtefactOutput:
         from yaaaf.server.accessories import _stream_id_to_messages
 
         stream_id = arguments.stream_id
+        _logger.info(f"Looking for todo artifacts in stream: {stream_id}")
+        _logger.info(f"Available streams: {list(_stream_id_to_messages.keys())}")
+        
         if stream_id not in _stream_id_to_messages:
             raise HTTPException(status_code=404, detail=f"Stream {stream_id} not found")
 
         notes = _stream_id_to_messages[stream_id]
+        _logger.info(f"Found {len(notes)} notes in stream {stream_id}")
         artefact_storage = ArtefactStorage()
 
         # Find all todo list artifacts in the conversation, ordered by appearance
         todo_artifacts = []
-        for note in notes:
+        for i, note in enumerate(notes):
             if note.artefact_id:
+                _logger.info(f"Note {i}: artefact_id={note.artefact_id}, agent={note.agent_name}")
                 try:
                     artifact = artefact_storage.retrieve_from_id(note.artefact_id)
                     if artifact and artifact.type == Artefact.Types.TODO_LIST:
                         todo_artifacts.append(artifact)
-                except Exception:
+                        _logger.info(f"Found TODO_LIST artifact: {artifact.id}")
+                except Exception as e:
+                    _logger.warning(f"Failed to retrieve artifact {note.artefact_id}: {e}")
                     continue  # Skip invalid artifacts
 
+        _logger.info(f"Found {len(todo_artifacts)} todo artifacts total")
         if not todo_artifacts:
             raise HTTPException(
                 status_code=404,
@@ -132,7 +138,7 @@ def get_latest_todo_artifact(arguments: LatestTodoArguments) -> ArtefactOutput:
         # Return the most recent todo list artifact
         latest_artifact = todo_artifacts[-1]
         _logger.info(
-            f"Found latest todo artifact {latest_artifact.id} for stream {stream_id}"
+            f"Returning latest todo artifact {latest_artifact.id} for stream {stream_id}"
         )
         return ArtefactOutput.create_from_artefact(latest_artifact)
 

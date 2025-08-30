@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { CheckCircle, Circle, Clock, X } from "lucide-react"
+import { CheckCircle, Circle, Clock } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/registry/default/ui/button"
@@ -37,6 +37,7 @@ export function TodoListModal({
   const fetchLatestTodo = useCallback(async () => {
     if (!streamId) return
 
+    console.log(`TodoListModal: Fetching todos for stream_id: ${streamId}`)
     setIsLoading(true)
     setError(null)
 
@@ -51,6 +52,8 @@ export function TodoListModal({
         }),
       })
 
+      console.log(`TodoListModal: API response status: ${response.status}`)
+
       if (!response.ok) {
         if (response.status === 404) {
           setError("No todo list found for this conversation")
@@ -61,6 +64,7 @@ export function TodoListModal({
       }
 
       const result = await response.json()
+      console.log("TodoListModal: Raw artifact data:", result.data)
 
       // Parse HTML table from artifact data
       const parser = new DOMParser()
@@ -75,15 +79,17 @@ export function TodoListModal({
       const rows = Array.from(table.querySelectorAll("tbody tr"))
       const items: TodoItem[] = rows.map((row) => {
         const cells = Array.from(row.querySelectorAll("td"))
+        const rawStatus = cells[2]?.textContent?.trim() || "pending"
+        console.log(`TodoListModal: Task "${cells[1]?.textContent?.trim()}" has status: "${rawStatus}"`)
         return {
           id: cells[0]?.textContent?.trim() || "",
           task: cells[1]?.textContent?.trim() || "",
-          status: (cells[2]?.textContent?.trim() ||
-            "pending") as TodoItem["status"],
+          status: (rawStatus) as TodoItem["status"],
           agentTool: cells[3]?.textContent?.trim() || "",
         }
       })
 
+      console.log("TodoListModal: Parsed todo items:", items)
       setTodoItems(items)
     } catch (err) {
       console.error("Error fetching todo list:", err)
@@ -127,17 +133,7 @@ export function TodoListModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-h-[80vh] max-w-2xl overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Task Progress</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="h-6 w-6"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </DialogTitle>
+          <DialogTitle>Task Progress</DialogTitle>
         </DialogHeader>
 
         <div className="overflow-y-auto">

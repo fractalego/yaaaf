@@ -141,7 +141,7 @@ export default function ChatDemo() {
     rating: "thumbs-up" | "thumbs-down"
   ) => {
     console.log(`Rating message ${messageId} with ${rating}`)
-    await sendFeedback(getSessionId(), rating)
+    await sendFeedback(currentSessionId, rating)
   }
 
   // Handle file upload (for Document Retriever Agent)

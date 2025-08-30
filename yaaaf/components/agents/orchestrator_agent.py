@@ -80,8 +80,9 @@ class OrchestratorAgent(BaseAgent):
             if agent_to_call is None and (
                 self.is_complete(answer) or answer.strip() == ""
             ):
-                # Generate summary artifact when task is completed
+                # Update todo status when task is completed
                 if self.is_complete(answer):
+                    await self._mark_tasks_as_completed(answer)
                     answer = await self._generate_and_add_summary(answer, notes)
                 break
             if agent_to_call is not None:
@@ -193,6 +194,21 @@ class OrchestratorAgent(BaseAgent):
                 )
 
         return answer
+
+    async def _mark_tasks_as_completed(self, answer: str) -> None:
+        """Mark tasks as completed in the todo list when the orchestrator finishes."""
+        if self._current_todo_artifact_id:
+            _logger.info(f"Task completed - calling status extractor with response: {answer[:200]}...")
+            (
+                updated_artifact_id,
+                needs_replanning,
+            ) = await self._status_extractor.extract_and_update_status(
+                answer, self.get_name(), self._current_todo_artifact_id
+            )
+            _logger.info(f"Status extractor returned: updated_id={updated_artifact_id}, needs_replanning={needs_replanning}")
+            if updated_artifact_id != self._current_todo_artifact_id:
+                self._current_todo_artifact_id = updated_artifact_id
+                _logger.info(f"Updated todo artifact ID: {updated_artifact_id}")
 
     def is_paused(self, answer: str) -> bool:
         """Check if the task is paused and waiting for user input."""

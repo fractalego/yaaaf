@@ -24,6 +24,8 @@ The only html tags they understand are these ones: {all_tags_list}. Use these ta
 The following status information has been reported by various agents:
 {status_info}
 
+{task_progress_section}
+
 The goal to reach is the following:
 {goal}
 
@@ -59,14 +61,13 @@ These are the agents and tools you can use:
 Create a todo list as a markdown table with the following columns:
 - ID: unique identifier
 - Task: description of the task
-- Status: "pending", "in_progress", or "completed"
-- Priority: "high", "medium", or "low"
+- Status: "pending", or "completed"
 - Agent/Tool: specific agent or tool to use
 
 The table must be structured as follows:
-| ID | Task | Status | Priority | Agent/Tool |
+| ID | Task | Status | Agent/Tool |
 | --- | ---- | ------ | -------- | ----------- |
-| 1 | Example task | pending | high | ExampleAgent |
+| 1 | Example task | pending | ExampleAgent |
 ... | ... | ... | ... | ...|
 
 When you are satisfied with the todo list, output it between markdown tags ```table ... ```
@@ -469,5 +470,82 @@ Requirements:
 This output *must* be between the markdown tags ```table ... ```.
 
 Focus on creating a thorough, well-cited answer that leverages all available information sources.
+    """
+)
+
+
+status_evaluation_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to evaluate whether a specific todo step has been completed based on an agent's response.
+
+**Current Step Being Evaluated:**
+{current_step_description}
+
+**Agent Response:**
+{agent_response}
+
+**Agent Name:** {agent_name}
+
+**Context:** This step was assigned to {agent_name} to accomplish: "{current_step_description}"
+
+Instructions:
+1. Analyze the agent's response carefully
+2. Determine if the specific step described above has been successfully completed
+3. Consider partial completion vs full completion
+4. Look for error messages or incomplete results
+
+Your evaluation should be based on:
+- Did the agent provide a meaningful response related to the step?
+- Are there any error messages or failures mentioned?
+- Does the response indicate the task is finished or still in progress?
+- Is the output what would be expected for completing this specific step?
+
+Respond with exactly one word:
+- "completed" if the step has been fully accomplished
+- "in_progress" if the agent is working on it but not finished
+- "pending" if the step hasn't been started or failed
+
+Your response must be exactly one of these three words, nothing else.
+    """
+)
+
+
+plan_change_evaluation_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to evaluate whether an agent's response reveals new information that requires changing the original plan.
+
+**Original Todo List:**
+{original_todo_list}
+
+**Agent Response:**
+{agent_response}
+
+**Agent Name:** {agent_name}
+
+**Current Context:** The {agent_name} was working on the current plan when it provided this response.
+
+Instructions:
+1. Analyze the agent's response for any new information, requirements, or discoveries
+2. Determine if this new information affects the remaining steps in the original plan
+3. Consider if new steps need to be added, existing steps need modification, or the approach needs to change
+
+Evaluate if plan changes are needed based on:
+- Did the agent discover unexpected data or constraints?
+- Are there new requirements or dependencies revealed?
+- Did the agent encounter errors that require a different approach?
+- Does the response suggest additional steps or tools are needed?
+- Has the scope or complexity of the task changed?
+
+Examples that would require plan changes:
+- "The database schema is different than expected, we need to use table X instead of Y"
+- "The data contains null values, we need to add data cleaning steps"
+- "Authentication is required before we can access this API"
+- "The visualization requires additional data processing steps"
+
+Respond with exactly one word:
+- "yes" if the plan needs to be updated based on this response
+- "no" if the current plan can continue unchanged
+
+Your response must be exactly one of these two words, nothing else.
     """
 )

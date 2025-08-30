@@ -11,6 +11,7 @@ from yaaaf.components.data_types import Messages, Note
 from yaaaf.components.agents.prompts import orchestrator_prompt_template
 from yaaaf.components.extractors.goal_extractor import GoalExtractor
 from yaaaf.components.extractors.summary_extractor import SummaryExtractor
+from yaaaf.components.extractors.status_extractor import StatusExtractor
 from yaaaf.components.decorators import handle_exceptions
 
 _logger = logging.getLogger(__name__)
@@ -30,6 +31,9 @@ class OrchestratorAgent(BaseAgent):
         }
         self._goal_extractor = GoalExtractor(client)
         self._summary_extractor = SummaryExtractor(client)
+        self._status_extractor = StatusExtractor(client)
+        self._current_todo_artifact_id: Optional[str] = None
+        self._needs_replanning: bool = False
 
     @handle_exceptions
     async def query(
@@ -37,6 +41,8 @@ class OrchestratorAgent(BaseAgent):
     ) -> str:
         # Reset all agent budgets at the start of each query
         self._reset_all_agent_budgets()
+        self._current_todo_artifact_id = None  # Reset todo tracking
+        self._needs_replanning = False  # Reset replanning state
         messages = messages.apply(self.simplify_agents_tags)
 
         # Extract goal once at the beginning
@@ -61,7 +67,9 @@ class OrchestratorAgent(BaseAgent):
                 model_name = getattr(self._client, "model", None)
 
                 note = Note(
-                    message=self._remove_and_extract_completion_tag(Note.clean_agent_tags(answer)),
+                    message=self._remove_and_extract_completion_tag(
+                        Note.clean_agent_tags(answer)
+                    ),
                     artefact_id=artefacts[0].id if artefacts else None,
                     agent_name=agent_name,
                     model_name=model_name,
@@ -100,6 +108,48 @@ class OrchestratorAgent(BaseAgent):
                     artefacts = get_artefacts_from_utterance_content(answer)
                     extracted_agent_name = Note.extract_agent_name_from_tags(answer)
                     final_agent_name = extracted_agent_name or agent_name
+
+                    # Check if this is a todo agent response and store the artifact ID
+                    if (
+                        agent_to_call
+                        and agent_to_call.get_name() == "TodoAgent"
+                        and artefacts
+                    ):
+                        for artifact in artefacts:
+                            if artifact.type == Artefact.Types.TODO_LIST:
+                                self._current_todo_artifact_id = artifact.id
+                                self._needs_replanning = False  # Reset replanning flag after new plan created
+                                _logger.info(f"Stored todo artifact ID: {artifact.id}")
+                                break
+
+                    # Update todo status if we have a todo list and this isn't the todo agent
+                    if (
+                        self._current_todo_artifact_id
+                        and agent_to_call
+                        and agent_to_call.get_name() != "TodoAgent"
+                    ):
+                        (
+                            updated_artifact_id,
+                            needs_replanning,
+                        ) = await self._status_extractor.extract_and_update_status(
+                            answer, final_agent_name, self._current_todo_artifact_id
+                        )
+
+                        if needs_replanning:
+                            # Restore todo agent budget and mark for replanning
+                            self._restore_todo_agent_budget()
+                            self._needs_replanning = True
+                            self._current_todo_artifact_id = (
+                                None  # Reset to trigger new planning
+                            )
+                            _logger.info(
+                                f"Plan change detected - todo agent budget restored for replanning"
+                            )
+                        elif updated_artifact_id != self._current_todo_artifact_id:
+                            self._current_todo_artifact_id = updated_artifact_id
+                            _logger.info(
+                                f"Updated todo artifact ID: {updated_artifact_id}"
+                            )
 
                     # Get model name from the agent's client if available
                     agent_model_name = (
@@ -189,6 +239,14 @@ class OrchestratorAgent(BaseAgent):
             agent.reset_budget()
         _logger.info("Reset budgets for all agents")
 
+    def _restore_todo_agent_budget(self) -> None:
+        """Restore todo agent budget to allow replanning."""
+        for agent in self._agents_map.values():
+            if agent.get_name() == "TodoAgent":
+                agent.reset_budget()
+                _logger.info("Restored TodoAgent budget for replanning")
+                break
+
     def _get_available_agents(self) -> dict:
         """Get agents that still have budget remaining."""
         return {
@@ -200,18 +258,62 @@ class OrchestratorAgent(BaseAgent):
     def _get_system_status(self) -> str:
         """Collect status information from all agents."""
         status_entries = []
-        
+
         for agent in self._agents_map.values():
-            if hasattr(agent, 'get_status_info'):
+            if hasattr(agent, "get_status_info"):
                 status = agent.get_status_info()
                 if status.strip():
                     status_entries.append(f"• {agent.get_name()}: {status}")
-        
+
         if not status_entries:
             return "No special conditions reported by agents."
-        
+
         return "\n".join(status_entries)
 
+    def _get_task_progress_section(self) -> str:
+        """Generate the task progress section for the orchestrator prompt."""
+        # If replanning is needed, show replanning state
+        if self._needs_replanning:
+            return """
+== CURRENT TASK PROGRESS ==
+**REPLANNING REQUIRED**: New information detected that requires updating the plan
+
+### Current Status
+- [🔄] **Creating new todo list** ←─ CURRENT STEP
+
+### Step Context
+Currently investigating: Plan revision based on new discoveries
+Previous plan needs updating due to new information from sub-agent response.
+"""
+
+        if not self._current_todo_artifact_id:
+            return ""
+
+        step_info = self._status_extractor.get_current_step_info(
+            self._current_todo_artifact_id
+        )
+
+        if not step_info:
+            return ""
+
+        current_step = step_info.get("current_step_index", 0)
+        total_steps = step_info.get("total_steps", 0)
+        current_desc = step_info.get("current_step_description", "")
+        markdown_todo = step_info.get("markdown_todo_list", "")
+
+        if not markdown_todo:
+            return ""
+
+        return f"""
+== CURRENT TASK PROGRESS ==
+**Step {current_step} of {total_steps}**: {current_desc}
+
+### Todo List
+{markdown_todo}
+
+### Step Context
+Currently investigating: {current_desc}
+"""
 
     def simplify_agents_tags(self, answer: str) -> str:
         available_agents = self._get_available_agents()
@@ -260,6 +362,9 @@ Orchestrator agent: This agent orchestrates the agents.
             ]
         )
 
+        # Generate task progress section
+        task_progress_section = self._get_task_progress_section()
+
         return orchestrator_prompt_template.complete(
             training_cutoff_info=training_cutoff_info,
             agents_list="\n".join(
@@ -278,6 +383,7 @@ Orchestrator agent: This agent orchestrates the agents.
             ),
             budget_info=budget_info,
             status_info=self._get_system_status(),
+            task_progress_section=task_progress_section,
             goal=goal,
             task_completed_tag=task_completed_tag,
         )
@@ -329,11 +435,13 @@ Orchestrator agent: This agent orchestrates the agents.
                         )
                     )
                 )
-        
+
         # Truncate all cells to 200 characters max
         for col in df_clean.columns:
-            df_clean[col] = df_clean[col].astype(str).apply(
-                lambda x: x[:200] + "..." if len(x) > 200 else x
+            df_clean[col] = (
+                df_clean[col]
+                .astype(str)
+                .apply(lambda x: x[:200] + "..." if len(x) > 200 else x)
             )
 
         # Check if we need to truncate

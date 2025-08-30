@@ -34,7 +34,9 @@ app.add_api_route(
 )
 app.add_api_route("/get_agents_config", endpoint=get_agents_config, methods=["GET"])
 app.add_api_route("/upload_file_to_rag", endpoint=upload_file_to_rag, methods=["POST"])
-app.add_api_route("/update_rag_description", endpoint=update_rag_source_description, methods=["POST"])
+app.add_api_route(
+    "/update_rag_description", endpoint=update_rag_source_description, methods=["POST"]
+)
 app.add_api_route("/get_sql_sources", endpoint=get_sql_sources, methods=["GET"])
 app.add_api_route("/update_sql_source", endpoint=update_sql_source, methods=["POST"])
 app.add_api_route("/save_feedback", endpoint=save_feedback, methods=["POST"])

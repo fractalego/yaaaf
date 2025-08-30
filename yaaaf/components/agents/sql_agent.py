@@ -34,10 +34,12 @@ class SqlAgent(BaseAgent):
         self._client = client
         self._sources = sources
         # Create combined schema description from all sources
-        self._schema = "\n\n".join([
-            f"Database: {source.name}\nPath: {source.db_path}\n{source.get_description()}"
-            for source in sources
-        ])
+        self._schema = "\n\n".join(
+            [
+                f"Database: {source.name}\nPath: {source.db_path}\n{source.get_description()}"
+                for source in sources
+            ]
+        )
 
     def _add_internal_message(
         self, message: str, notes: Optional[List[Note]], prefix: str = "Message"
@@ -58,31 +60,37 @@ class SqlAgent(BaseAgent):
         # If there's only one source, use it directly
         if len(self._sources) == 1:
             return self._sources[0].get_data(sql_query)
-        
+
         # Try to find table references in the query to determine which database to use
         query_lower = sql_query.lower()
-        
+
         # Try each source and return the first successful result
         last_error = None
         for source in self._sources:
             try:
                 result = source.get_data(sql_query)
                 # Check if we got a valid result (not an error DataFrame)
-                if not (len(result.columns) == 2 and 'Errors' in result.columns and 'Results' in result.columns):
+                if not (
+                    len(result.columns) == 2
+                    and "Errors" in result.columns
+                    and "Results" in result.columns
+                ):
                     return result
                 else:
                     last_error = result
             except Exception as e:
                 continue
-        
+
         # If no source worked, return the last error or a generic error
         if last_error is not None:
             return last_error
         else:
-            return pd.DataFrame.from_dict({
-                "Errors": ["Query failed on all available databases"],
-                "Results": ["No results found"]
-            })
+            return pd.DataFrame.from_dict(
+                {
+                    "Errors": ["Query failed on all available databases"],
+                    "Results": ["No results found"],
+                }
+            )
 
     @handle_exceptions
     async def query(

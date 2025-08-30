@@ -58,10 +58,11 @@ class OrchestratorBuilder:
     def _create_rag_sources(self) -> List[RAGSource]:
         """Create document sources from text-type sources in config."""
         rag_sources = []
-        
+
         # Add uploaded sources if available
         try:
             from yaaaf.server.routes import get_uploaded_rag_sources
+
             uploaded_sources = get_uploaded_rag_sources()
             rag_sources.extend(uploaded_sources)
             _logger.info(f"Added {len(uploaded_sources)} uploaded document sources")
@@ -70,7 +71,7 @@ class OrchestratorBuilder:
             pass
         except Exception as e:
             _logger.warning(f"Could not load uploaded document sources: {e}")
-        
+
         for source_config in self.config.sources:
             if source_config.type == "text":
                 description = getattr(source_config, "description", source_config.name)
@@ -87,7 +88,9 @@ class OrchestratorBuilder:
                             pdf_content = pdf_file.read()
                             filename = os.path.basename(source_config.path)
                             # Use default chunking of no chunking (-1), can be made configurable later
-                            rag_source.add_pdf(pdf_content, filename, pages_per_chunk=-1)
+                            rag_source.add_pdf(
+                                pdf_content, filename, pages_per_chunk=-1
+                            )
                     else:
                         # Handle text files
                         text_content = self._load_text_from_file(source_config.path)
@@ -97,7 +100,9 @@ class OrchestratorBuilder:
                     for filename in os.listdir(source_config.path):
                         file_path = os.path.join(source_config.path, filename)
                         if os.path.isfile(file_path):
-                            if filename.lower().endswith((".txt", ".md", ".html", ".htm")):
+                            if filename.lower().endswith(
+                                (".txt", ".md", ".html", ".htm")
+                            ):
                                 text_content = self._load_text_from_file(file_path)
                                 rag_source.add_text(text_content)
                             elif filename.lower().endswith(".pdf"):
@@ -105,7 +110,9 @@ class OrchestratorBuilder:
                                 with open(file_path, "rb") as pdf_file:
                                     pdf_content = pdf_file.read()
                                     # Use default chunking of no chunking (-1), can be made configurable later
-                                    rag_source.add_pdf(pdf_content, filename, pages_per_chunk=-1)
+                                    rag_source.add_pdf(
+                                        pdf_content, filename, pages_per_chunk=-1
+                                    )
 
                 rag_sources.append(rag_source)
         return rag_sources
@@ -154,30 +161,38 @@ class OrchestratorBuilder:
     def _create_sql_sources(self) -> List[SqliteSource]:
         """Create SQL sources from sqlite-type sources in config."""
         sql_sources = []
-        
+
         for source_config in self.config.sources:
             if source_config.type == "sqlite":
                 # Ensure database file exists - create empty one if it doesn't
                 import os
+
                 if not os.path.exists(source_config.path):
                     try:
                         # Create directory if it doesn't exist
                         os.makedirs(os.path.dirname(source_config.path), exist_ok=True)
                         # Create empty database file
                         import sqlite3
+
                         with sqlite3.connect(source_config.path) as conn:
-                            conn.execute("SELECT 1")  # Simple query to initialize the database
-                        _logger.info(f"Created new database file at '{source_config.path}'")
+                            conn.execute(
+                                "SELECT 1"
+                            )  # Simple query to initialize the database
+                        _logger.info(
+                            f"Created new database file at '{source_config.path}'"
+                        )
                     except Exception as e:
-                        _logger.error(f"Could not create database file at {source_config.path}: {e}")
+                        _logger.error(
+                            f"Could not create database file at {source_config.path}: {e}"
+                        )
                         continue
-                
+
                 sql_source = SqliteSource(
                     name=source_config.name,
                     db_path=source_config.path,
                 )
                 sql_sources.append(sql_source)
-        
+
         return sql_sources
 
     def _get_sqlite_source(self):
@@ -241,7 +256,9 @@ class OrchestratorBuilder:
 
         # Agents section
         agents_info = ["**Available Agents:**"]
-        configured_agents = [self._get_agent_name(agent_config) for agent_config in self.config.agents]
+        configured_agents = [
+            self._get_agent_name(agent_config) for agent_config in self.config.agents
+        ]
         for agent_name in configured_agents:
             if agent_name != "todo" and agent_name in self._agents_map:
                 agent_class = self._agents_map[agent_name]

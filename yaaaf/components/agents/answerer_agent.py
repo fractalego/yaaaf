@@ -39,7 +39,7 @@ class AnswererAgent(BaseAgent):
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
         )
-        
+
         # Try to extract artefacts from notes if none found in utterance
         artefact_list = await self._try_extract_artefacts_from_notes(
             artefact_list, last_utterance, notes
@@ -50,7 +50,7 @@ class AnswererAgent(BaseAgent):
 
         # Process artifacts and create content for prompt
         artifacts_content = self._process_artifacts(artefact_list)
-        
+
         # Add system prompt with artifacts content
         messages = messages.add_system_prompt(
             self._system_prompt.complete(artifacts_content=artifacts_content)
@@ -87,7 +87,7 @@ class AnswererAgent(BaseAgent):
                 try:
                     # Parse the markdown table
                     df = mdpd.from_md(matches[0])
-                    
+
                     # Validate table structure
                     if not self._validate_output_table(df):
                         messages = messages.add_user_utterance(
@@ -108,9 +108,9 @@ class AnswererAgent(BaseAgent):
                             id=answer_id,
                         ),
                     )
-                    
+
                     return f"Analysis complete. The research answer is in this artifact: <artefact type='table'>{answer_id}</artefact>"
-                    
+
                 except Exception as e:
                     _logger.warning(f"Failed to parse table output: {e}")
                     messages = messages.add_user_utterance(
@@ -129,12 +129,12 @@ class AnswererAgent(BaseAgent):
     def _process_artifacts(self, artefact_list: List[Artefact]) -> str:
         """Process multiple artifacts into a formatted string for the prompt."""
         artifacts_content = []
-        
+
         for i, artifact in enumerate(artefact_list, 1):
             content_section = f"\n--- Artifact {i} ---\n"
             content_section += f"Type: {artifact.type}\n"
             content_section += f"Description: {artifact.description}\n"
-            
+
             if artifact.type == Artefact.Types.TABLE and artifact.data is not None:
                 content_section += "Data (Markdown Table):\n"
                 content_section += artifact.data.to_markdown(index=False)
@@ -144,25 +144,22 @@ class AnswererAgent(BaseAgent):
                 content_section += f"Summary:\n{artifact.summary}\n"
             else:
                 content_section += "Content: [No readable content available]\n"
-            
+
             artifacts_content.append(content_section)
-        
+
         return "\n".join(artifacts_content)
 
     def _validate_output_table(self, df: pd.DataFrame) -> bool:
         """Validate that the output table has the correct structure."""
         expected_columns = ["paragraph", "source"]
-        return (
-            len(df.columns) == 2 and
-            all(col.lower().strip() in expected_columns for col in df.columns)
+        return len(df.columns) == 2 and all(
+            col.lower().strip() in expected_columns for col in df.columns
         )
 
     @staticmethod
     def get_info() -> str:
         """Get a brief high-level description of what this agent does."""
-        return (
-            "This agent synthesizes information from multiple artifacts to generate comprehensive research answers"
-        )
+        return "This agent synthesizes information from multiple artifacts to generate comprehensive research answers"
 
     def get_description(self) -> str:
         return f"""

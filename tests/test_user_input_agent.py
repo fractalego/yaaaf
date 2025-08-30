@@ -157,9 +157,7 @@ class TestUserInputAgent(unittest.TestCase):
                 <taskpaused/>"""
                 )
             else:
-                return ClientResponse(
-                    message="Got it. <taskcompleted/>"
-                )
+                return ClientResponse(message="Got it. <taskcompleted/>")
 
         self.client.predict = mock_predict
 
@@ -176,9 +174,7 @@ class TestUserInputAgent(unittest.TestCase):
 
         # Mock client response that's empty
         async def mock_predict(*args, **kwargs):
-            return ClientResponse(
-                message=""
-            )
+            return ClientResponse(message="")
 
         self.client.predict = mock_predict
 
@@ -194,9 +190,7 @@ class TestUserInputAgent(unittest.TestCase):
 
         # Mock client response that never completes or pauses
         async def mock_predict(*args, **kwargs):
-            return ClientResponse(
-                message="I'm still thinking about your request..."
-            )
+            return ClientResponse(message="I'm still thinking about your request...")
 
         self.client.predict = mock_predict
 

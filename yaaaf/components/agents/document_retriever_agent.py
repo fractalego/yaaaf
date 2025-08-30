@@ -111,39 +111,35 @@ class DocumentRetrieverAgent(BaseAgent):
                 id=retrieval_id,
             ),
         )
-        return (
-            f"The result is in this artefact <artefact type='table'>{retrieval_id}</artefact>"
-        )
+        return f"The result is in this artefact <artefact type='table'>{retrieval_id}</artefact>"
 
     def get_status_info(self) -> str:
         """Report status information about available document sources."""
         if not self._sources:
             return "No document sources available"
-        
+
         status_parts = []
         status_parts.append(f"Available document sources ({len(self._sources)} total):")
-        
+
         for i, source in enumerate(self._sources, 1):
             # Get source description and path info
             description = source.get_description()
-            source_path = getattr(source, 'source_path', 'Unknown path')
-            
+            source_path = getattr(source, "source_path", "Unknown path")
+
             # Format source info
-            if source_path.startswith('uploaded_'):
+            if source_path.startswith("uploaded_"):
                 source_type = "Uploaded file"
             else:
                 source_type = "File/Directory"
-            
+
             status_parts.append(f"  {i}. {source_type}: {description}")
-        
+
         return "\n".join(status_parts)
 
     @staticmethod
     def get_info() -> str:
         """Get a brief high-level description of what this agent does."""
-        return (
-            "This agent searches document sources and retrieves relevant information"
-        )
+        return "This agent searches document sources and retrieves relevant information"
 
     def get_description(self) -> str:
         return f"""

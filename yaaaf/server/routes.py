@@ -35,6 +35,10 @@ class ArtefactArguments(BaseModel):
     artefact_id: str
 
 
+class LatestTodoArguments(BaseModel):
+    stream_id: str
+
+
 class ArtefactOutput(BaseModel):
     data: str
     code: str
@@ -94,6 +98,53 @@ def get_artifact(arguments: ArtefactArguments) -> ArtefactOutput:
     except Exception as e:
         _logger.error(f"Routes: Failed to get artifact {arguments.artefact_id}: {e}")
         raise
+
+
+def get_latest_todo_artifact(arguments: LatestTodoArguments) -> ArtefactOutput:
+    """Get the most recent todo list artifact for a given conversation stream."""
+    try:
+        from yaaaf.server.accessories import _stream_id_to_messages
+
+        stream_id = arguments.stream_id
+        if stream_id not in _stream_id_to_messages:
+            raise HTTPException(status_code=404, detail=f"Stream {stream_id} not found")
+
+        notes = _stream_id_to_messages[stream_id]
+        artefact_storage = ArtefactStorage()
+
+        # Find all todo list artifacts in the conversation, ordered by appearance
+        todo_artifacts = []
+        for note in notes:
+            if note.artefact_id:
+                try:
+                    artifact = artefact_storage.retrieve_from_id(note.artefact_id)
+                    if artifact and artifact.type == Artefact.Types.TODO_LIST:
+                        todo_artifacts.append(artifact)
+                except Exception:
+                    continue  # Skip invalid artifacts
+
+        if not todo_artifacts:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No todo list artifacts found for stream {stream_id}",
+            )
+
+        # Return the most recent todo list artifact
+        latest_artifact = todo_artifacts[-1]
+        _logger.info(
+            f"Found latest todo artifact {latest_artifact.id} for stream {stream_id}"
+        )
+        return ArtefactOutput.create_from_artefact(latest_artifact)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(
+            f"Routes: Failed to get latest todo artifact for {arguments.stream_id}: {e}"
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get latest todo artifact: {str(e)}"
+        )
 
 
 def get_image(arguments: ImageArguments) -> str:

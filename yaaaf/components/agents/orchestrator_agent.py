@@ -112,7 +112,7 @@ class OrchestratorAgent(BaseAgent):
                     # Check if this is a todo agent response and store the artifact ID
                     if (
                         agent_to_call
-                        and agent_to_call.get_name() == "TodoAgent"
+                        and agent_to_call.get_name() == "todoagent"
                         and artefacts
                     ):
                         for artifact in artefacts:
@@ -126,7 +126,7 @@ class OrchestratorAgent(BaseAgent):
                     if (
                         self._current_todo_artifact_id
                         and agent_to_call
-                        and agent_to_call.get_name() != "TodoAgent"
+                        and agent_to_call.get_name() != "todoagent"
                     ):
                         _logger.info(f"Calling status extractor for agent {final_agent_name} with response: {answer[:200]}...")
                         (

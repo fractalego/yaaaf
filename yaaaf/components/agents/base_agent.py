@@ -10,6 +10,11 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
+def get_agent_name_from_class(agent_class) -> str:
+    """Get agent name from class - used by both get_name() and orchestrator builder."""
+    return agent_class.__name__.lower()
+
+
 class BaseAgent:
     def __init__(self):
         self._budget = 2  # Default budget for most agents
@@ -22,7 +27,7 @@ class BaseAgent:
         pass
 
     def get_name(self) -> str:
-        return self.__class__.__name__.lower()
+        return get_agent_name_from_class(self.__class__)
 
     @staticmethod
     def get_info() -> str:

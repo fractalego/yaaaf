@@ -262,7 +262,10 @@ class OrchestratorBuilder:
         for agent_name in configured_agents:
             if agent_name != "todo" and agent_name in self._agents_map:
                 agent_class = self._agents_map[agent_name]
-                agents_info.append(f"• {agent_name}: {agent_class.get_info()}")
+                # Use common function to get agent name (same as get_name() method)
+                from yaaaf.components.agents.base_agent import get_agent_name_from_class
+                actual_agent_name = get_agent_name_from_class(agent_class)
+                agents_info.append(f"• {actual_agent_name}: {agent_class.get_info()}")
 
         sections.append("\n".join(agents_info))
 

@@ -13,6 +13,7 @@ from yaaaf.components.extractors.goal_extractor import GoalExtractor
 from yaaaf.components.extractors.summary_extractor import SummaryExtractor
 from yaaaf.components.extractors.status_extractor import StatusExtractor
 from yaaaf.components.decorators import handle_exceptions
+from yaaaf.server.config import get_config
 
 _logger = logging.getLogger(__name__)
 
@@ -83,7 +84,8 @@ class OrchestratorAgent(BaseAgent):
                 # Update todo status when task is completed
                 if self.is_complete(answer):
                     await self._mark_tasks_as_completed(answer)
-                    answer = await self._generate_and_add_summary(answer, notes)
+                    if get_config().generate_summary:
+                        answer = await self._generate_and_add_summary(answer, notes)
                 break
             if agent_to_call is not None:
                 # Check if agent has budget remaining
@@ -182,7 +184,8 @@ class OrchestratorAgent(BaseAgent):
         if not self.is_complete(answer) and step_index == self._max_steps - 1:
             answer += f"\nThe Orchestrator agent has finished its maximum number of steps. {task_completed_tag}"
             # Generate summary artifact when max steps reached
-            answer = await self._generate_and_add_summary(answer, notes)
+            if get_config().generate_summary:
+                answer = await self._generate_and_add_summary(answer, notes)
             if notes is not None:
                 model_name = getattr(self._client, "model", None)
                 notes.append(

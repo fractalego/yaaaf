@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     agents: List[str | AgentSettings] = []
     safety_filter: SafetyFilterSettings = SafetyFilterSettings()
     api_keys: APISettings = APISettings()
+    generate_summary: bool = False
 
 
 def _get_simple_config() -> Settings:

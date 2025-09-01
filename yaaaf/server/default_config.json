@@ -42,5 +42,6 @@
   },
   "api_keys": {
     "brave_search_api_key": null
-  }
+  },
+  "generate_summary": false
 }

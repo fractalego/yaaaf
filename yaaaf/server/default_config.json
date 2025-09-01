@@ -32,6 +32,12 @@
       "name": "Wikipedia page about archaeology",
       "type": "text",
       "path": "../../data/Archaeology - Wikipedia.html"
+    },
+    {
+      "name": "persistent_documents",
+      "type": "rag",
+      "path": "data/persistent_rag.pkl",
+      "description": "Persistent document store for uploaded files"
     }
   ],
   "safety_filter": {

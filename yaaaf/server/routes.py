@@ -14,6 +14,7 @@ from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.data_types import Utterance, Messages, Note
 from yaaaf.components.orchestrator_builder import OrchestratorBuilder
 from yaaaf.components.sources.rag_source import RAGSource
+from yaaaf.components.sources.persistent_rag_source import PersistentRAGSource
 from yaaaf.server.accessories import do_compute, get_utterances
 from yaaaf.server.config import get_config
 
@@ -262,6 +263,32 @@ def get_agents_config() -> List[AgentInfo]:
 # Global variable to store uploaded document sources
 _uploaded_rag_sources = {}
 
+# Global variable to store persistent RAG source if configured
+_persistent_rag_source = None
+
+
+def _get_persistent_rag_source():
+    """Get or create persistent RAG source if configured in sources."""
+    global _persistent_rag_source
+    
+    if _persistent_rag_source is not None:
+        return _persistent_rag_source
+    
+    config = get_config()
+    
+    # Look for a RAG source in the sources configuration
+    for source_config in config.sources:
+        if source_config.type == "rag":
+            _persistent_rag_source = PersistentRAGSource(
+                description=source_config.description or source_config.name or "Persistent RAG Source",
+                source_path=source_config.name or "persistent_rag",
+                pickle_path=source_config.path
+            )
+            _logger.info(f"Initialized persistent RAG source: {source_config.name} at {source_config.path}")
+            return _persistent_rag_source
+    
+    return None
+
 
 async def upload_file_to_rag(
     file: UploadFile, pages_per_chunk: int = Form(-1)
@@ -306,10 +333,19 @@ async def upload_file_to_rag(
         # Use filename as initial description
         initial_description = f"Uploaded file: {file.filename}"
 
-        # Create document source and index the content
-        rag_source = RAGSource(
-            description=initial_description, source_path=f"uploaded_{source_id}"
-        )
+        # Check if we should use persistent RAG source or create temporary one
+        persistent_rag = _get_persistent_rag_source()
+        if persistent_rag:
+            rag_source = persistent_rag
+            # Update description to include the new file
+            current_desc = rag_source._description
+            if not f"Uploaded file: {file.filename}" in current_desc:
+                rag_source._description = f"{current_desc} | {initial_description}"
+        else:
+            # Create temporary document source and index the content
+            rag_source = RAGSource(
+                description=initial_description, source_path=f"uploaded_{source_id}"
+            )
 
         if file_extension == "pdf":
             # Handle PDF files with configurable chunking
@@ -330,7 +366,9 @@ async def upload_file_to_rag(
             rag_source.add_text(text_content)
 
         # Store the source globally so it can be used by the orchestrator
-        _uploaded_rag_sources[source_id] = rag_source
+        # Only store in temporary sources if not using persistent RAG
+        if not persistent_rag:
+            _uploaded_rag_sources[source_id] = rag_source
 
         _logger.info(
             f"Successfully uploaded and indexed file {file.filename} with source ID {source_id}"
@@ -383,6 +421,61 @@ def update_rag_source_description(
 def get_uploaded_rag_sources():
     """Get all uploaded document sources"""
     return list(_uploaded_rag_sources.values())
+
+
+class UploadedDocumentInfo(BaseModel):
+    source_id: str
+    description: str
+    filename: str
+
+
+class AllSourcesResponse(BaseModel):
+    uploaded_documents: List[UploadedDocumentInfo]
+    sql_sources: List[SqlSourceInfo]
+
+
+def get_all_sources() -> AllSourcesResponse:
+    """Get all available sources - both uploaded documents and SQL databases"""
+    try:
+        # Get uploaded documents
+        uploaded_docs = []
+        
+        # Include temporary uploaded documents
+        for source_id, rag_source in _uploaded_rag_sources.items():
+            # Extract filename from description if it follows the pattern "Uploaded file: filename"
+            description = rag_source._description
+            filename = ""
+            if description.startswith("Uploaded file: "):
+                filename = description[15:]  # Remove "Uploaded file: " prefix
+            
+            uploaded_docs.append(UploadedDocumentInfo(
+                source_id=source_id,
+                description=description,
+                filename=filename
+            ))
+        
+        # Include persistent RAG source if configured
+        persistent_rag = _get_persistent_rag_source()
+        if persistent_rag:
+            uploaded_docs.append(UploadedDocumentInfo(
+                source_id="persistent_rag",
+                description=f"{persistent_rag._description} ({persistent_rag.get_document_count()} documents)",
+                filename="persistent_storage"
+            ))
+
+        # Get SQL sources using existing function
+        sql_sources = get_sql_sources()
+
+        return AllSourcesResponse(
+            uploaded_documents=uploaded_docs,
+            sql_sources=sql_sources
+        )
+
+    except Exception as e:
+        _logger.error(f"Routes: Failed to get all sources: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get all sources: {str(e)}"
+        )
 
 
 def get_sql_sources() -> List[SqlSourceInfo]:

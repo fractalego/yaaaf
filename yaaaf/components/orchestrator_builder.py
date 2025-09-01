@@ -19,6 +19,7 @@ from yaaaf.components.agents.answerer_agent import AnswererAgent
 from yaaaf.components.client import OllamaClient
 from yaaaf.components.sources.sqlite_source import SqliteSource
 from yaaaf.components.sources.rag_source import RAGSource
+from yaaaf.components.sources.persistent_rag_source import PersistentRAGSource
 from yaaaf.connectors.mcp_connector import MCPSseConnector, MCPStdioConnector, MCPTools
 from yaaaf.server.config import Settings, AgentSettings, ToolTransportType
 
@@ -73,7 +74,18 @@ class OrchestratorBuilder:
             _logger.warning(f"Could not load uploaded document sources: {e}")
 
         for source_config in self.config.sources:
-            if source_config.type == "text":
+            if source_config.type == "rag":
+                # Handle persistent RAG source
+                description = getattr(source_config, "description", source_config.name)
+                rag_source = PersistentRAGSource(
+                    description=description,
+                    source_path=source_config.name or "persistent_rag",
+                    pickle_path=source_config.path
+                )
+                rag_sources.append(rag_source)
+                _logger.info(f"Loaded persistent RAG source: {source_config.name} at {source_config.path}")
+            
+            elif source_config.type == "text":
                 description = getattr(source_config, "description", source_config.name)
                 rag_source = RAGSource(
                     description=description, source_path=source_config.path

@@ -376,10 +376,13 @@ async def upload_file_to_rag(
             f"Successfully uploaded and indexed file {file.filename} with source ID {source_id}. Total documents in RAG: {rag_source.get_document_count() if hasattr(rag_source, 'get_document_count') else 'unknown'}"
         )
 
+        # Return appropriate source_id based on storage type
+        response_source_id = "persistent_rag" if persistent_rag else source_id
+        
         return FileUploadResponse(
             success=True,
             message=f"File '{file.filename}' uploaded and indexed successfully",
-            source_id=source_id,
+            source_id=response_source_id,
             filename=file.filename,
         )
 

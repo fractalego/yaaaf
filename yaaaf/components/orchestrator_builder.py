@@ -60,30 +60,44 @@ class OrchestratorBuilder:
         """Create document sources from text-type sources in config."""
         rag_sources = []
 
-        # Add uploaded sources if available
-        try:
-            from yaaaf.server.routes import get_uploaded_rag_sources
+        # First check if we have a persistent RAG source configured
+        has_persistent_rag = any(source.type == "rag" for source in self.config.sources)
 
-            uploaded_sources = get_uploaded_rag_sources()
-            rag_sources.extend(uploaded_sources)
-            _logger.info(f"Added {len(uploaded_sources)} uploaded document sources")
-        except ImportError:
-            # Routes module might not be available in some contexts
-            pass
-        except Exception as e:
-            _logger.warning(f"Could not load uploaded document sources: {e}")
+        # Add uploaded sources if available (but skip if we have persistent RAG to avoid duplicates)
+        if not has_persistent_rag:
+            try:
+                from yaaaf.server.routes import get_uploaded_rag_sources
+
+                uploaded_sources = get_uploaded_rag_sources()
+                rag_sources.extend(uploaded_sources)
+                _logger.info(f"Added {len(uploaded_sources)} uploaded document sources")
+            except ImportError:
+                # Routes module might not be available in some contexts
+                pass
+            except Exception as e:
+                _logger.warning(f"Could not load uploaded document sources: {e}")
 
         for source_config in self.config.sources:
             if source_config.type == "rag":
-                # Handle persistent RAG source
-                description = getattr(source_config, "description", source_config.name)
-                rag_source = PersistentRAGSource(
-                    description=description,
-                    source_path=source_config.name or "persistent_rag",
-                    pickle_path=source_config.path
-                )
-                rag_sources.append(rag_source)
-                _logger.info(f"Loaded persistent RAG source: {source_config.name} at {source_config.path}")
+                # Use the same persistent RAG source instance from routes
+                try:
+                    from yaaaf.server.routes import _get_persistent_rag_source
+                    rag_source = _get_persistent_rag_source()
+                    if rag_source:
+                        rag_sources.append(rag_source)
+                        _logger.info(f"Using shared persistent RAG source: {source_config.name} at {source_config.path}")
+                    else:
+                        _logger.warning(f"Could not get persistent RAG source from routes")
+                except ImportError:
+                    # Fallback: create new instance if routes not available
+                    description = getattr(source_config, "description", source_config.name)
+                    rag_source = PersistentRAGSource(
+                        description=description,
+                        source_path=source_config.name or "persistent_rag",
+                        pickle_path=source_config.path
+                    )
+                    rag_sources.append(rag_source)
+                    _logger.info(f"Created new persistent RAG source: {source_config.name} at {source_config.path}")
             
             elif source_config.type == "text":
                 description = getattr(source_config, "description", source_config.name)

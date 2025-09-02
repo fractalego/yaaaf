@@ -341,11 +341,13 @@ async def upload_file_to_rag(
             current_desc = rag_source._description
             if not f"Uploaded file: {file.filename}" in current_desc:
                 rag_source._description = f"{current_desc} | {initial_description}"
+            _logger.info(f"Using persistent RAG source with {persistent_rag.get_document_count()} existing documents")
         else:
             # Create temporary document source and index the content
             rag_source = RAGSource(
                 description=initial_description, source_path=f"uploaded_{source_id}"
             )
+            _logger.info(f"Creating temporary RAG source for {file.filename}")
 
         if file_extension == "pdf":
             # Handle PDF files with configurable chunking
@@ -371,7 +373,7 @@ async def upload_file_to_rag(
             _uploaded_rag_sources[source_id] = rag_source
 
         _logger.info(
-            f"Successfully uploaded and indexed file {file.filename} with source ID {source_id}"
+            f"Successfully uploaded and indexed file {file.filename} with source ID {source_id}. Total documents in RAG: {rag_source.get_document_count() if hasattr(rag_source, 'get_document_count') else 'unknown'}"
         )
 
         return FileUploadResponse(
@@ -396,6 +398,21 @@ def update_rag_source_description(
         source_id = request.source_id
         new_description = request.description
 
+        # Check if it's a persistent RAG source
+        if source_id == "persistent_rag":
+            persistent_rag = _get_persistent_rag_source()
+            if persistent_rag:
+                persistent_rag._description = new_description
+                # Save the updated description
+                persistent_rag._save_to_pickle()
+                _logger.info(f"Updated description for persistent RAG source")
+                return UpdateDescriptionResponse(
+                    success=True, message="Description updated successfully"
+                )
+            else:
+                raise HTTPException(status_code=404, detail="Persistent RAG source not found")
+
+        # Check temporary uploaded sources
         if source_id not in _uploaded_rag_sources:
             raise HTTPException(status_code=404, detail="Source not found")
 
@@ -420,13 +437,33 @@ def update_rag_source_description(
 
 def get_uploaded_rag_sources():
     """Get all uploaded document sources"""
-    return list(_uploaded_rag_sources.values())
+    sources = list(_uploaded_rag_sources.values())
+    
+    # Include persistent RAG source if configured
+    persistent_rag = _get_persistent_rag_source()
+    if persistent_rag:
+        sources.append(persistent_rag)
+    
+    return sources
 
 
 class UploadedDocumentInfo(BaseModel):
     source_id: str
     description: str
     filename: str
+
+
+class DocumentInfo(BaseModel):
+    id: str
+    title: str
+    content: str
+    preview: str
+    size: int
+
+
+class PersistentDocumentsResponse(BaseModel):
+    documents: List[DocumentInfo]
+    total_count: int
 
 
 class AllSourcesResponse(BaseModel):
@@ -475,6 +512,33 @@ def get_all_sources() -> AllSourcesResponse:
         _logger.error(f"Routes: Failed to get all sources: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to get all sources: {str(e)}"
+        )
+
+
+def get_persistent_documents() -> PersistentDocumentsResponse:
+    """Get all documents from the persistent RAG source"""
+    try:
+        persistent_rag = _get_persistent_rag_source()
+        if not persistent_rag:
+            raise HTTPException(
+                status_code=404, 
+                detail="No persistent RAG source configured"
+            )
+        
+        documents_data = persistent_rag.get_all_documents()
+        documents = [DocumentInfo(**doc) for doc in documents_data]
+        
+        return PersistentDocumentsResponse(
+            documents=documents,
+            total_count=len(documents)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Routes: Failed to get persistent documents: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get persistent documents: {str(e)}"
         )
 
 

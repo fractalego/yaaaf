@@ -18,6 +18,7 @@ from yaaaf.server.routes import (
     get_sql_sources,
     update_sql_source,
     get_all_sources,
+    get_persistent_documents,
 )
 from yaaaf.server.feedback import save_feedback
 from yaaaf.server.server_settings import server_settings
@@ -45,6 +46,7 @@ app.add_api_route(
 app.add_api_route("/get_sql_sources", endpoint=get_sql_sources, methods=["GET"])
 app.add_api_route("/update_sql_source", endpoint=update_sql_source, methods=["POST"])
 app.add_api_route("/get_all_sources", endpoint=get_all_sources, methods=["GET"])
+app.add_api_route("/get_persistent_documents", endpoint=get_persistent_documents, methods=["GET"])
 app.add_api_route("/save_feedback", endpoint=save_feedback, methods=["POST"])
 
 

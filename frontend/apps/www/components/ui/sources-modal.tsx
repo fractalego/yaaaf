@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Database, FileText, Folder } from "lucide-react"
+import { Database, FileText, Folder, ChevronDown, ChevronRight, Eye } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/registry/default/ui/button"
@@ -25,6 +25,19 @@ interface SqlSource {
   tables: string[]
 }
 
+interface DocumentInfo {
+  id: string
+  title: string
+  content: string
+  preview: string
+  size: number
+}
+
+interface PersistentDocumentsResponse {
+  documents: DocumentInfo[]
+  total_count: number
+}
+
 interface AllSourcesResponse {
   uploaded_documents: UploadedDocument[]
   sql_sources: SqlSource[]
@@ -37,8 +50,12 @@ interface SourcesModalProps {
 
 export function SourcesModal({ isOpen, onClose }: SourcesModalProps) {
   const [sources, setSources] = useState<AllSourcesResponse | null>(null)
+  const [persistentDocs, setPersistentDocs] = useState<PersistentDocumentsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [expandedDocuments, setExpandedDocuments] = useState<Set<string>>(new Set())
+  const [showPersistentDocs, setShowPersistentDocs] = useState(false)
 
   const fetchSources = useCallback(async () => {
     if (!isOpen) return
@@ -73,11 +90,58 @@ export function SourcesModal({ isOpen, onClose }: SourcesModalProps) {
     }
   }, [isOpen])
 
+  const fetchPersistentDocuments = useCallback(async () => {
+    console.log("SourcesModal: Fetching persistent documents")
+    setIsLoadingDocs(true)
+
+    try {
+      const response = await fetch("http://localhost:4000/get_persistent_documents", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log("SourcesModal: Received persistent documents:", result)
+        setPersistentDocs(result)
+      } else {
+        console.log("No persistent documents available")
+        setPersistentDocs(null)
+      }
+    } catch (err) {
+      console.error("Error fetching persistent documents:", err)
+      setPersistentDocs(null)
+    } finally {
+      setIsLoadingDocs(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (isOpen) {
       fetchSources()
     }
   }, [isOpen, fetchSources])
+
+  const toggleDocument = (docId: string) => {
+    setExpandedDocuments(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(docId)) {
+        newSet.delete(docId)
+      } else {
+        newSet.add(docId)
+      }
+      return newSet
+    })
+  }
+
+  const togglePersistentDocs = async () => {
+    if (!showPersistentDocs && !persistentDocs) {
+      await fetchPersistentDocuments()
+    }
+    setShowPersistentDocs(!showPersistentDocs)
+  }
 
   const getDocumentIcon = (filename: string) => {
     if (filename === "persistent_storage") {
@@ -135,14 +199,105 @@ export function SourcesModal({ isOpen, onClose }: SourcesModalProps) {
                           <div className="mt-1 text-sm text-muted-foreground">
                             {doc.description}
                           </div>
-                          <div className="mt-2">
+                          <div className="mt-2 flex items-center gap-2">
                             <Badge variant="outline" className="text-xs">
                               ID: {doc.source_id}
                             </Badge>
+                            {doc.source_id === "persistent_rag" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={togglePersistentDocs}
+                                disabled={isLoadingDocs}
+                                className="h-6 text-xs"
+                              >
+                                {showPersistentDocs ? (
+                                  <>
+                                    <ChevronDown className="mr-1 h-3 w-3" />
+                                    Hide Documents
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronRight className="mr-1 h-3 w-3" />
+                                    View Documents
+                                  </>
+                                )}
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
                     ))}
+
+                    {/* Persistent Documents Expansion */}
+                    {showPersistentDocs && (
+                      <div className="ml-4 space-y-2 border-l-2 border-blue-200 pl-4">
+                        {isLoadingDocs && (
+                          <div className="text-sm text-muted-foreground">
+                            Loading documents...
+                          </div>
+                        )}
+                        
+                        {persistentDocs && persistentDocs.documents.length > 0 && (
+                          <>
+                            <div className="text-sm font-medium text-muted-foreground">
+                              {persistentDocs.total_count} documents in persistent storage:
+                            </div>
+                            {persistentDocs.documents.map((doc) => (
+                              <div
+                                key={doc.id}
+                                className="rounded border bg-gray-50 p-3"
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="font-medium text-sm">
+                                      {doc.title}
+                                    </div>
+                                    <div className="mt-1 text-xs text-muted-foreground">
+                                      {doc.size} characters
+                                    </div>
+                                    <div className="mt-2 text-xs text-muted-foreground">
+                                      {doc.preview}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => toggleDocument(doc.id)}
+                                    className="ml-2 h-6 w-6 p-0"
+                                  >
+                                    {expandedDocuments.has(doc.id) ? (
+                                      <ChevronDown className="h-3 w-3" />
+                                    ) : (
+                                      <Eye className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                </div>
+                                
+                                {expandedDocuments.has(doc.id) && (
+                                  <div className="mt-3 border-t pt-3">
+                                    <div className="text-xs text-muted-foreground mb-2">
+                                      Full Content:
+                                    </div>
+                                    <div className="max-h-60 overflow-y-auto rounded bg-white p-3 text-xs font-mono">
+                                      <pre className="whitespace-pre-wrap">
+                                        {doc.content}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </>
+                        )}
+
+                        {persistentDocs && persistentDocs.documents.length === 0 && (
+                          <div className="text-sm text-muted-foreground">
+                            No documents found in persistent storage
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="rounded-lg border border-dashed p-8 text-center">

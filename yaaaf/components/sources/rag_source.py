@@ -70,7 +70,7 @@ class RAGSource(BaseSource):
                     page_numbers.append(str(page_num))
 
                 combined_content = (
-                    f"[{filename} - Pages {'-'.join(page_numbers)}]\n\n"
+                    f"[{filename} - Pages {page_numbers[0]}-{page_numbers[-1]}]"
                     + "\n\n".join(all_text_parts)
                 )
 
@@ -128,3 +128,7 @@ class RAGSource(BaseSource):
     def get_description(self) -> str:
         self._vector_db.build()
         return self._description
+    
+    def get_document_count(self) -> int:
+        """Get the number of documents/chunks in the source."""
+        return len(self._id_to_chunk)

@@ -1,3 +1,4 @@
+import logging
 import mdpd
 import re
 import pandas as pd
@@ -12,6 +13,8 @@ from yaaaf.components.data_types import Messages, PromptTemplate, Note
 from yaaaf.components.agents.prompts import document_retriever_agent_prompt_template
 from yaaaf.components.sources.rag_source import RAGSource
 from yaaaf.components.decorators import handle_exceptions
+
+_logger = logging.getLogger(__name__)
 
 
 class DocumentRetrieverAgent(BaseAgent):
@@ -32,6 +35,10 @@ class DocumentRetrieverAgent(BaseAgent):
             ]
         )
         self._sources = sources
+        _logger.info(f"DocumentRetrieverAgent initialized with {len(sources)} sources:")
+        for index, source in enumerate(sources):
+            doc_count = getattr(source, 'get_document_count', lambda: 'unknown')()
+            _logger.info(f"  Source {index}: {source.get_description()} ({doc_count} documents)")
 
     @handle_exceptions
     async def query(
@@ -80,7 +87,9 @@ class DocumentRetrieverAgent(BaseAgent):
                     retrievers_and_queries_dict["query"],
                 ):
                     source = self._sources[int(index)]
+                    _logger.info(f"Querying source {index} ({source.get_description()}) with query: '{query}'")
                     retrieved_nodes = source.get_data(query)
+                    _logger.info(f"Retrieved {len(retrieved_nodes)} nodes from source {index}")
                     all_retrieved_nodes.extend(retrieved_nodes)
                     all_sources.extend([source.source_path] * len(retrieved_nodes))
                     answer += f"Folder index: {index} -> {retrieved_nodes}\n"

@@ -84,7 +84,9 @@ class OrchestratorAgent(BaseAgent):
                 # Update todo status when task is completed
                 if self.is_complete(answer):
                     await self._mark_tasks_as_completed(answer)
-                    if get_config().generate_summary:
+                    config = get_config()
+                    _logger.info(f"Task completed - generate_summary setting: {config.generate_summary}")
+                    if config.generate_summary:
                         answer = await self._generate_and_add_summary(answer, notes)
                 break
             if agent_to_call is not None:
@@ -184,7 +186,9 @@ class OrchestratorAgent(BaseAgent):
         if not self.is_complete(answer) and step_index == self._max_steps - 1:
             answer += f"\nThe Orchestrator agent has finished its maximum number of steps. {task_completed_tag}"
             # Generate summary artifact when max steps reached
-            if get_config().generate_summary:
+            config = get_config()
+            _logger.info(f"Max steps reached - generate_summary setting: {config.generate_summary}")
+            if config.generate_summary:
                 answer = await self._generate_and_add_summary(answer, notes)
             if notes is not None:
                 model_name = getattr(self._client, "model", None)

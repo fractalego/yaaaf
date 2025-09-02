@@ -1,7 +1,7 @@
 import pickle
 import os
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from yaaaf.components.sources.rag_source import RAGSource
 
 _logger = logging.getLogger(__name__)
@@ -76,3 +76,27 @@ class PersistentRAGSource(RAGSource):
         self._id_to_chunk.clear()
         self._save_to_pickle()
         _logger.info(f"Cleared persistent RAG source at {self.pickle_path}")
+    
+    def get_all_documents(self) -> List[Dict[str, str]]:
+        """Get all documents with their IDs and content."""
+        documents = []
+        for doc_id, content in self._id_to_chunk.items():
+            # Try to extract filename/title from content
+            title = "Untitled Document"
+            preview = content[:200] + "..." if len(content) > 200 else content
+            
+            # Look for filename patterns in content
+            if content.startswith("[") and "]" in content:
+                bracket_end = content.find("]")
+                if bracket_end != -1:
+                    title = content[1:bracket_end]
+            
+            documents.append({
+                "id": doc_id,
+                "title": title,
+                "content": content,
+                "preview": preview,
+                "size": len(content)
+            })
+        
+        return documents

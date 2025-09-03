@@ -44,6 +44,9 @@ class DocumentRetrieverAgent(BaseAgent):
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
+        """
+        This agent decides which sources to use for the query and then iterates through the relevant sources to retrieve information.
+        """
         messages = messages.add_system_prompt(
             self._system_prompt.complete(folders=self._folders_description)
         )
@@ -55,10 +58,9 @@ class DocumentRetrieverAgent(BaseAgent):
             )
             answer = response.message
 
-            # Log internal thinking step
             if (
                 notes is not None and step_idx > 0
-            ):  # Skip first step to avoid duplication with orchestrator
+            ):
                 model_name = getattr(self._client, "model", None)
                 internal_note = Note(
                     message=f"[Document Retrieval Step {step_idx}] {answer}",
@@ -110,6 +112,7 @@ class DocumentRetrieverAgent(BaseAgent):
         df = pd.DataFrame(
             {"retrieved text chunks": all_retrieved_nodes, "source": all_sources}
         )
+        df = df.drop_duplicates().reset_index(drop=True)
         retrieval_id: str = str(hash(str(messages))).replace("-", "")
         self._storage.store_artefact(
             retrieval_id,

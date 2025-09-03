@@ -152,7 +152,6 @@ Each query should be specific and focused on finding information relevant to ans
     """
 )
 
-
 reviewer_agent_prompt_template_with_model = PromptTemplate(
     prompt="""
 Your task is to create a python code that extract the information specified in the instructions. 

@@ -13,6 +13,7 @@ from yaaaf.components.data_types import Messages, PromptTemplate, Note
 from yaaaf.components.agents.prompts import document_retriever_agent_prompt_template
 from yaaaf.components.sources.rag_source import RAGSource
 from yaaaf.components.decorators import handle_exceptions
+from yaaaf.components.extractors.chunk_extractor import ChunkExtractor
 
 _logger = logging.getLogger(__name__)
 
@@ -35,10 +36,13 @@ class DocumentRetrieverAgent(BaseAgent):
             ]
         )
         self._sources = sources
+        self._chunk_extractor = ChunkExtractor(client)
         _logger.info(f"DocumentRetrieverAgent initialized with {len(sources)} sources:")
         for index, source in enumerate(sources):
-            doc_count = getattr(source, 'get_document_count', lambda: 'unknown')()
-            _logger.info(f"  Source {index}: {source.get_description()} ({doc_count} documents)")
+            doc_count = getattr(source, "get_document_count", lambda: "unknown")()
+            _logger.info(
+                f"  Source {index}: {source.get_description()} ({doc_count} documents)"
+            )
 
     @handle_exceptions
     async def query(
@@ -58,9 +62,7 @@ class DocumentRetrieverAgent(BaseAgent):
             )
             answer = response.message
 
-            if (
-                notes is not None and step_idx > 0
-            ):
+            if notes is not None and step_idx > 0:
                 model_name = getattr(self._client, "model", None)
                 internal_note = Note(
                     message=f"[Document Retrieval Step {step_idx}] {answer}",
@@ -89,9 +91,13 @@ class DocumentRetrieverAgent(BaseAgent):
                     retrievers_and_queries_dict["query"],
                 ):
                     source = self._sources[int(index)]
-                    _logger.info(f"Querying source {index} ({source.get_description()}) with query: '{query}'")
+                    _logger.info(
+                        f"Querying source {index} ({source.get_description()}) with query: '{query}'"
+                    )
                     retrieved_nodes = source.get_data(query)
-                    _logger.info(f"Retrieved {len(retrieved_nodes)} nodes from source {index}")
+                    _logger.info(
+                        f"Retrieved {len(retrieved_nodes)} nodes from source {index}"
+                    )
                     all_retrieved_nodes.extend(retrieved_nodes)
                     all_sources.extend([source.source_path] * len(retrieved_nodes))
                     answer += f"Folder index: {index} -> {retrieved_nodes}\n"
@@ -113,6 +119,7 @@ class DocumentRetrieverAgent(BaseAgent):
             {"retrieved text chunks": all_retrieved_nodes, "source": all_sources}
         )
         df = df.drop_duplicates().reset_index(drop=True)
+        df = await self._apply_chunk_extraction(df, messages)
         retrieval_id: str = str(hash(str(messages))).replace("-", "")
         self._storage.store_artefact(
             retrieval_id,
@@ -124,6 +131,52 @@ class DocumentRetrieverAgent(BaseAgent):
             ),
         )
         return f"The result is in this artefact <artefact type='table'>{retrieval_id}</artefact>"
+
+    async def _apply_chunk_extraction(
+        self, df: pd.DataFrame, messages: Messages
+    ) -> pd.DataFrame:
+        """Apply chunk extraction to retrieved documents and return aggregated results."""
+        if df.empty:
+            return pd.DataFrame(
+                columns=["retrieved_text", "document_name", "position_in_document"]
+            )
+
+        # Extract the user query from messages
+        query = (
+            str(messages).split("user:")[-1].strip() if "user:" in str(messages) else ""
+        )
+
+        aggregated_results = []
+
+        for _, row in df.iterrows():
+            text = row["retrieved text chunks"]
+            source = row["source"]
+
+            try:
+                # Apply chunk extraction
+                chunks = await self._chunk_extractor.extract(text, query)
+
+                # Convert to desired format
+                for chunk in chunks:
+                    aggregated_results.append(
+                        {
+                            "retrieved_text": chunk["relevant_chunk_text"],
+                            "document_name": source,
+                            "position_in_document": chunk["position_in_document"],
+                        }
+                    )
+            except Exception as e:
+                _logger.warning(f"Chunk extraction failed for source {source}: {e}")
+                # Fallback: use original text
+                aggregated_results.append(
+                    {
+                        "retrieved_text": text,
+                        "document_name": source,
+                        "position_in_document": "unknown",
+                    }
+                )
+
+        return pd.DataFrame(aggregated_results)
 
     def get_status_info(self) -> str:
         """Report status information about available document sources."""

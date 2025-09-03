@@ -3,34 +3,11 @@ import json
 from typing import List, Dict, Any
 
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages, PromptTemplate
+from yaaaf.components.data_types import Messages
 from yaaaf.components.extractors.base_extractor import BaseExtractor
+from yaaaf.components.extractors.prompts import chunk_extractor_prompt
 
 _logger = logging.getLogger(__name__)
-
-chunk_extractor_prompt = PromptTemplate(
-    prompt="""
-You are a chunk extractor. Your task is to identify and extract relevant text chunks from a document that are related to a specific query.
-
-Given the following text and query, extract the most relevant chunks of text that directly answer or relate to the query.
-
-Text:
-{text}
-
-Query: {query}
-
-Instructions:
-1. Identify text chunks that are directly relevant to the query
-2. Each chunk should be a coherent piece of text (sentences or paragraphs)
-3. Extract the exact text verbatim from the input - do not paraphrase or modify
-4. Include position information (page number, section, or paragraph number if available)
-5. Return results as a JSON array with the format:
-   [{{\"relevant_chunk_text\": \"exact text from input\", \"position_in_document\": \"page/section identifier\"}}]
-
-If no relevant chunks are found, return an empty array [].
-Only return the JSON array, no other text.
-"""
-)
 
 
 class ChunkExtractor(BaseExtractor):
@@ -59,7 +36,7 @@ class ChunkExtractor(BaseExtractor):
             instructions = Messages().add_system_prompt(
                 chunk_extractor_prompt.complete(text=text, query=query)
             )
-
+            instructions.add_user_utterance(query)
             response = await self._client.predict(instructions)
             result_text = response.message.strip()
 

@@ -136,6 +136,18 @@ class TodoAgent(BaseAgent):
                             id=table_id,
                         ),
                     )
+                    # Add a note that specifically references the todo list artifact
+                    if notes is not None:
+                        model_name = getattr(self._client, "model", None)
+                        todo_note = Note(
+                            message=f"Todo list planned and stored in this artifact <artefact type='todo-list'>{table_id}</artefact>.",
+                            artefact_id=table_id,
+                            agent_name=self.get_name(),
+                            model_name=model_name,
+                            internal=False,
+                        )
+                        notes.append(todo_note)
+
                     # Prepare the final response with thinking artifacts at the beginning
                     final_response = ""
                     if thinking_artifacts:

@@ -123,6 +123,11 @@ export interface ChatMessageProps extends Message {
   animation?: Animation
   actions?: React.ReactNode
   onArtifactClick?: (artifactId: string) => void
+  streamStatus?: {
+    goal: string
+    current_agent: string
+    is_active: boolean
+  }
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -136,8 +141,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   toolInvocations,
   parts,
   onArtifactClick,
+  streamStatus,
 }) => {
-  console.log(content)
   const addSpinner: boolean =
     content.indexOf(complete_tag) == -1 && content.indexOf(paused_tag) == -1
 
@@ -211,7 +216,23 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                   {actions}
                 </div>
               ) : null}
-              {role == "assistant" && addSpinner ? (
+              {role == "assistant" && addSpinner && streamStatus?.is_active ? (
+                <div className="mt-4 flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-xs">
+                    {streamStatus.current_agent === "orchestrator"
+                      ? "Planning..."
+                      : `Running ${streamStatus.current_agent}...`}
+                  </span>
+                  {streamStatus.goal && (
+                    <span className="text-xs opacity-70">
+                      • {streamStatus.goal.length > 50 
+                        ? streamStatus.goal.substring(0, 50) + "..." 
+                        : streamStatus.goal}
+                    </span>
+                  )}
+                </div>
+              ) : role == "assistant" && addSpinner ? (
                 <div className="mt-4 flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="text-xs">Thinking...</span>

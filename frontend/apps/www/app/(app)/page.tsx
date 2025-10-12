@@ -7,6 +7,7 @@ import { CheckSquare, Database } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { InfoButton } from "@/components/ui/info-button"
 import { SourcesModal } from "@/components/ui/sources-modal"
+import { useStreamStatus } from "@/hooks/use-stream-status"
 import { TodoListModal } from "@/components/ui/todo-list-modal"
 import { ArtefactPanel } from "@/registry/custom/artefact-panel"
 import { Button } from "@/registry/default/ui/button"
@@ -81,6 +82,11 @@ export default function ChatDemo() {
     body: {
       session_id: currentSessionId,
     },
+  })
+
+  const { status: streamStatus } = useStreamStatus({ 
+    streamId: currentSessionId,
+    isGenerating: isLoading 
   })
 
   // Custom handlers that update session ID before calling original handlers
@@ -211,6 +217,7 @@ export default function ChatDemo() {
               </div>
             </div>
 
+
             <Chat
               className="grow"
               messages={messages}
@@ -228,6 +235,7 @@ export default function ChatDemo() {
               hasSqlAgent={hasSqlAgent}
               onFileUpload={handleFileUpload}
               onSqlUpload={handleSqlUpload}
+              streamStatus={streamStatus}
             />
           </div>
         </div>

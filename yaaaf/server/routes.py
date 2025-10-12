@@ -38,6 +38,16 @@ class LatestTodoArguments(BaseModel):
     stream_id: str
 
 
+class StreamStatusArguments(BaseModel):
+    stream_id: str
+
+
+class StreamStatusResponse(BaseModel):
+    goal: str
+    current_agent: str
+    is_active: bool
+
+
 class ArtefactOutput(BaseModel):
     data: str
     code: str
@@ -800,3 +810,30 @@ async def stream_utterances(arguments: NewUtteranceArguments):
             "Access-Control-Allow-Headers": "Cache-Control",
         },
     )
+
+
+def get_stream_status(arguments: StreamStatusArguments) -> StreamStatusResponse:
+    """Get the current status of a stream (goal and active agent)"""
+    try:
+        from yaaaf.server.accessories import get_stream_status as get_status
+
+        stream_id = arguments.stream_id
+        status = get_status(stream_id)
+
+        if status is None:
+            raise HTTPException(status_code=404, detail=f"Stream {stream_id} not found")
+
+        return StreamStatusResponse(
+            goal=status.goal,
+            current_agent=status.current_agent,
+            is_active=status.is_active,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(
+            f"Routes: Failed to get stream status for {arguments.stream_id}: {e}"
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get stream status: {str(e)}"
+        )

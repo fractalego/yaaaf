@@ -35,19 +35,30 @@ class OrchestratorAgent(BaseAgent):
         self._status_extractor = StatusExtractor(client)
         self._current_todo_artifact_id: Optional[str] = None
         self._needs_replanning: bool = False
+        self._current_stream_id: Optional[str] = None
 
     @handle_exceptions
     async def query(
-        self, messages: Messages, notes: Optional[List[Note]] = None
+        self,
+        messages: Messages,
+        notes: Optional[List[Note]] = None,
+        stream_id: Optional[str] = None,
     ) -> str:
         # Reset all agent budgets at the start of each query
         self._reset_all_agent_budgets()
         self._current_todo_artifact_id = None  # Reset todo tracking
         self._needs_replanning = False  # Reset replanning state
+        self._current_stream_id = stream_id  # Store stream ID for status updates
         messages = messages.apply(self.simplify_agents_tags)
 
         # Extract goal once at the beginning
         goal = await self._goal_extractor.extract(messages)
+
+        # Update status with extracted goal
+        if stream_id:
+            from yaaaf.server.accessories import update_stream_status
+
+            update_stream_status(stream_id, goal=goal, current_agent="orchestrator")
 
         answer: str = ""
         for step_index in range(self._max_steps):
@@ -105,6 +116,15 @@ class OrchestratorAgent(BaseAgent):
                     )
                     answer = f"Agent {agent_to_call.get_name()} has exhausted its budget and cannot be called again."
                 else:
+                    # Update status before calling agent
+                    if self._current_stream_id:
+                        from yaaaf.server.accessories import update_stream_status
+
+                        update_stream_status(
+                            self._current_stream_id,
+                            current_agent=agent_to_call.get_name(),
+                        )
+
                     # Consume budget before calling agent
                     agent_to_call.consume_budget()
                     _logger.info(
@@ -116,6 +136,12 @@ class OrchestratorAgent(BaseAgent):
                         notes=notes,
                     )
                     answer = self._make_output_visible(answer)
+
+                    # Update status back to orchestrator after agent completes
+                    if self._current_stream_id:
+                        update_stream_status(
+                            self._current_stream_id, current_agent="orchestrator"
+                        )
 
                 if notes is not None:
                     artefacts = get_artefacts_from_utterance_content(answer)

@@ -12,10 +12,27 @@ _logger = logging.getLogger(__name__)
 _stream_id_to_messages: Dict[str, List[Note]] = {}
 
 
+# Global status tracking for frontend display
+class StreamStatus:
+    def __init__(self):
+        self.goal: str = ""
+        self.current_agent: str = ""
+        self.is_active: bool = False
+
+
+_stream_id_to_status: Dict[str, StreamStatus] = {}
+
+
 async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
     try:
         notes: List[Note] = []
         _stream_id_to_messages[stream_id] = notes
+
+        # Initialize status tracking for this stream
+        status = StreamStatus()
+        status.is_active = True
+        status.current_agent = "orchestrator"
+        _stream_id_to_status[stream_id] = status
 
         # Apply safety filter
         config = get_config()
@@ -32,7 +49,12 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
             _logger.info(f"Query blocked by safety filter for stream {stream_id}")
             return
 
-        await orchestrator.query(messages=messages, notes=notes)
+        await orchestrator.query(messages=messages, notes=notes, stream_id=stream_id)
+
+        # Mark stream as completed
+        if stream_id in _stream_id_to_status:
+            _stream_id_to_status[stream_id].is_active = False
+            _stream_id_to_status[stream_id].current_agent = ""
     except OllamaConnectionError as e:
         error_message = f"🔌 **Connection Error**: {e}"
         _logger.error(
@@ -95,3 +117,33 @@ def get_utterances(stream_id):
             f"Accessories: Failed to get utterances for stream {stream_id}: {e}"
         )
         raise
+
+
+def get_stream_status(stream_id):
+    """Get the current status of a stream"""
+    try:
+        return _stream_id_to_status.get(stream_id, None)
+    except Exception as e:
+        _logger.error(f"Accessories: Failed to get status for stream {stream_id}: {e}")
+        return None
+
+
+def update_stream_status(stream_id, goal: str = None, current_agent: str = None):
+    """Update the status of a stream"""
+    try:
+        if stream_id not in _stream_id_to_status:
+            _stream_id_to_status[stream_id] = StreamStatus()
+
+        status = _stream_id_to_status[stream_id]
+        if goal is not None:
+            status.goal = goal
+        if current_agent is not None:
+            status.current_agent = current_agent
+
+        _logger.info(
+            f"Updated status for stream {stream_id}: goal='{goal}', agent='{current_agent}'"
+        )
+    except Exception as e:
+        _logger.error(
+            f"Accessories: Failed to update status for stream {stream_id}: {e}"
+        )

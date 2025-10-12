@@ -38,6 +38,7 @@ class ToolAgent(BaseAgent):
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
+        thinking_artifacts = []  # Track all thinking artifacts
         messages = messages.add_system_prompt(
             self._system_prompt.complete(tools_descriptions=self._tools_description)
         )
@@ -48,7 +49,17 @@ class ToolAgent(BaseAgent):
             response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            answer = response.message
+
+            
+
+            # Process response to create thinking artifacts
+
+            clean_message, thinking_artifact_ref = self._process_client_response(response, notes)
+
+            
+            if thinking_artifact_ref:
+                thinking_artifacts.append(thinking_artifact_ref)
+            answer = clean_message
 
             # Log internal thinking step
             if (
@@ -124,7 +135,19 @@ class ToolAgent(BaseAgent):
                 id=tool_id,
             ),
         )
-        return f"The result is in this artefact <artefact type='called-tools-table'>{tool_id}</artefact>"
+        # Prepare the final response with thinking artifacts at the beginning
+
+        final_response = ""
+
+        if thinking_artifacts:
+
+            final_response = " ".join(thinking_artifacts) + " "
+
+        final_response += f"The result is in this artefact <artefact type='called-tools-table'>{tool_id}</artefact>."
+
+        
+
+        return final_response
 
     @staticmethod
     def get_info() -> str:

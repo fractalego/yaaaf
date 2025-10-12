@@ -107,7 +107,7 @@ def get_latest_todo_artifact(arguments: LatestTodoArguments) -> ArtefactOutput:
         stream_id = arguments.stream_id
         _logger.info(f"Looking for todo artifacts in stream: {stream_id}")
         _logger.info(f"Available streams: {list(_stream_id_to_messages.keys())}")
-        
+
         if stream_id not in _stream_id_to_messages:
             raise HTTPException(status_code=404, detail=f"Stream {stream_id} not found")
 
@@ -119,14 +119,18 @@ def get_latest_todo_artifact(arguments: LatestTodoArguments) -> ArtefactOutput:
         todo_artifacts = []
         for i, note in enumerate(notes):
             if note.artefact_id:
-                _logger.info(f"Note {i}: artefact_id={note.artefact_id}, agent={note.agent_name}")
+                _logger.info(
+                    f"Note {i}: artefact_id={note.artefact_id}, agent={note.agent_name}"
+                )
                 try:
                     artifact = artefact_storage.retrieve_from_id(note.artefact_id)
                     if artifact and artifact.type == Artefact.Types.TODO_LIST:
                         todo_artifacts.append(artifact)
                         _logger.info(f"Found TODO_LIST artifact: {artifact.id}")
                 except Exception as e:
-                    _logger.warning(f"Failed to retrieve artifact {note.artefact_id}: {e}")
+                    _logger.warning(
+                        f"Failed to retrieve artifact {note.artefact_id}: {e}"
+                    )
                     continue  # Skip invalid artifacts
 
         _logger.info(f"Found {len(todo_artifacts)} todo artifacts total")
@@ -270,23 +274,27 @@ _persistent_rag_source = None
 def _get_persistent_rag_source():
     """Get or create persistent RAG source if configured in sources."""
     global _persistent_rag_source
-    
+
     if _persistent_rag_source is not None:
         return _persistent_rag_source
-    
+
     config = get_config()
-    
+
     # Look for a RAG source in the sources configuration
     for source_config in config.sources:
         if source_config.type == "rag":
             _persistent_rag_source = PersistentRAGSource(
-                description=source_config.description or source_config.name or "Persistent RAG Source",
+                description=source_config.description
+                or source_config.name
+                or "Persistent RAG Source",
                 source_path=source_config.name or "persistent_rag",
-                pickle_path=source_config.path
+                pickle_path=source_config.path,
             )
-            _logger.info(f"Initialized persistent RAG source: {source_config.name} at {source_config.path}")
+            _logger.info(
+                f"Initialized persistent RAG source: {source_config.name} at {source_config.path}"
+            )
             return _persistent_rag_source
-    
+
     return None
 
 
@@ -319,7 +327,7 @@ async def upload_file_to_rag(
         if file_extension not in ["txt", "md", "html", "htm", "pdf"]:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported file type. Only .txt, .md, .html, .htm, .pdf files are supported",
+                detail="Unsupported file type. Only .txt, .md, .html, .htm, .pdf files are supported",
             )
 
         # Read file content
@@ -339,9 +347,11 @@ async def upload_file_to_rag(
             rag_source = persistent_rag
             # Update description to include the new file
             current_desc = rag_source._description
-            if not f"Uploaded file: {file.filename}" in current_desc:
+            if f"Uploaded file: {file.filename}" not in current_desc:
                 rag_source._description = f"{current_desc} | {initial_description}"
-            _logger.info(f"Using persistent RAG source with {persistent_rag.get_document_count()} existing documents")
+            _logger.info(
+                f"Using persistent RAG source with {persistent_rag.get_document_count()} existing documents"
+            )
         else:
             # Create temporary document source and index the content
             rag_source = RAGSource(
@@ -378,7 +388,7 @@ async def upload_file_to_rag(
 
         # Return appropriate source_id based on storage type
         response_source_id = "persistent_rag" if persistent_rag else source_id
-        
+
         return FileUploadResponse(
             success=True,
             message=f"File '{file.filename}' uploaded and indexed successfully",
@@ -408,12 +418,14 @@ def update_rag_source_description(
                 persistent_rag._description = new_description
                 # Save the updated description
                 persistent_rag._save_to_pickle()
-                _logger.info(f"Updated description for persistent RAG source")
+                _logger.info("Updated description for persistent RAG source")
                 return UpdateDescriptionResponse(
                     success=True, message="Description updated successfully"
                 )
             else:
-                raise HTTPException(status_code=404, detail="Persistent RAG source not found")
+                raise HTTPException(
+                    status_code=404, detail="Persistent RAG source not found"
+                )
 
         # Check temporary uploaded sources
         if source_id not in _uploaded_rag_sources:
@@ -441,12 +453,12 @@ def update_rag_source_description(
 def get_uploaded_rag_sources():
     """Get all uploaded document sources"""
     sources = list(_uploaded_rag_sources.values())
-    
+
     # Include persistent RAG source if configured
     persistent_rag = _get_persistent_rag_source()
     if persistent_rag:
         sources.append(persistent_rag)
-    
+
     return sources
 
 
@@ -479,7 +491,7 @@ def get_all_sources() -> AllSourcesResponse:
     try:
         # Get uploaded documents
         uploaded_docs = []
-        
+
         # Include temporary uploaded documents
         for source_id, rag_source in _uploaded_rag_sources.items():
             # Extract filename from description if it follows the pattern "Uploaded file: filename"
@@ -487,28 +499,29 @@ def get_all_sources() -> AllSourcesResponse:
             filename = ""
             if description.startswith("Uploaded file: "):
                 filename = description[15:]  # Remove "Uploaded file: " prefix
-            
-            uploaded_docs.append(UploadedDocumentInfo(
-                source_id=source_id,
-                description=description,
-                filename=filename
-            ))
-        
+
+            uploaded_docs.append(
+                UploadedDocumentInfo(
+                    source_id=source_id, description=description, filename=filename
+                )
+            )
+
         # Include persistent RAG source if configured
         persistent_rag = _get_persistent_rag_source()
         if persistent_rag:
-            uploaded_docs.append(UploadedDocumentInfo(
-                source_id="persistent_rag",
-                description=f"{persistent_rag._description} ({persistent_rag.get_document_count()} documents)",
-                filename="persistent_storage"
-            ))
+            uploaded_docs.append(
+                UploadedDocumentInfo(
+                    source_id="persistent_rag",
+                    description=f"{persistent_rag._description} ({persistent_rag.get_document_count()} documents)",
+                    filename="persistent_storage",
+                )
+            )
 
         # Get SQL sources using existing function
         sql_sources = get_sql_sources()
 
         return AllSourcesResponse(
-            uploaded_documents=uploaded_docs,
-            sql_sources=sql_sources
+            uploaded_documents=uploaded_docs, sql_sources=sql_sources
         )
 
     except Exception as e:
@@ -524,18 +537,16 @@ def get_persistent_documents() -> PersistentDocumentsResponse:
         persistent_rag = _get_persistent_rag_source()
         if not persistent_rag:
             raise HTTPException(
-                status_code=404, 
-                detail="No persistent RAG source configured"
+                status_code=404, detail="No persistent RAG source configured"
             )
-        
+
         documents_data = persistent_rag.get_all_documents()
         documents = [DocumentInfo(**doc) for doc in documents_data]
-        
+
         return PersistentDocumentsResponse(
-            documents=documents,
-            total_count=len(documents)
+            documents=documents, total_count=len(documents)
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:

@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { motion } from "framer-motion"
-import { Ban, ChevronRight, Code2, Loader2, Terminal } from "lucide-react"
+import { Ban, Brain, ChevronRight, Code2, Loader2, Terminal } from "lucide-react"
 
 import { unescapeHtmlContent } from "@/lib/html-escape"
 import { cn } from "@/lib/utils"
@@ -91,6 +91,11 @@ interface ReasoningPart {
   reasoning: string
 }
 
+interface ThinkingPart {
+  type: "thinking"
+  thinking: string
+}
+
 interface ToolInvocationPart {
   type: "tool-invocation"
   toolInvocation: ToolInvocation
@@ -106,7 +111,12 @@ interface SourcePart {
   type: "source"
 }
 
-type MessagePart = TextPart | ReasoningPart | ToolInvocationPart | SourcePart
+type MessagePart =
+  | TextPart
+  | ReasoningPart
+  | ThinkingPart
+  | ToolInvocationPart
+  | SourcePart
 
 export interface Message {
   id: string
@@ -123,6 +133,61 @@ export interface ChatMessageProps extends Message {
   animation?: Animation
   actions?: React.ReactNode
   onArtifactClick?: (artifactId: string) => void
+}
+
+// Function to extract thinking artifacts from content and convert to parts
+function extractThinkingParts(
+  content: string,
+  onArtifactClick?: (artifactId: string) => void
+): MessagePart[] {
+  const parts: MessagePart[] = []
+
+  // Regex to find thinking artifacts at the beginning of the message
+  const thinkingArtifactRegex =
+    /<artefact type=['"]thinking['"]>([^<]+)<\/artefact>/g
+  let lastIndex = 0
+  let match
+
+  console.log("extractThinkingParts: checking content:", content.substring(0, 100))
+
+  while ((match = thinkingArtifactRegex.exec(content)) !== null) {
+    const artifactId = match[1]
+    console.log("extractThinkingParts: found thinking artifact:", artifactId)
+
+    // Add text before this artifact if any
+    if (match.index > lastIndex) {
+      const textContent = content.slice(lastIndex, match.index).trim()
+      if (textContent) {
+        parts.push({ type: "text", text: textContent })
+      }
+    }
+
+    // Fetch thinking content from backend
+    // For now, we'll create a placeholder thinking part
+    // TODO: Fetch actual thinking content from the artifact API
+    parts.push({
+      type: "thinking",
+      thinking: `Thinking artifact: ${artifactId}`,
+    })
+
+    lastIndex = thinkingArtifactRegex.lastIndex
+  }
+
+  // Add remaining text content
+  if (lastIndex < content.length) {
+    const remainingContent = content.slice(lastIndex).trim()
+    if (remainingContent) {
+      parts.push({ type: "text", text: remainingContent })
+    }
+  }
+
+  // If no thinking artifacts found, return single text part
+  if (parts.length === 0) {
+    parts.push({ type: "text", text: content })
+  }
+
+  console.log("extractThinkingParts: returning parts:", parts.length, parts.map(p => p.type))
+  return parts
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -234,6 +299,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         )
       } else if (part.type === "reasoning") {
         return <ReasoningBlock key={`reasoning-${index}`} part={part} />
+      } else if (part.type === "thinking") {
+        return <ThinkingBlock key={`thinking-${index}`} part={part} />
       } else if (part.type === "tool-invocation") {
         return (
           <ToolCall
@@ -248,6 +315,46 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   if (toolInvocations && toolInvocations.length > 0) {
     return <ToolCall toolInvocations={toolInvocations} />
+  }
+
+  // Extract thinking parts from content for assistant messages
+  if (role === "assistant") {
+    const extractedParts = extractThinkingParts(content, onArtifactClick)
+    if (
+      extractedParts.length > 1 ||
+      (extractedParts.length === 1 && extractedParts[0].type !== "text")
+    ) {
+      return extractedParts.map((part, index) => {
+        if (part.type === "text") {
+          let text = unescapeHtmlContent(part.text)
+          return (
+            <div
+              className={cn(
+                "flex flex-col",
+                isUser ? "items-end" : "items-start"
+              )}
+              key={`extracted-text-${index}`}
+            >
+              <div className={cn(chatBubbleVariants({ isUser, animation }))}>
+                <MarkdownRenderer onArtifactClick={onArtifactClick}>
+                  {text}
+                </MarkdownRenderer>
+                {actions ? (
+                  <div className="absolute -bottom-3 right-3 flex space-x-1 rounded-lg border bg-background/95 backdrop-blur-sm p-1.5 text-foreground opacity-0 transition-all duration-200 group-hover/message:opacity-100 shadow-md">
+                    {actions}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )
+        } else if (part.type === "thinking") {
+          return (
+            <ThinkingBlock key={`extracted-thinking-${index}`} part={part} />
+          )
+        }
+        return null
+      })
+    }
   }
 
   return (
@@ -317,6 +424,86 @@ const ReasoningBlock = ({ part }: { part: ReasoningPart }) => {
               <div className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                 {part.reasoning}
               </div>
+            </div>
+          </motion.div>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  )
+}
+
+const ThinkingBlock = ({ part }: { part: ThinkingPart }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [thinkingContent, setThinkingContent] = useState<string>("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Extract artifact ID from thinking content (assuming format "Thinking artifact: {id}")
+  const artifactId = part.thinking.includes("Thinking artifact: ")
+    ? part.thinking.replace("Thinking artifact: ", "")
+    : null
+
+  const fetchThinkingContent = async () => {
+    if (!artifactId || thinkingContent) return
+
+    setIsLoading(true)
+    try {
+      const { get_artefact } = await import("@/app/artefacts/actions")
+      const data = await get_artefact(artifactId)
+      // Use code field for thinking content (as it's stored in the code field)
+      setThinkingContent(data.code || "No thinking content available")
+    } catch (error) {
+      console.error("Error fetching thinking content:", error)
+      setThinkingContent("Error loading thinking content")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Fetch content when opened
+  React.useEffect(() => {
+    if (isOpen && !thinkingContent && !isLoading) {
+      fetchThinkingContent()
+    }
+  }, [isOpen])
+
+  return (
+    <div className="mb-3 flex flex-col items-start sm:max-w-[85%]">
+      <Collapsible
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        className="group w-full overflow-hidden rounded-xl border bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-950/30 dark:to-pink-950/30 shadow-sm"
+      >
+        <div className="flex items-center p-3">
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300 hover:text-purple-800 dark:hover:text-purple-200 transition-colors">
+              <ChevronRight className="h-4 w-4 transition-transform group-data-[state=open]:rotate-90" />
+              <Brain className="h-4 w-4" />
+              <span className="font-medium">Thinking</span>
+            </button>
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent forceMount>
+          <motion.div
+            initial={false}
+            animate={isOpen ? "open" : "closed"}
+            variants={{
+              open: { height: "auto", opacity: 1 },
+              closed: { height: 0, opacity: 0 },
+            }}
+            transition={{ duration: 0.3, ease: [0.04, 0.62, 0.23, 0.98] }}
+            className="border-t border-purple-200/50 dark:border-purple-800/50"
+          >
+            <div className="p-3 bg-white/50 dark:bg-slate-900/50">
+              {isLoading ? (
+                <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Loading thinking...</span>
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                  {thinkingContent || part.thinking}
+                </div>
+              )}
             </div>
           </motion.div>
         </CollapsibleContent>

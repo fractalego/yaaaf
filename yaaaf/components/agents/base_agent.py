@@ -4,7 +4,7 @@ from typing import Optional, List, TYPE_CHECKING
 from yaaaf.components.data_types import Note
 
 if TYPE_CHECKING:
-    from yaaaf.components.data_types import Messages, Utterance
+    from yaaaf.components.data_types import Messages, Utterance, ClientResponse
     from yaaaf.components.agents.artefacts import Artefact
 
 _logger = logging.getLogger(__name__)
@@ -122,3 +122,74 @@ class BaseAgent:
                 return extracted_artefacts
 
         return artefact_list
+
+    def _create_thinking_artifact(
+        self, response: "ClientResponse", notes: Optional[List[Note]]
+    ) -> Optional[str]:
+        """
+        Create a thinking artifact from the response if thinking content is present.
+
+        Args:
+            response: The ClientResponse containing potential thinking content
+            notes: Optional notes list to append thinking note to
+
+        Returns:
+            Optional artifact reference string if thinking artifact was created
+        """
+        if not response.thinking_content:
+            return None
+
+        # Import here to avoid circular imports
+        from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
+        from yaaaf.components.agents.hash_utils import create_hash
+
+        # Get or initialize storage
+        storage = getattr(self, "_storage", None)
+        if storage is None:
+            storage = ArtefactStorage()
+
+        # Create hash for thinking content
+        thinking_id = create_hash(
+            f"thinking_{self.get_name()}_{response.thinking_content}"
+        )
+
+        # Store the thinking artifact
+        storage.store_artefact(
+            thinking_id,
+            Artefact(
+                type=Artefact.Types.THINKING,
+                description=f"Thinking process from {self.get_name()}",
+                code=response.thinking_content,
+                id=thinking_id,
+            ),
+        )
+
+        # Add note about thinking artifact
+        if notes is not None:
+            model_name = getattr(getattr(self, "_client", None), "model", None)
+            note = Note(
+                message=f"[Thinking] Created thinking artifact: {thinking_id}",
+                artefact_id=thinking_id,
+                agent_name=self.get_name(),
+                model_name=model_name,
+                internal=True,
+            )
+            notes.append(note)
+
+        return f"<artefact type='thinking'>{thinking_id}</artefact>"
+
+    def _process_client_response(
+        self, response: "ClientResponse", notes: Optional[List[Note]] = None
+    ) -> tuple[str, Optional[str]]:
+        """
+        Process a client response to extract thinking artifacts and return clean message.
+
+        Args:
+            response: The ClientResponse from the client
+            notes: Optional notes list to append thinking note to
+
+        Returns:
+            Tuple of (clean_message, thinking_artifact_ref)
+        """
+        thinking_artifact_ref = self._create_thinking_artifact(response, notes)
+        return response.message, thinking_artifact_ref

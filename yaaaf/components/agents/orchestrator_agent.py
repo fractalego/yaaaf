@@ -56,7 +56,15 @@ class OrchestratorAgent(BaseAgent):
             response = await self._client.predict(
                 messages, stop_sequences=self._stop_sequences
             )
-            answer = self.simplify_agents_tags(response.message)
+
+            # Process response to create thinking artifacts
+            clean_message, thinking_artifact_ref = self._process_client_response(
+                response, notes
+            )
+
+            answer = self.simplify_agents_tags(clean_message)
+            if thinking_artifact_ref:
+                answer = f"{thinking_artifact_ref} {answer}"
             agent_to_call, instruction = self.map_answer_to_agent(answer)
             extracted_agent_name = Note.extract_agent_name_from_tags(answer)
             agent_name = extracted_agent_name or (
@@ -83,7 +91,9 @@ class OrchestratorAgent(BaseAgent):
                 if self.is_complete(answer):
                     await self._mark_tasks_as_completed(answer)
                     config = get_config()
-                    _logger.info(f"Task completed - generate_summary setting: {config.generate_summary}")
+                    _logger.info(
+                        f"Task completed - generate_summary setting: {config.generate_summary}"
+                    )
                     if config.generate_summary:
                         answer = await self._generate_and_add_summary(answer, notes)
                 break
@@ -131,14 +141,18 @@ class OrchestratorAgent(BaseAgent):
                         and agent_to_call
                         and agent_to_call.get_name() != "todoagent"
                     ):
-                        _logger.info(f"Calling status extractor for agent {final_agent_name} with response: {answer[:200]}...")
+                        _logger.info(
+                            f"Calling status extractor for agent {final_agent_name} with response: {answer[:200]}..."
+                        )
                         (
                             updated_artifact_id,
                             needs_replanning,
                         ) = await self._status_extractor.extract_and_update_status(
                             answer, final_agent_name, self._current_todo_artifact_id
                         )
-                        _logger.info(f"Status extractor returned: updated_id={updated_artifact_id}, needs_replanning={needs_replanning}")
+                        _logger.info(
+                            f"Status extractor returned: updated_id={updated_artifact_id}, needs_replanning={needs_replanning}"
+                        )
 
                         if needs_replanning:
                             # Restore todo agent budget and mark for replanning
@@ -148,7 +162,7 @@ class OrchestratorAgent(BaseAgent):
                                 None  # Reset to trigger new planning
                             )
                             _logger.info(
-                                f"Plan change detected - todo agent budget restored for replanning"
+                                "Plan change detected - todo agent budget restored for replanning"
                             )
                         elif updated_artifact_id != self._current_todo_artifact_id:
                             self._current_todo_artifact_id = updated_artifact_id
@@ -185,7 +199,9 @@ class OrchestratorAgent(BaseAgent):
             answer += f"\nThe Orchestrator agent has finished its maximum number of steps. {task_completed_tag}"
             # Generate summary artifact when max steps reached
             config = get_config()
-            _logger.info(f"Max steps reached - generate_summary setting: {config.generate_summary}")
+            _logger.info(
+                f"Max steps reached - generate_summary setting: {config.generate_summary}"
+            )
             if config.generate_summary:
                 answer = await self._generate_and_add_summary(answer, notes)
             if notes is not None:
@@ -203,14 +219,18 @@ class OrchestratorAgent(BaseAgent):
     async def _mark_tasks_as_completed(self, answer: str) -> None:
         """Mark tasks as completed in the todo list when the orchestrator finishes."""
         if self._current_todo_artifact_id:
-            _logger.info(f"Task completed - calling status extractor with response: {answer[:200]}...")
+            _logger.info(
+                f"Task completed - calling status extractor with response: {answer[:200]}..."
+            )
             (
                 updated_artifact_id,
                 needs_replanning,
             ) = await self._status_extractor.extract_and_update_status(
                 answer, self.get_name(), self._current_todo_artifact_id
             )
-            _logger.info(f"Status extractor returned: updated_id={updated_artifact_id}, needs_replanning={needs_replanning}")
+            _logger.info(
+                f"Status extractor returned: updated_id={updated_artifact_id}, needs_replanning={needs_replanning}"
+            )
             if updated_artifact_id != self._current_todo_artifact_id:
                 self._current_todo_artifact_id = updated_artifact_id
                 _logger.info(f"Updated todo artifact ID: {updated_artifact_id}")

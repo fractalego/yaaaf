@@ -78,7 +78,7 @@ class SqlAgent(BaseAgent):
                     return result
                 else:
                     last_error = result
-            except Exception as e:
+            except Exception:
                 continue
 
         # If no source worked, return the last error or a generic error
@@ -96,6 +96,7 @@ class SqlAgent(BaseAgent):
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
+        thinking_artifacts = []  # Track all thinking artifacts
         messages = messages.add_system_prompt(
             self._system_prompt.complete(schema=self._schema)
         )
@@ -105,7 +106,15 @@ class SqlAgent(BaseAgent):
             response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            answer = response.message
+
+            # Process response to create thinking artifacts
+            clean_message, thinking_artifact_ref = self._process_client_response(
+                response, notes
+            )
+            if thinking_artifact_ref:
+                thinking_artifacts.append(thinking_artifact_ref)
+
+            answer = clean_message
 
             # Log internal thinking step
             if (
@@ -161,7 +170,13 @@ class SqlAgent(BaseAgent):
                 id=table_id,
             ),
         )
-        return f"The result is in this artifact <artefact type='table'>{table_id}</artefact>."
+        # Prepare the final response with thinking artifacts at the beginning
+        final_response = ""
+        if thinking_artifacts:
+            final_response = " ".join(thinking_artifacts) + " "
+        final_response += f"The result is in this artifact <artefact type='table'>{table_id}</artefact>."
+
+        return final_response
 
     @staticmethod
     def get_info() -> str:

@@ -28,6 +28,7 @@ class UserInputAgent(BaseAgent):
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
+        thinking_artifacts = []  # Track all thinking artifacts
         messages = messages.add_system_prompt(self._system_prompt)
         current_output = "No output"
         user_question = ""
@@ -36,7 +37,16 @@ class UserInputAgent(BaseAgent):
             response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            answer = response.message
+
+            # Process response to create thinking artifacts
+
+            clean_message, thinking_artifact_ref = self._process_client_response(
+                response, notes
+            )
+
+            if thinking_artifact_ref:
+                thinking_artifacts.append(thinking_artifact_ref)
+            answer = clean_message
 
             # Log internal thinking step
             if (

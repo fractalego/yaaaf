@@ -4,7 +4,6 @@ from typing import Optional, Dict, Any
 import pandas as pd
 
 from yaaaf.components.agents.artefacts import ArtefactStorage, Artefact
-from yaaaf.components.agents.hash_utils import create_hash
 from yaaaf.components.agents.settings import task_completed_tag, task_paused_tag
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages

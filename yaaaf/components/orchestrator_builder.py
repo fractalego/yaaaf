@@ -82,23 +82,32 @@ class OrchestratorBuilder:
                 # Use the same persistent RAG source instance from routes
                 try:
                     from yaaaf.server.routes import _get_persistent_rag_source
+
                     rag_source = _get_persistent_rag_source()
                     if rag_source:
                         rag_sources.append(rag_source)
-                        _logger.info(f"Using shared persistent RAG source: {source_config.name} at {source_config.path}")
+                        _logger.info(
+                            f"Using shared persistent RAG source: {source_config.name} at {source_config.path}"
+                        )
                     else:
-                        _logger.warning(f"Could not get persistent RAG source from routes")
+                        _logger.warning(
+                            "Could not get persistent RAG source from routes"
+                        )
                 except ImportError:
                     # Fallback: create new instance if routes not available
-                    description = getattr(source_config, "description", source_config.name)
+                    description = getattr(
+                        source_config, "description", source_config.name
+                    )
                     rag_source = PersistentRAGSource(
                         description=description,
                         source_path=source_config.name or "persistent_rag",
-                        pickle_path=source_config.path
+                        pickle_path=source_config.path,
                     )
                     rag_sources.append(rag_source)
-                    _logger.info(f"Created new persistent RAG source: {source_config.name} at {source_config.path}")
-            
+                    _logger.info(
+                        f"Created new persistent RAG source: {source_config.name} at {source_config.path}"
+                    )
+
             elif source_config.type == "text":
                 description = getattr(source_config, "description", source_config.name)
                 rag_source = RAGSource(
@@ -290,6 +299,7 @@ class OrchestratorBuilder:
                 agent_class = self._agents_map[agent_name]
                 # Use common function to get agent name (same as get_name() method)
                 from yaaaf.components.agents.base_agent import get_agent_name_from_class
+
                 actual_agent_name = get_agent_name_from_class(agent_class)
                 agents_info.append(f"• {actual_agent_name}: {agent_class.get_info()}")
 

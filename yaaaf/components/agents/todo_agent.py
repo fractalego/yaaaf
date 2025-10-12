@@ -48,6 +48,7 @@ class TodoAgent(BaseAgent):
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
+        thinking_artifacts = []  # Track all thinking artifacts
         messages = messages.add_system_prompt(
             self._system_prompt.complete(
                 agents_and_sources_and_tools_list=self._agents_and_sources_and_tools_list
@@ -58,7 +59,16 @@ class TodoAgent(BaseAgent):
             response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            answer = response.message
+
+            # Process response to create thinking artifacts
+
+            clean_message, thinking_artifact_ref = self._process_client_response(
+                response, notes
+            )
+
+            if thinking_artifact_ref:
+                thinking_artifacts.append(thinking_artifact_ref)
+            answer = clean_message
 
             # Log internal thinking step
             if (
@@ -126,7 +136,13 @@ class TodoAgent(BaseAgent):
                             id=table_id,
                         ),
                     )
-                    return f"Todo list created and stored in this artifact <artefact type='todo-list'>{table_id}</artefact>."
+                    # Prepare the final response with thinking artifacts at the beginning
+                    final_response = ""
+                    if thinking_artifacts:
+                        final_response = " ".join(thinking_artifacts) + " "
+                    final_response += f"Todo list planned and stored in this artifact <artefact type='todo-list'>{table_id}</artefact>."
+
+                    return final_response
         except Exception:
             # Fallback to original behavior if parsing fails
             pass

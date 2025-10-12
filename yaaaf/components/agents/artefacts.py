@@ -26,6 +26,7 @@ class Artefact(BaseModel):
         IMAGE = "image"
         MODEL = "model"
         TODO_LIST = "todo-list"
+        THINKING = "thinking"
 
     class Config:
         arbitrary_types_allowed = True

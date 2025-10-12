@@ -102,11 +102,20 @@ class BraveSearchAgent(BaseAgent):
         search_query = ""
         current_output: str | pd.DataFrame = "No output"
 
+        thinking_artifacts = []  # Track all thinking artifacts
         for step_idx in range(self._max_steps):
             response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            answer = response.message
+
+            # Process response to create thinking artifacts
+            clean_message, thinking_artifact_ref = self._process_client_response(
+                response, notes
+            )
+            if thinking_artifact_ref:
+                thinking_artifacts.append(thinking_artifact_ref)
+
+            answer = clean_message
 
             # Log internal thinking step
             if (
@@ -172,7 +181,13 @@ class BraveSearchAgent(BaseAgent):
                 id=web_search_id,
             ),
         )
-        return f"The result is in this artifact <artefact type='search-result'>{web_search_id}</artefact>."
+        # Prepare the final response with thinking artifacts at the beginning
+        final_response = ""
+        if thinking_artifacts:
+            final_response = " ".join(thinking_artifacts) + " "
+        final_response += f"The result is in this artifact <artefact type='search-result'>{web_search_id}</artefact>."
+
+        return final_response
 
     @staticmethod
     def get_info() -> str:

@@ -46,7 +46,9 @@ app.add_api_route(
 app.add_api_route("/get_sql_sources", endpoint=get_sql_sources, methods=["GET"])
 app.add_api_route("/update_sql_source", endpoint=update_sql_source, methods=["POST"])
 app.add_api_route("/get_all_sources", endpoint=get_all_sources, methods=["GET"])
-app.add_api_route("/get_persistent_documents", endpoint=get_persistent_documents, methods=["GET"])
+app.add_api_route(
+    "/get_persistent_documents", endpoint=get_persistent_documents, methods=["GET"]
+)
 app.add_api_route("/save_feedback", endpoint=save_feedback, methods=["POST"])
 
 

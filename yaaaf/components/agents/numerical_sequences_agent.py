@@ -38,6 +38,7 @@ class NumericalSequencesAgent(BaseAgent):
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
+        thinking_artifacts = []  # Track all thinking artifacts
         last_utterance = messages.utterances[-1]
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
@@ -61,7 +62,17 @@ class NumericalSequencesAgent(BaseAgent):
             response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            answer = response.message
+
+            
+
+            # Process response to create thinking artifacts
+
+            clean_message, thinking_artifact_ref = self._process_client_response(response, notes)
+
+            
+            if thinking_artifact_ref:
+                thinking_artifacts.append(thinking_artifact_ref)
+            answer = clean_message
 
             if (
                 notes is not None and step_idx > 0
@@ -106,7 +117,19 @@ class NumericalSequencesAgent(BaseAgent):
                 id=hash_id,
             ),
         )
-        return f"The numerical data has been extracted and structured into a table <artefact type='numerical-sequences-table'>{hash_id}</artefact>"
+        # Prepare the final response with thinking artifacts at the beginning
+
+        final_response = ""
+
+        if thinking_artifacts:
+
+            final_response = " ".join(thinking_artifacts) + " "
+
+        final_response += f"Numerical data has been extracted and structured into a table <artefact type='numerical-sequences-table'>{hash_id}</artefact>."
+
+        
+
+        return final_response
 
     @staticmethod
     def get_info() -> str:

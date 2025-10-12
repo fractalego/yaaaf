@@ -35,6 +35,7 @@ class AnswererAgent(BaseAgent):
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
+        thinking_artifacts = []  # Track all thinking artifacts
         last_utterance = messages.utterances[-1]
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
@@ -60,7 +61,17 @@ class AnswererAgent(BaseAgent):
             response = await self._client.predict(
                 messages=messages, stop_sequences=self._stop_sequences
             )
-            answer = response.message
+
+            
+
+            # Process response to create thinking artifacts
+
+            clean_message, thinking_artifact_ref = self._process_client_response(response, notes)
+
+            
+            if thinking_artifact_ref:
+                thinking_artifacts.append(thinking_artifact_ref)
+            answer = clean_message
 
             # Log internal thinking step
             if notes is not None and step_idx > 0:
@@ -109,7 +120,25 @@ class AnswererAgent(BaseAgent):
                         ),
                     )
 
-                    return f"Analysis complete. The research answer is in this artifact: <artefact type='table'>{answer_id}</artefact>"
+                    # Prepare the final response with thinking artifacts at the beginning
+
+
+                    final_response = ""
+
+
+                    if thinking_artifacts:
+
+
+                        final_response = " ".join(thinking_artifacts) + " "
+
+
+                    final_response += f"The research answer is in this artifact: <artefact type='table'>{answer_id}</artefact>."
+
+
+                    
+
+
+                    return final_response
 
                 except Exception as e:
                     _logger.warning(f"Failed to parse table output: {e}")
@@ -120,8 +149,8 @@ class AnswererAgent(BaseAgent):
                     continue
             else:
                 messages = messages.add_user_utterance(
-                    f"No table found in the response. Please provide your answer as a markdown table between ```table ... ``` tags.\n"
-                    f"The table must have these columns: | paragraph | source |"
+                    "No table found in the response. Please provide your answer as a markdown table between ```table ... ``` tags.\n"
+                    "The table must have these columns: | paragraph | source |"
                 )
 
         return "Failed to generate a proper research answer after maximum attempts."

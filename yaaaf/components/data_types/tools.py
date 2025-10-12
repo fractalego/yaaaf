@@ -34,3 +34,6 @@ class ClientResponse(BaseModel):
     tool_calls: Optional[List[ToolCall]] = Field(
         default=None, description="List of tool calls made by the model"
     )
+    thinking_content: Optional[str] = Field(
+        default=None, description="The thinking content extracted from <think> tags"
+    )

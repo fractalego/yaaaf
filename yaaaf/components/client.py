@@ -6,7 +6,9 @@ from requests.exceptions import ConnectionError, Timeout, RequestException
 
 from typing import Optional, List, TYPE_CHECKING
 
-from yaaaf.components.agents.tokens_utils import strip_thought_tokens
+from yaaaf.components.agents.tokens_utils import (
+    extract_thinking_content,
+)
 
 if TYPE_CHECKING:
     from yaaaf.components.data_types import Messages, Tool, ClientResponse
@@ -215,7 +217,8 @@ class OllamaClient(BaseClient):
                 # Import ClientResponse and ToolCall here to avoid circular imports
                 from yaaaf.components.data_types import ClientResponse, ToolCall
 
-                message_content = strip_thought_tokens(
+                # Extract thinking content and clean message
+                thinking_content, message_content = extract_thinking_content(
                     response_data["message"]["content"]
                 )
 
@@ -234,7 +237,11 @@ class OllamaClient(BaseClient):
                         )
                         tool_calls.append(tool_call)
 
-                return ClientResponse(message=message_content, tool_calls=tool_calls)
+                return ClientResponse(
+                    message=message_content,
+                    tool_calls=tool_calls,
+                    thinking_content=thinking_content if thinking_content else None,
+                )
             except (json.JSONDecodeError, KeyError) as e:
                 error_msg = f"Invalid response format from Ollama at {self.host}: {e}"
                 _logger.error(error_msg)

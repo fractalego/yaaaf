@@ -48,6 +48,10 @@ class StreamStatusResponse(BaseModel):
     is_active: bool
 
 
+class DebugArtifactsArguments(BaseModel):
+    stream_id: str
+
+
 class ArtefactOutput(BaseModel):
     data: str
     code: str
@@ -143,7 +147,19 @@ def get_latest_todo_artifact(arguments: LatestTodoArguments) -> ArtefactOutput:
                     )
                     continue  # Skip invalid artifacts
 
-        _logger.info(f"Found {len(todo_artifacts)} todo artifacts total")
+        # Debug: let's also check all artifacts regardless of type
+        all_artifacts = []
+        for i, note in enumerate(notes):
+            if note.artefact_id:
+                try:
+                    artifact = artefact_storage.retrieve_from_id(note.artefact_id)
+                    if artifact:
+                        all_artifacts.append(artifact)
+                        _logger.info(f"Found artifact {artifact.id} with type: {artifact.type}")
+                except Exception as e:
+                    _logger.warning(f"Failed to retrieve artifact {note.artefact_id}: {e}")
+        
+        _logger.info(f"Found {len(all_artifacts)} total artifacts and {len(todo_artifacts)} todo artifacts")
         if not todo_artifacts:
             raise HTTPException(
                 status_code=404,

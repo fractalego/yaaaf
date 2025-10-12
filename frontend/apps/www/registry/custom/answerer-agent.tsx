@@ -6,7 +6,7 @@ import { ModelIndicator } from "./model-indicator"
 
 function AnswererAgent(element: { text: string; modelName?: string }) {
   return (
-    <div className="inline-block bg-blue-50 dark:bg-blue-900/20 dark:text-white p-3 text-xl rounded-sm border border-blue-200 dark:border-blue-800">
+    <div className="block bg-blue-50 dark:bg-blue-900/20 dark:text-white p-3 text-xl rounded-sm border border-blue-200 dark:border-blue-800 my-2">
       <div className="flex items-center gap-2 mb-1">
         <div className="inline-block">
           <svg
@@ -37,7 +37,7 @@ function AnswererAgent(element: { text: string; modelName?: string }) {
           />
         )}
       </div>
-      <div>{element.text}</div>
+      <div className="whitespace-pre-wrap break-words">{element.text}</div>
     </div>
   )
 }

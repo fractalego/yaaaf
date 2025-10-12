@@ -6,7 +6,7 @@ import { ModelIndicator } from "./model-indicator"
 
 function DuckDuckGoSearchAgent(element: { text: string; modelName?: string }) {
   return (
-    <div className="inline-block bg-gray-200 dark:bg-gray-700 dark:text-white p-3 text-xl rounded-sm">
+    <div className="block bg-gray-200 dark:bg-gray-700 dark:text-white p-3 text-xl rounded-sm my-2">
       <div className="flex items-center gap-2 mb-1">
         <div className="inline-block">
           <svg
@@ -40,7 +40,7 @@ function DuckDuckGoSearchAgent(element: { text: string; modelName?: string }) {
           />
         )}
       </div>
-      <div>{element.text}</div>
+      <div className="whitespace-pre-wrap break-words">{element.text}</div>
     </div>
   )
 }

@@ -80,11 +80,13 @@ export function TodoListModal({
       const items: TodoItem[] = rows.map((row) => {
         const cells = Array.from(row.querySelectorAll("td"))
         const rawStatus = cells[2]?.textContent?.trim() || "pending"
-        console.log(`TodoListModal: Task "${cells[1]?.textContent?.trim()}" has status: "${rawStatus}"`)
+        console.log(
+          `TodoListModal: Task "${cells[1]?.textContent?.trim()}" has status: "${rawStatus}"`
+        )
         return {
           id: cells[0]?.textContent?.trim() || "",
           task: cells[1]?.textContent?.trim() || "",
-          status: (rawStatus) as TodoItem["status"],
+          status: rawStatus as TodoItem["status"],
           agentTool: cells[3]?.textContent?.trim() || "",
         }
       })

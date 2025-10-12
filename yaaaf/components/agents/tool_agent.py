@@ -50,13 +50,12 @@ class ToolAgent(BaseAgent):
                 messages=messages, stop_sequences=self._stop_sequences
             )
 
-            
-
             # Process response to create thinking artifacts
 
-            clean_message, thinking_artifact_ref = self._process_client_response(response, notes)
+            clean_message, thinking_artifact_ref = self._process_client_response(
+                response, notes
+            )
 
-            
             if thinking_artifact_ref:
                 thinking_artifacts.append(thinking_artifact_ref)
             answer = clean_message
@@ -140,12 +139,9 @@ class ToolAgent(BaseAgent):
         final_response = ""
 
         if thinking_artifacts:
-
             final_response = " ".join(thinking_artifacts) + " "
 
         final_response += f"The result is in this artefact <artefact type='called-tools-table'>{tool_id}</artefact>."
-
-        
 
         return final_response
 

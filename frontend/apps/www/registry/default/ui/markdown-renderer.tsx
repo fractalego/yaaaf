@@ -195,9 +195,13 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
         ></ReviewerAgent>
       )
     },
-    artefact: ({ children }: any) => {
+    artefact: ({ children, ...props }: any) => {
       return (
-        <Artefact id={children} onArtifactClick={onArtifactClick}></Artefact>
+        <Artefact
+          id={children}
+          type={props.type}
+          onArtifactClick={onArtifactClick}
+        ></Artefact>
       )
     },
     imageoutput: ({ children }: any) => {

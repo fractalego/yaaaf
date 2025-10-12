@@ -250,7 +250,7 @@ export function SourcesModal({ isOpen, onClose }: SourcesModalProps) {
                               >
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
-                                    <div className="font-medium text-sm">
+                                    <div className="text-sm font-medium">
                                       {doc.title}
                                     </div>
                                     <div className="mt-1 text-xs text-muted-foreground">
@@ -276,10 +276,10 @@ export function SourcesModal({ isOpen, onClose }: SourcesModalProps) {
                                 
                                 {expandedDocuments.has(doc.id) && (
                                   <div className="mt-3 border-t pt-3">
-                                    <div className="text-xs text-muted-foreground mb-2">
+                                    <div className="mb-2 text-xs text-muted-foreground">
                                       Full Content:
                                     </div>
-                                    <div className="max-h-60 overflow-y-auto rounded bg-white p-3 text-xs font-mono">
+                                    <div className="max-h-60 overflow-y-auto rounded bg-white p-3 font-mono text-xs">
                                       <pre className="whitespace-pre-wrap">
                                         {doc.content}
                                       </pre>

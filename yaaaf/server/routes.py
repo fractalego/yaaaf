@@ -755,7 +755,7 @@ async def stream_utterances(arguments: NewUtteranceArguments):
                         }
                         yield f"data: {json.dumps(note_data)}\n\n"
 
-                        # Check for completion or paused state
+                        # Check for completion or paused state AFTER sending the message
                         if (
                             "taskcompleted" in note.message
                             or "taskpaused" in note.message

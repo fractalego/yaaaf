@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react"
 import { CheckCircle, Circle, Clock } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { get_latest_todo_url } from "@/app/settings"
 import { Button } from "@/registry/default/ui/button"
 import {
   Dialog,
@@ -43,7 +42,7 @@ export function TodoListModal({
     setError(null)
 
     try {
-      const response = await fetch(get_latest_todo_url, {
+      const response = await fetch("/api/todo", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

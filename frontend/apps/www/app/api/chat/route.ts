@@ -109,6 +109,12 @@ export async function POST(req: Request) {
                   let stopIterations = false
 
                   if (utterance.indexOf(complete_tag) !== -1) {
+                    console.log("Frontend: Complete tag detected in utterance");
+                    stopIterations = true
+                  }
+
+                  if (note.message.indexOf(complete_tag) !== -1) {
+                    console.log("Frontend: Complete tag detected in raw note.message");
                     stopIterations = true
                   }
 

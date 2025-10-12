@@ -68,9 +68,7 @@ class OrchestratorAgent(BaseAgent):
                 model_name = getattr(self._client, "model", None)
 
                 note = Note(
-                    message=self._remove_and_extract_completion_tag(
-                        Note.clean_agent_tags(answer)
-                    ),
+                    message=Note.clean_agent_tags(answer),
                     artefact_id=artefacts[0].id if artefacts else None,
                     agent_name=agent_name,
                     model_name=model_name,

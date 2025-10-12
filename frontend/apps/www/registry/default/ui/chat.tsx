@@ -26,7 +26,7 @@ interface ChatPropsBase {
   ) => void
   setMessages?: (messages: any[]) => void
   onArtifactClick?: (artifactId: string) => void
-  hasRagAgent?: boolean
+  hasDocumentRetrieverAgent?: boolean
   hasSqlAgent?: boolean
   onFileUpload?: (sourceId: string, fileName: string) => void
   onSqlUpload?: (
@@ -61,7 +61,7 @@ export function Chat({
   onRateResponse,
   setMessages,
   onArtifactClick,
-  hasRagAgent,
+  hasDocumentRetrieverAgent,
   hasSqlAgent,
   onFileUpload,
   onSqlUpload,
@@ -200,7 +200,7 @@ export function Chat({
           isGenerating={isGenerating}
           onRateResponse={onRateResponse}
           lastMessageId={lastAssistantMessageId}
-          hasRagAgent={hasRagAgent}
+          hasDocumentRetrieverAgent={hasDocumentRetrieverAgent}
           hasSqlAgent={hasSqlAgent}
           onFileUpload={onFileUpload}
           onSqlUpload={onSqlUpload}

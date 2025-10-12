@@ -71,7 +71,8 @@ YAAAF includes several built-in agents:
 * **WebSearchAgent**: Performs web searches using DuckDuckGo
 * **BraveSearchAgent**: Privacy-focused web search using Brave's independent search API
 * **ReflectionAgent**: Provides step-by-step reasoning and planning
-* **RAGAgent**: Retrieval-augmented generation from document sources
+* **DocumentRetrieverAgent**: Document search and retrieval from configured sources
+* **AnswererAgent**: Synthesizes multiple artifacts into comprehensive research answers
 * **TodoAgent**: Creates structured todo lists for planning complex multi-agent tasks
 * **ToolAgent**: Advanced integration with MCP (Model Context Protocol) tools and external services
 

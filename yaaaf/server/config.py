@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     agents: List[str | AgentSettings] = []
     safety_filter: SafetyFilterSettings = SafetyFilterSettings()
     api_keys: APISettings = APISettings()
+    generate_summary: bool = False
 
 
 def _get_simple_config() -> Settings:
@@ -92,9 +93,11 @@ def _get_simple_config() -> Settings:
             "reflection",
             "visualization",
             "sql",
+            "document_retriever",
             "reviewer",
+            "answerer",
             "websearch",
-            "url_reviewer",
+            "answerer",
             "user_input",
             "url",
         ],

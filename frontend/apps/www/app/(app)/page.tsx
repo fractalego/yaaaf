@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { useChat, type UseChatOptions } from "@ai-sdk/react"
+import { CheckSquare, Database } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { InfoButton } from "@/components/ui/info-button"
+import { TodoListModal } from "@/components/ui/todo-list-modal"
+import { SourcesModal } from "@/components/ui/sources-modal"
 import { ArtefactPanel } from "@/registry/custom/artefact-panel"
+import { Button } from "@/registry/default/ui/button"
 import { Chat } from "@/registry/default/ui/chat"
 import {
   info_button_message,
@@ -53,8 +57,11 @@ export default function ChatDemo() {
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(
     null
   )
-  const [hasRagAgent, setHasRagAgent] = useState<boolean>(false)
+  const [hasDocumentRetrieverAgent, setHasDocumentRetrieverAgent] =
+    useState<boolean>(false)
   const [hasSqlAgent, setHasSqlAgent] = useState<boolean>(false)
+  const [isTodoModalOpen, setIsTodoModalOpen] = useState<boolean>(false)
+  const [isSourcesModalOpen, setIsSourcesModalOpen] = useState<boolean>(false)
 
   const [currentSessionId, setCurrentSessionId] = useState<string>(
     getSessionIdForNewMessage()
@@ -87,12 +94,13 @@ export default function ChatDemo() {
     originalAppend(message)
   }
 
-  // Check for paused messages and mark session accordingly
+  // Check for paused or completed messages and mark session accordingly
   useEffect(() => {
     const lastMessage = messages[messages.length - 1]
     if (
       lastMessage?.role === "assistant" &&
-      lastMessage?.content?.includes("<taskpaused/>")
+      (lastMessage?.content?.includes("<taskpaused/>") ||
+        lastMessage?.content?.includes("<taskcompleted/>"))
     ) {
       markSessionAsPaused()
     }
@@ -105,13 +113,20 @@ export default function ChatDemo() {
         const response = await fetch("http://localhost:4000/get_agents_config")
         if (response.ok) {
           const agents = await response.json()
-          const ragAgentPresent = agents.some(
-            (agent: any) => agent.name === "rag" && agent.type === "agent"
+          console.log("Received agents config:", agents)
+          const documentRetrieverAgentPresent = agents.some(
+            (agent: any) =>
+              agent.name === "document_retriever" && agent.type === "agent"
           )
           const sqlAgentPresent = agents.some(
             (agent: any) => agent.name === "sql" && agent.type === "agent"
           )
-          setHasRagAgent(ragAgentPresent)
+          console.log(
+            "Document retriever agent present:",
+            documentRetrieverAgentPresent
+          )
+          console.log("SQL agent present:", sqlAgentPresent)
+          setHasDocumentRetrieverAgent(documentRetrieverAgentPresent)
           setHasSqlAgent(sqlAgentPresent)
         }
       } catch (error) {
@@ -128,10 +143,10 @@ export default function ChatDemo() {
     rating: "thumbs-up" | "thumbs-down"
   ) => {
     console.log(`Rating message ${messageId} with ${rating}`)
-    await sendFeedback(getSessionId(), rating)
+    await sendFeedback(currentSessionId, rating)
   }
 
-  // Handle file upload (for RAG)
+  // Handle file upload (for Document Retriever Agent)
   const handleFileUpload = (sourceId: string, fileName: string) => {
     console.log(`File uploaded: ${fileName} with source ID: ${sourceId}`)
     // You could add a toast notification here or update UI to show upload success
@@ -162,18 +177,38 @@ export default function ChatDemo() {
           )}
         >
           <div className="mx-auto flex h-full w-full max-w-6xl flex-col">
-            {/* Header with Info Button */}
+            {/* Header with Info Button and Todo Button */}
             <div className="flex items-center justify-between border-b border-border/50 p-4">
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-semibold text-foreground">
                   YAAAF Chat
                 </h1>
               </div>
-              <InfoButton
-                title={info_button_title}
-                message={info_button_message}
-                className="text-muted-foreground hover:text-foreground"
-              />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsSourcesModalOpen(true)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Database className="mr-2 h-4 w-4" />
+                  Sources
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsTodoModalOpen(true)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <CheckSquare className="mr-2 h-4 w-4" />
+                  Todo List
+                </Button>
+                <InfoButton
+                  title={info_button_title}
+                  message={info_button_message}
+                  className="text-muted-foreground hover:text-foreground"
+                />
+              </div>
             </div>
 
             <Chat
@@ -189,7 +224,7 @@ export default function ChatDemo() {
               suggestions={query_suggestions.split(",")}
               onArtifactClick={setSelectedArtifactId}
               onRateResponse={handleRateResponse}
-              hasRagAgent={hasRagAgent}
+              hasDocumentRetrieverAgent={hasDocumentRetrieverAgent}
               hasSqlAgent={hasSqlAgent}
               onFileUpload={handleFileUpload}
               onSqlUpload={handleSqlUpload}
@@ -207,6 +242,19 @@ export default function ChatDemo() {
           </div>
         )}
       </div>
+
+      {/* Sources Modal */}
+      <SourcesModal
+        isOpen={isSourcesModalOpen}
+        onClose={() => setIsSourcesModalOpen(false)}
+      />
+
+      {/* Todo List Modal */}
+      <TodoListModal
+        isOpen={isTodoModalOpen}
+        onClose={() => setIsTodoModalOpen(false)}
+        streamId={currentSessionId}
+      />
     </div>
   )
 }

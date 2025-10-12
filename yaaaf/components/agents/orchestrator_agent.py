@@ -11,7 +11,9 @@ from yaaaf.components.data_types import Messages, Note
 from yaaaf.components.agents.prompts import orchestrator_prompt_template
 from yaaaf.components.extractors.goal_extractor import GoalExtractor
 from yaaaf.components.extractors.summary_extractor import SummaryExtractor
+from yaaaf.components.extractors.status_extractor import StatusExtractor
 from yaaaf.components.decorators import handle_exceptions
+from yaaaf.server.config import get_config
 
 _logger = logging.getLogger(__name__)
 
@@ -30,6 +32,9 @@ class OrchestratorAgent(BaseAgent):
         }
         self._goal_extractor = GoalExtractor(client)
         self._summary_extractor = SummaryExtractor(client)
+        self._status_extractor = StatusExtractor(client)
+        self._current_todo_artifact_id: Optional[str] = None
+        self._needs_replanning: bool = False
 
     @handle_exceptions
     async def query(
@@ -37,6 +42,9 @@ class OrchestratorAgent(BaseAgent):
     ) -> str:
         # Reset all agent budgets at the start of each query
         self._reset_all_agent_budgets()
+        self._current_todo_artifact_id = None  # Reset todo tracking
+        self._needs_replanning = False  # Reset replanning state
+        messages = messages.apply(self.simplify_agents_tags)
 
         # Extract goal once at the beginning
         goal = await self._goal_extractor.extract(messages)
@@ -48,7 +56,7 @@ class OrchestratorAgent(BaseAgent):
             response = await self._client.predict(
                 messages, stop_sequences=self._stop_sequences
             )
-            answer = response.message
+            answer = self.simplify_agents_tags(response.message)
             agent_to_call, instruction = self.map_answer_to_agent(answer)
             extracted_agent_name = Note.extract_agent_name_from_tags(answer)
             agent_name = extracted_agent_name or (
@@ -60,7 +68,7 @@ class OrchestratorAgent(BaseAgent):
                 model_name = getattr(self._client, "model", None)
 
                 note = Note(
-                    message=self._remove_and_extract_completion_tag(Note.clean_agent_tags(answer)),
+                    message=Note.clean_agent_tags(answer),
                     artefact_id=artefacts[0].id if artefacts else None,
                     agent_name=agent_name,
                     model_name=model_name,
@@ -71,9 +79,13 @@ class OrchestratorAgent(BaseAgent):
             if agent_to_call is None and (
                 self.is_complete(answer) or answer.strip() == ""
             ):
-                # Generate summary artifact when task is completed
+                # Update todo status when task is completed
                 if self.is_complete(answer):
-                    answer = await self._generate_and_add_summary(answer, notes)
+                    await self._mark_tasks_as_completed(answer)
+                    config = get_config()
+                    _logger.info(f"Task completed - generate_summary setting: {config.generate_summary}")
+                    if config.generate_summary:
+                        answer = await self._generate_and_add_summary(answer, notes)
                 break
             if agent_to_call is not None:
                 # Check if agent has budget remaining
@@ -99,6 +111,50 @@ class OrchestratorAgent(BaseAgent):
                     artefacts = get_artefacts_from_utterance_content(answer)
                     extracted_agent_name = Note.extract_agent_name_from_tags(answer)
                     final_agent_name = extracted_agent_name or agent_name
+
+                    # Check if this is a todo agent response and store the artifact ID
+                    if (
+                        agent_to_call
+                        and agent_to_call.get_name() == "todoagent"
+                        and artefacts
+                    ):
+                        for artifact in artefacts:
+                            if artifact.type == Artefact.Types.TODO_LIST:
+                                self._current_todo_artifact_id = artifact.id
+                                self._needs_replanning = False  # Reset replanning flag after new plan created
+                                _logger.info(f"Stored todo artifact ID: {artifact.id}")
+                                break
+
+                    # Update todo status if we have a todo list and this isn't the todo agent
+                    if (
+                        self._current_todo_artifact_id
+                        and agent_to_call
+                        and agent_to_call.get_name() != "todoagent"
+                    ):
+                        _logger.info(f"Calling status extractor for agent {final_agent_name} with response: {answer[:200]}...")
+                        (
+                            updated_artifact_id,
+                            needs_replanning,
+                        ) = await self._status_extractor.extract_and_update_status(
+                            answer, final_agent_name, self._current_todo_artifact_id
+                        )
+                        _logger.info(f"Status extractor returned: updated_id={updated_artifact_id}, needs_replanning={needs_replanning}")
+
+                        if needs_replanning:
+                            # Restore todo agent budget and mark for replanning
+                            self._restore_todo_agent_budget()
+                            self._needs_replanning = True
+                            self._current_todo_artifact_id = (
+                                None  # Reset to trigger new planning
+                            )
+                            _logger.info(
+                                f"Plan change detected - todo agent budget restored for replanning"
+                            )
+                        elif updated_artifact_id != self._current_todo_artifact_id:
+                            self._current_todo_artifact_id = updated_artifact_id
+                            _logger.info(
+                                f"Updated todo artifact ID: {updated_artifact_id}"
+                            )
 
                     # Get model name from the agent's client if available
                     agent_model_name = (
@@ -128,7 +184,10 @@ class OrchestratorAgent(BaseAgent):
         if not self.is_complete(answer) and step_index == self._max_steps - 1:
             answer += f"\nThe Orchestrator agent has finished its maximum number of steps. {task_completed_tag}"
             # Generate summary artifact when max steps reached
-            answer = await self._generate_and_add_summary(answer, notes)
+            config = get_config()
+            _logger.info(f"Max steps reached - generate_summary setting: {config.generate_summary}")
+            if config.generate_summary:
+                answer = await self._generate_and_add_summary(answer, notes)
             if notes is not None:
                 model_name = getattr(self._client, "model", None)
                 notes.append(
@@ -140,6 +199,21 @@ class OrchestratorAgent(BaseAgent):
                 )
 
         return answer
+
+    async def _mark_tasks_as_completed(self, answer: str) -> None:
+        """Mark tasks as completed in the todo list when the orchestrator finishes."""
+        if self._current_todo_artifact_id:
+            _logger.info(f"Task completed - calling status extractor with response: {answer[:200]}...")
+            (
+                updated_artifact_id,
+                needs_replanning,
+            ) = await self._status_extractor.extract_and_update_status(
+                answer, self.get_name(), self._current_todo_artifact_id
+            )
+            _logger.info(f"Status extractor returned: updated_id={updated_artifact_id}, needs_replanning={needs_replanning}")
+            if updated_artifact_id != self._current_todo_artifact_id:
+                self._current_todo_artifact_id = updated_artifact_id
+                _logger.info(f"Updated todo artifact ID: {updated_artifact_id}")
 
     def is_paused(self, answer: str) -> bool:
         """Check if the task is paused and waiting for user input."""
@@ -188,6 +262,14 @@ class OrchestratorAgent(BaseAgent):
             agent.reset_budget()
         _logger.info("Reset budgets for all agents")
 
+    def _restore_todo_agent_budget(self) -> None:
+        """Restore todo agent budget to allow replanning."""
+        for agent in self._agents_map.values():
+            if agent.get_name() == "TodoAgent":
+                agent.reset_budget()
+                _logger.info("Restored TodoAgent budget for replanning")
+                break
+
     def _get_available_agents(self) -> dict:
         """Get agents that still have budget remaining."""
         return {
@@ -199,29 +281,83 @@ class OrchestratorAgent(BaseAgent):
     def _get_system_status(self) -> str:
         """Collect status information from all agents."""
         status_entries = []
-        
+
         for agent in self._agents_map.values():
-            if hasattr(agent, 'get_status_info'):
+            if hasattr(agent, "get_status_info"):
                 status = agent.get_status_info()
                 if status.strip():
                     status_entries.append(f"• {agent.get_name()}: {status}")
-        
+
         if not status_entries:
             return "No special conditions reported by agents."
-        
+
         return "\n".join(status_entries)
 
-    def map_answer_to_agent(self, answer: str) -> Tuple[BaseAgent | None, str]:
-        # Only consider agents that still have budget
-        available_agents = self._get_available_agents()
+    def _get_task_progress_section(self) -> str:
+        """Generate the task progress section for the orchestrator prompt."""
+        # If replanning is needed, show replanning state
+        if self._needs_replanning:
+            return """
+== CURRENT TASK PROGRESS ==
+**REPLANNING REQUIRED**: New information detected that requires updating the plan
 
-        for tag, agent in available_agents.items():
-            if tag in answer:
-                matches = re.findall(
-                    rf"{agent.get_opening_tag()}(.+)", answer, re.DOTALL | re.MULTILINE
-                )
-                if matches:
-                    return agent, matches[0]
+### Current Status
+- [🔄] **Creating new todo list** ←─ CURRENT STEP
+
+### Step Context
+Currently investigating: Plan revision based on new discoveries
+Previous plan needs updating due to new information from sub-agent response.
+"""
+
+        if not self._current_todo_artifact_id:
+            return ""
+
+        step_info = self._status_extractor.get_current_step_info(
+            self._current_todo_artifact_id
+        )
+
+        if not step_info:
+            return ""
+
+        current_step = step_info.get("current_step_index", 0)
+        total_steps = step_info.get("total_steps", 0)
+        current_desc = step_info.get("current_step_description", "")
+        markdown_todo = step_info.get("markdown_todo_list", "")
+
+        if not markdown_todo:
+            return ""
+
+        return f"""
+== CURRENT TASK PROGRESS ==
+**Step {current_step} of {total_steps}**: {current_desc}
+
+### Todo List
+{markdown_todo}
+
+### Step Context
+Currently investigating: {current_desc}
+"""
+
+    def simplify_agents_tags(self, answer: str) -> str:
+        available_agents = self._get_available_agents()
+        for _, agent in available_agents.items():
+            opening_tag = agent.get_opening_tag().replace(">", ".*?>")
+            # This is to avoid confusing the frontend
+            answer = re.sub(
+                rf"{opening_tag}", agent.get_opening_tag(), answer, flags=re.DOTALL
+            )
+
+        return answer
+
+    def map_answer_to_agent(self, answer: str) -> Tuple[BaseAgent | None, str]:
+        available_agents = self._get_available_agents()
+        for _, agent in available_agents.items():
+            opening_tag = agent.get_opening_tag().replace(">", ".*?>")
+            matches = re.findall(
+                rf"{opening_tag}(.+)", answer, re.DOTALL | re.MULTILINE
+            )
+            if matches:
+                return agent, matches[0]
 
         return None, ""
 
@@ -249,6 +385,9 @@ Orchestrator agent: This agent orchestrates the agents.
             ]
         )
 
+        # Generate task progress section
+        task_progress_section = self._get_task_progress_section()
+
         return orchestrator_prompt_template.complete(
             training_cutoff_info=training_cutoff_info,
             agents_list="\n".join(
@@ -267,6 +406,7 @@ Orchestrator agent: This agent orchestrates the agents.
             ),
             budget_info=budget_info,
             status_info=self._get_system_status(),
+            task_progress_section=task_progress_section,
             goal=goal,
             task_completed_tag=task_completed_tag,
         )
@@ -318,6 +458,14 @@ Orchestrator agent: This agent orchestrates the agents.
                         )
                     )
                 )
+
+        # Truncate all cells to 200 characters max
+        for col in df_clean.columns:
+            df_clean[col] = (
+                df_clean[col]
+                .astype(str)
+                .apply(lambda x: x[:200] + "..." if len(x) > 200 else x)
+            )
 
         # Check if we need to truncate
         is_truncated = len(df_clean) > max_rows

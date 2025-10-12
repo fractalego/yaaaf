@@ -59,19 +59,25 @@ class ArtefactExtractor(BaseExtractor):
                     artefact_desc += f"Agent: {note.agent_name or 'unknown'}\n"
                     formatted_notes.append(artefact_desc)
                 except (ValueError, AttributeError) as e:
-                    _logger.warning(f"Could not retrieve artefact {note.artefact_id}: {e}")
+                    _logger.warning(
+                        f"Could not retrieve artefact {note.artefact_id}: {e}"
+                    )
                     continue
-        
-        return "\n---\n".join(formatted_notes) if formatted_notes else "No artefacts found in notes."
+
+        return (
+            "\n---\n".join(formatted_notes)
+            if formatted_notes
+            else "No artefacts found in notes."
+        )
 
     async def extract(self, instruction: str, notes: List[Note]) -> List[str]:
         """
         Extract the most relevant artefact IDs for the given instruction from the notes.
-        
+
         Args:
             instruction: The instruction that needs artefacts
             notes: List of conversation notes that may contain artefacts
-            
+
         Returns:
             List of artefact IDs ordered by relevance
         """
@@ -81,19 +87,18 @@ class ArtefactExtractor(BaseExtractor):
 
         # Filter notes that have artefacts
         notes_with_artefacts = [note for note in notes if note.artefact_id]
-        
+
         if not notes_with_artefacts:
             _logger.info("No notes with artefacts found")
             return []
 
         # Format notes for the prompt
         formatted_notes = self._format_notes_with_artefacts(notes_with_artefacts)
-        
+
         # Create extraction prompt
         extraction_messages = Messages().add_system_prompt(
             self._artefact_extractor_prompt.complete(
-                instruction=instruction,
-                notes_with_artefacts=formatted_notes
+                instruction=instruction, notes_with_artefacts=formatted_notes
             )
         )
         extraction_messages = extraction_messages.add_user_utterance(
@@ -105,37 +110,57 @@ class ArtefactExtractor(BaseExtractor):
             # Get LLM response
             response = await self._client.predict(extraction_messages)
             answer = response.message
-            
+
             # Parse artefact IDs from response
             artefact_ids = []
-            for line in answer.strip().split('\n'):
+            for line in answer.strip().split("\n"):
                 line = line.strip()
                 # Handle various formats: "artefact_id", "- artefact_id", "1. artefact_id", etc.
-                if line and not line.startswith('#') and not line.lower().startswith('none'):
+                if (
+                    line
+                    and not line.startswith("#")
+                    and not line.lower().startswith("none")
+                ):
                     # Extract artefact ID (remove bullets, numbers, etc.)
-                    cleaned_line = line.lstrip('- ').strip()
-                    if cleaned_line and cleaned_line in [note.artefact_id for note in notes_with_artefacts]:
+                    cleaned_line = line.lstrip("- ").strip()
+                    if cleaned_line and cleaned_line in [
+                        note.artefact_id for note in notes_with_artefacts
+                    ]:
                         artefact_ids.append(cleaned_line)
-            
-            _logger.info(f"Extracted {len(artefact_ids)} relevant artefact IDs for instruction: {instruction[:50]}...")
-            
+
+            _logger.info(
+                f"Extracted {len(artefact_ids)} relevant artefact IDs for instruction: {instruction[:50]}..."
+            )
+
             # If no artefacts suggested by LLM, return the latest one from notes
             if not artefact_ids:
-                _logger.info("No artefacts suggested by LLM, returning latest artefact from notes")
+                _logger.info(
+                    "No artefacts suggested by LLM, returning latest artefact from notes"
+                )
                 # Sort notes by timestamp (if available) or by order, get the latest
-                latest_note = max(notes_with_artefacts, key=lambda n: getattr(n, 'timestamp', 0), default=None)
+                latest_note = max(
+                    notes_with_artefacts,
+                    key=lambda n: getattr(n, "timestamp", 0),
+                    default=None,
+                )
                 if latest_note and latest_note.artefact_id:
                     return [latest_note.artefact_id]
                 return []
-            
+
             return artefact_ids[:3]  # Return top 3 most relevant
-            
+
         except Exception as e:
             _logger.error(f"Error extracting artefacts: {e}")
             # If error occurs, return the latest artefact from notes as fallback
             if notes_with_artefacts:
-                _logger.info("Error occurred, returning latest artefact from notes as fallback")
-                latest_note = max(notes_with_artefacts, key=lambda n: getattr(n, 'timestamp', 0), default=None)
+                _logger.info(
+                    "Error occurred, returning latest artefact from notes as fallback"
+                )
+                latest_note = max(
+                    notes_with_artefacts,
+                    key=lambda n: getattr(n, "timestamp", 0),
+                    default=None,
+                )
                 if latest_note and latest_note.artefact_id:
                     return [latest_note.artefact_id]
             return []
@@ -143,10 +168,10 @@ class ArtefactExtractor(BaseExtractor):
     def get_artefacts_by_ids(self, artefact_ids: List[str]) -> List[Artefact]:
         """
         Retrieve artefact objects by their IDs.
-        
+
         Args:
             artefact_ids: List of artefact IDs to retrieve
-            
+
         Returns:
             List of Artefact objects
         """

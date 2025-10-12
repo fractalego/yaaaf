@@ -5,7 +5,7 @@ from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaaf.components.agents.todo_agent import TodoAgent
 from yaaaf.components.agents.reviewer_agent import ReviewerAgent
 from yaaaf.components.agents.sql_agent import SqlAgent
-from yaaaf.components.agents.rag_agent import RAGAgent
+from yaaaf.components.agents.document_retriever_agent import DocumentRetrieverAgent
 from yaaaf.components.agents.url_agent import URLAgent
 from yaaaf.components.agents.url_reviewer_agent import UrlReviewerAgent
 from yaaaf.components.agents.user_input_agent import UserInputAgent
@@ -15,9 +15,11 @@ from yaaaf.components.agents.brave_search_agent import BraveSearchAgent
 from yaaaf.components.agents.bash_agent import BashAgent
 from yaaaf.components.agents.tool_agent import ToolAgent
 from yaaaf.components.agents.numerical_sequences_agent import NumericalSequencesAgent
+from yaaaf.components.agents.answerer_agent import AnswererAgent
 from yaaaf.components.client import OllamaClient
 from yaaaf.components.sources.sqlite_source import SqliteSource
 from yaaaf.components.sources.rag_source import RAGSource
+from yaaaf.components.sources.persistent_rag_source import PersistentRAGSource
 from yaaaf.connectors.mcp_connector import MCPSseConnector, MCPStdioConnector, MCPTools
 from yaaaf.server.config import Settings, AgentSettings, ToolTransportType
 
@@ -31,7 +33,7 @@ class OrchestratorBuilder:
             "todo": TodoAgent,
             "visualization": VisualizationAgent,
             "sql": SqlAgent,
-            "rag": RAGAgent,
+            "document_retriever": DocumentRetrieverAgent,
             "reviewer": ReviewerAgent,
             "websearch": DuckDuckGoSearchAgent,
             "brave_search": BraveSearchAgent,
@@ -41,6 +43,7 @@ class OrchestratorBuilder:
             "bash": BashAgent,
             "tool": ToolAgent,
             "numerical_sequences": NumericalSequencesAgent,
+            "answerer": AnswererAgent,
         }
 
     def _load_text_from_file(self, file_path: str) -> str:
@@ -54,23 +57,49 @@ class OrchestratorBuilder:
                 return f.read()
 
     def _create_rag_sources(self) -> List[RAGSource]:
-        """Create RAG sources from text-type sources in config."""
+        """Create document sources from text-type sources in config."""
         rag_sources = []
-        
-        # Add uploaded sources if available
-        try:
-            from yaaaf.server.routes import get_uploaded_rag_sources
-            uploaded_sources = get_uploaded_rag_sources()
-            rag_sources.extend(uploaded_sources)
-            _logger.info(f"Added {len(uploaded_sources)} uploaded RAG sources")
-        except ImportError:
-            # Routes module might not be available in some contexts
-            pass
-        except Exception as e:
-            _logger.warning(f"Could not load uploaded RAG sources: {e}")
-        
+
+        # First check if we have a persistent RAG source configured
+        has_persistent_rag = any(source.type == "rag" for source in self.config.sources)
+
+        # Add uploaded sources if available (but skip if we have persistent RAG to avoid duplicates)
+        if not has_persistent_rag:
+            try:
+                from yaaaf.server.routes import get_uploaded_rag_sources
+
+                uploaded_sources = get_uploaded_rag_sources()
+                rag_sources.extend(uploaded_sources)
+                _logger.info(f"Added {len(uploaded_sources)} uploaded document sources")
+            except ImportError:
+                # Routes module might not be available in some contexts
+                pass
+            except Exception as e:
+                _logger.warning(f"Could not load uploaded document sources: {e}")
+
         for source_config in self.config.sources:
-            if source_config.type == "text":
+            if source_config.type == "rag":
+                # Use the same persistent RAG source instance from routes
+                try:
+                    from yaaaf.server.routes import _get_persistent_rag_source
+                    rag_source = _get_persistent_rag_source()
+                    if rag_source:
+                        rag_sources.append(rag_source)
+                        _logger.info(f"Using shared persistent RAG source: {source_config.name} at {source_config.path}")
+                    else:
+                        _logger.warning(f"Could not get persistent RAG source from routes")
+                except ImportError:
+                    # Fallback: create new instance if routes not available
+                    description = getattr(source_config, "description", source_config.name)
+                    rag_source = PersistentRAGSource(
+                        description=description,
+                        source_path=source_config.name or "persistent_rag",
+                        pickle_path=source_config.path
+                    )
+                    rag_sources.append(rag_source)
+                    _logger.info(f"Created new persistent RAG source: {source_config.name} at {source_config.path}")
+            
+            elif source_config.type == "text":
                 description = getattr(source_config, "description", source_config.name)
                 rag_source = RAGSource(
                     description=description, source_path=source_config.path
@@ -85,7 +114,9 @@ class OrchestratorBuilder:
                             pdf_content = pdf_file.read()
                             filename = os.path.basename(source_config.path)
                             # Use default chunking of no chunking (-1), can be made configurable later
-                            rag_source.add_pdf(pdf_content, filename, pages_per_chunk=-1)
+                            rag_source.add_pdf(
+                                pdf_content, filename, pages_per_chunk=-1
+                            )
                     else:
                         # Handle text files
                         text_content = self._load_text_from_file(source_config.path)
@@ -95,7 +126,9 @@ class OrchestratorBuilder:
                     for filename in os.listdir(source_config.path):
                         file_path = os.path.join(source_config.path, filename)
                         if os.path.isfile(file_path):
-                            if filename.lower().endswith((".txt", ".md", ".html", ".htm")):
+                            if filename.lower().endswith(
+                                (".txt", ".md", ".html", ".htm")
+                            ):
                                 text_content = self._load_text_from_file(file_path)
                                 rag_source.add_text(text_content)
                             elif filename.lower().endswith(".pdf"):
@@ -103,7 +136,9 @@ class OrchestratorBuilder:
                                 with open(file_path, "rb") as pdf_file:
                                     pdf_content = pdf_file.read()
                                     # Use default chunking of no chunking (-1), can be made configurable later
-                                    rag_source.add_pdf(pdf_content, filename, pages_per_chunk=-1)
+                                    rag_source.add_pdf(
+                                        pdf_content, filename, pages_per_chunk=-1
+                                    )
 
                 rag_sources.append(rag_source)
         return rag_sources
@@ -152,30 +187,38 @@ class OrchestratorBuilder:
     def _create_sql_sources(self) -> List[SqliteSource]:
         """Create SQL sources from sqlite-type sources in config."""
         sql_sources = []
-        
+
         for source_config in self.config.sources:
             if source_config.type == "sqlite":
                 # Ensure database file exists - create empty one if it doesn't
                 import os
+
                 if not os.path.exists(source_config.path):
                     try:
                         # Create directory if it doesn't exist
                         os.makedirs(os.path.dirname(source_config.path), exist_ok=True)
                         # Create empty database file
                         import sqlite3
+
                         with sqlite3.connect(source_config.path) as conn:
-                            conn.execute("SELECT 1")  # Simple query to initialize the database
-                        _logger.info(f"Created new database file at '{source_config.path}'")
+                            conn.execute(
+                                "SELECT 1"
+                            )  # Simple query to initialize the database
+                        _logger.info(
+                            f"Created new database file at '{source_config.path}'"
+                        )
                     except Exception as e:
-                        _logger.error(f"Could not create database file at {source_config.path}: {e}")
+                        _logger.error(
+                            f"Could not create database file at {source_config.path}: {e}"
+                        )
                         continue
-                
+
                 sql_source = SqliteSource(
                     name=source_config.name,
                     db_path=source_config.path,
                 )
                 sql_sources.append(sql_source)
-        
+
         return sql_sources
 
     def _get_sqlite_source(self):
@@ -239,9 +282,16 @@ class OrchestratorBuilder:
 
         # Agents section
         agents_info = ["**Available Agents:**"]
-        for agent_name, agent_class in self._agents_map.items():
-            if agent_name != "todo":
-                agents_info.append(f"• {agent_name}: {agent_class.get_info()}")
+        configured_agents = [
+            self._get_agent_name(agent_config) for agent_config in self.config.agents
+        ]
+        for agent_name in configured_agents:
+            if agent_name != "todo" and agent_name in self._agents_map:
+                agent_class = self._agents_map[agent_name]
+                # Use common function to get agent name (same as get_name() method)
+                from yaaaf.components.agents.base_agent import get_agent_name_from_class
+                actual_agent_name = get_agent_name_from_class(agent_class)
+                agents_info.append(f"• {actual_agent_name}: {agent_class.get_info()}")
 
         sections.append("\n".join(agents_info))
 
@@ -314,7 +364,7 @@ class OrchestratorBuilder:
                         client=agent_client, sources=sql_sources
                     )
                 )
-            elif agent_name == "rag" and rag_sources:
+            elif agent_name == "document_retriever" and rag_sources:
                 orchestrator.subscribe_agent(
                     self._agents_map[agent_name](
                         client=agent_client, sources=rag_sources
@@ -331,7 +381,7 @@ class OrchestratorBuilder:
                         agents_and_sources_and_tools_list=agents_sources_tools_list,
                     )
                 )
-            elif agent_name not in ["sql", "rag", "tool", "todo"]:
+            elif agent_name not in ["sql", "document_retriever", "tool", "todo"]:
                 orchestrator.subscribe_agent(
                     self._agents_map[agent_name](client=agent_client)
                 )

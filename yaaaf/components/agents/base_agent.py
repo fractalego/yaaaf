@@ -10,6 +10,11 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
+def get_agent_name_from_class(agent_class) -> str:
+    """Get agent name from class - used by both get_name() and orchestrator builder."""
+    return agent_class.__name__.lower()
+
+
 class BaseAgent:
     def __init__(self):
         self._budget = 2  # Default budget for most agents
@@ -22,7 +27,7 @@ class BaseAgent:
         pass
 
     def get_name(self) -> str:
-        return self.__class__.__name__.lower()
+        return get_agent_name_from_class(self.__class__)
 
     @staticmethod
     def get_info() -> str:
@@ -73,25 +78,25 @@ class BaseAgent:
                 message=f"[{prefix}] {message}",
                 artefact_id=None,
                 agent_name=self.get_name(),
-                model_name=getattr(getattr(self, '_client', None), 'model', None),
+                model_name=getattr(getattr(self, "_client", None), "model", None),
                 internal=True,
             )
             notes.append(internal_note)
 
     async def _try_extract_artefacts_from_notes(
-        self, 
-        artefact_list: List["Artefact"], 
-        last_utterance: "Utterance", 
-        notes: Optional[List[Note]]
+        self,
+        artefact_list: List["Artefact"],
+        last_utterance: "Utterance",
+        notes: Optional[List[Note]],
     ) -> List["Artefact"]:
         """
         Try to extract relevant artefacts from conversation notes when none are provided.
-        
+
         Args:
             artefact_list: Current artefact list (should be empty when this is called)
             last_utterance: The utterance to find artefacts for
             notes: Conversation notes that may contain artefacts
-            
+
         Returns:
             Updated artefact list with extracted artefacts
         """
@@ -104,14 +109,16 @@ class BaseAgent:
                 extracted_artefacts = self._artefact_extractor.get_artefacts_by_ids(
                     extracted_artefact_ids
                 )
-                _logger.info(f"Found {len(extracted_artefacts)} relevant artefacts from notes")
-                
+                _logger.info(
+                    f"Found {len(extracted_artefacts)} relevant artefacts from notes"
+                )
+
                 # Add internal note about auto-extracted artefacts
                 self._add_internal_message(
                     f"Auto-extracted {len(extracted_artefacts)} relevant artefacts from conversation history: {extracted_artefact_ids}",
                     notes,
-                    "Artefact Extraction"
+                    "Artefact Extraction",
                 )
                 return extracted_artefacts
-        
+
         return artefact_list

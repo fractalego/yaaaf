@@ -44,7 +44,6 @@ class VisualizationAgent(BaseAgent):
         self._client = client
         self._artefact_extractor = ArtefactExtractor(client)
 
-
     @handle_exceptions
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None
@@ -53,12 +52,12 @@ class VisualizationAgent(BaseAgent):
         artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
             last_utterance.content
         )
-        
+
         # Try to extract artefacts from notes if none found in utterance
         artefact_list = await self._try_extract_artefacts_from_notes(
             artefact_list, last_utterance, notes
         )
-        
+
         if not artefact_list:
             return no_artefact_text
 

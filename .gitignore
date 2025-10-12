@@ -19,3 +19,8 @@ yaaaf/client/standalone
 
 # Database
 data/database.db
+yaaf/data/
+
+# Tinkering files
+inspiration/
+yaaaf/feedback/

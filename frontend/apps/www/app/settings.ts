@@ -6,6 +6,7 @@ export const get_utterances_url = `http://localhost:${port}/get_utterances`
 export const stream_utterances_url = `http://localhost:${port}/stream_utterances`
 export const get_image_url = `http://localhost:${port}/get_image`
 export const get_artefact_url = `http://localhost:${port}/get_artefact`
+export const get_latest_todo_url = `http://localhost:${port}/get_latest_todo`
 export const save_feedback_url = `http://localhost:${port}/save_feedback`
 
 export const complete_tag = "<taskcompleted/>"

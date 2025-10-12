@@ -35,3 +35,30 @@ Conversation content:
 Please provide a concise but comprehensive summary that captures the essence of the conversation and its outcomes.
 """
 )
+chunk_extractor_prompt = PromptTemplate(
+    prompt="""
+You are a chunk extractor. Your task is to identify and extract relevant text chunks from a document that are related to a specific query.
+
+Given the following text, extract the most relevant chunks of text that directly answer or relate to the user query.
+
+Text:
+{text}
+
+Instructions:
+1. Identify text chunks that are directly relevant to the query
+2. Each chunk should be a coherent piece of text (sentences or paragraphs)
+3. Extract the exact text verbatim from the input - do not paraphrase or modify
+4. Include position information (page number, section, or paragraph number if available)
+5. Return results as a JSON array with the format:
+   [{{\"relevant_chunk_text\": \"exact text from input\", \"position_in_document\": \"page/section identifier\"}}]
+
+Please be flexible in finding relevant information, as it may not always be in a single contiguous section.
+The relevant information may be spread across different parts of the text.
+Use the largest chunks possible that still maintain coherence.
+
+The page/section identifier can be a page number, section title, or paragraph number specifically related to the text chunk (these coordinates should help locate the chunk in the original document).
+
+If no relevant chunks are found, return an empty array [].
+Only return the JSON array, no other text.
+"""
+)

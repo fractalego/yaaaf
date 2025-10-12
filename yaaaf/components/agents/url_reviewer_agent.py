@@ -116,7 +116,7 @@ To call this agent write {self.get_opening_tag()} ENGLISH QUERY THAT DESCRIBE WH
 This agent is called when you need to better look into the content of a url.
 The arguments within the tags must be: 
 1) instructions about what to look for in the data
-2) the artefacts <artefact type="search-result"> ... </artefact> that describe were found by the other agents above.
+2) the artefacts <artefact type="search-result"> ... </artefact> that describe what was found by the other agents above.
 Both arguments are required.
 Do *not* use images in the arguments of this agent.
         """

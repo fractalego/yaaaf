@@ -17,10 +17,10 @@
     "reviewer",
     "websearch",
     "url",
-    "url_reviewer",
     "user_input",
     "bash",
-    "numerical_sequences"
+    "numerical_sequences",
+    "answerer"
   ],
   "sources": [
     {
@@ -32,6 +32,12 @@
       "name": "Wikipedia page about archaeology",
       "type": "text",
       "path": "../../data/Archaeology - Wikipedia.html"
+    },
+    {
+      "name": "persistent_documents",
+      "type": "rag",
+      "path": "data/persistent_rag.pkl",
+      "description": "Persistent document store for uploaded files"
     }
   ],
   "safety_filter": {
@@ -42,5 +48,6 @@
   },
   "api_keys": {
     "brave_search_api_key": null
-  }
+  },
+  "generate_summary": false
 }

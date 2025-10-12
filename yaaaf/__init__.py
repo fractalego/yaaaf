@@ -23,7 +23,8 @@ from yaaaf.components.agents.sql_agent import SqlAgent
 from yaaaf.components.agents.visualization_agent import VisualizationAgent
 from yaaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
 from yaaaf.components.agents.todo_agent import TodoAgent
-from yaaaf.components.agents.rag_agent import RAGAgent
+from yaaaf.components.agents.document_retriever_agent import DocumentRetrieverAgent
+from yaaaf.components.agents.answerer_agent import AnswererAgent
 
 # Client and configuration
 from yaaaf.components.client import BaseClient, OllamaClient
@@ -51,7 +52,8 @@ __all__ = [
     "VisualizationAgent",
     "DuckDuckGoSearchAgent",
     "TodoAgent",
-    "RAGAgent",
+    "DocumentRetrieverAgent",
+    "AnswererAgent",
     # Client implementations
     "OllamaClient",
     # Configuration

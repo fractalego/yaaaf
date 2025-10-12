@@ -109,6 +109,12 @@ export async function POST(req: Request) {
                   let stopIterations = false
 
                   if (utterance.indexOf(complete_tag) !== -1) {
+                    console.log("Frontend: Complete tag detected in utterance");
+                    stopIterations = true
+                  }
+
+                  if (note.message.indexOf(complete_tag) !== -1) {
+                    console.log("Frontend: Complete tag detected in raw note.message");
                     stopIterations = true
                   }
 
@@ -127,7 +133,9 @@ export async function POST(req: Request) {
                   )
 
                   try {
-                    dataStream.write(`0:"${utterance}<br/><br/>"\n`)
+                    dataStream.write(
+                      `0:${JSON.stringify(utterance + "<br/><br/>")}\n`
+                    )
                     console.log(
                       `Frontend: Message #${messageCount} - Successfully wrote to dataStream`
                     )
@@ -180,7 +188,9 @@ export async function POST(req: Request) {
             const timeSinceLastMessage = Date.now() - lastMessageTime
             if (timeSinceLastMessage > 120000 && !stillWorkingShown) {
               dataStream.write(
-                `0:"<em>🔄 Still working on your request...</em><br/><br/>"\n`
+                `0:${JSON.stringify(
+                  "<em>🔄 Still working on your request...</em><br/><br/>"
+                )}\n`
               )
               stillWorkingShown = true
               console.log("Frontend: Showed still working indicator")
@@ -213,7 +223,9 @@ export async function POST(req: Request) {
           streamError
         )
         dataStream.write(
-          `0:"<em>Streaming error: ${streamError}</em><br/><br/>"\n`
+          `0:${JSON.stringify(
+            `<em>Streaming error: ${streamError}</em><br/><br/>`
+          )}\n`
         )
       }
     },

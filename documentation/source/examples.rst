@@ -251,24 +251,24 @@ Multi-Agent Analysis Pipeline
        
        return final_report, notes
 
-RAG-Based Document Analysis
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Document Retrieval-Based Analysis
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Example**: Document-based question answering
 
 .. code-block:: python
 
-   from yaaaf.components.agents.rag_agent import RAGAgent
+   from yaaaf.components.agents.document_retriever_agent import DocumentRetrieverAgent
    from yaaaf.components.sources.text_source import TextSource
    
-   # Setup RAG agent with document sources
+   # Setup Document Retriever agent with document sources
    document_sources = [
        TextSource("documents/policies/"),
        TextSource("documents/procedures/"),
        TextSource("documents/guidelines/")
    ]
    
-   rag_agent = RAGAgent(client, document_sources)
+   document_retriever_agent = DocumentRetrieverAgent(client, document_sources)
    
    # Document-based queries
    queries = [
@@ -280,7 +280,7 @@ RAG-Based Document Analysis
    
    for query in queries:
        messages = Messages().add_user_utterance(query)
-       answer = await rag_agent.query(messages)
+       answer = await document_retriever_agent.query(messages)
        print(f"Q: {query}")
        print(f"A: {answer}\n")
 

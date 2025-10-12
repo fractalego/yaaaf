@@ -24,6 +24,8 @@ The only html tags they understand are these ones: {all_tags_list}. Use these ta
 The following status information has been reported by various agents:
 {status_info}
 
+{task_progress_section}
+
 The goal to reach is the following:
 {goal}
 
@@ -59,14 +61,13 @@ These are the agents and tools you can use:
 Create a todo list as a markdown table with the following columns:
 - ID: unique identifier
 - Task: description of the task
-- Status: "pending", "in_progress", or "completed"
-- Priority: "high", "medium", or "low"
+- Status: "pending", or "completed"
 - Agent/Tool: specific agent or tool to use
 
 The table must be structured as follows:
-| ID | Task | Status | Priority | Agent/Tool |
+| ID | Task | Status | Agent/Tool |
 | --- | ---- | ------ | -------- | ----------- |
-| 1 | Example task | pending | high | ExampleAgent |
+| 1 | Example task | pending | ExampleAgent |
 ... | ... | ... | ... | ...|
 
 When you are satisfied with the todo list, output it between markdown tags ```table ... ```
@@ -126,26 +127,30 @@ When you are done output the tag {task_completed_tag}.
 )
 
 
-rag_agent_prompt_template = PromptTemplate(
+document_retriever_agent_prompt_template = PromptTemplate(
     prompt="""
-Your task is to retrieve information from a collection of texts and pages organised in a list of folders. 
-The folders indices with their relative descriptions are given below.
+Your task is to retrieve relevant information from document collections organized in folders. 
+The available document sources with their descriptions are listed below.
 <folders>
 {folders}
 </folders>
 
-Each folder can be queried with a specific query in plain English.
-In the end, you need to output a markdown table with the folder_index and the English query to run on for each folder to answer the user's question.
-You can think step-by-step on the actions to take.
-However the final output needs to be a markdown table.
-This output *must* be between the markdown tags ```retrieved ... ```
-The markdown table must have the following columns: 
+Each document source can be searched with a specific query in plain English.
+Analyze the user's question and determine which document sources to search and what queries to use.
+Create targeted search queries that will find the most relevant information to answer the user's question.
+
+Output a markdown table with the folder_index and the search query for each document source.
+You can think step-by-step about the best search strategy.
+However, the final output must be a markdown table between the tags ```retrieved ... ```
+
+The markdown table must have exactly these columns: 
 | folder_index | query |
 | ----------- | ----------- |
 | ....| ..... | 
+
+Each query should be specific and focused on finding information relevant to answering the user's question.
     """
 )
-
 
 reviewer_agent_prompt_template_with_model = PromptTemplate(
     prompt="""
@@ -308,22 +313,11 @@ The arguments column should contain valid JSON that matches the tool's input sch
 
 url_agent_prompt_template = PromptTemplate(
     prompt="""
-Your task is to analyze content from URLs based on specific instructions.
+URL: {url}
+Content from the URL:
+{content}
 
-You will be given a URL and an instruction about what to look for in that URL.
-Your job is to process the request and output the URL and instruction in the correct format.
-
-Parse the user's request to extract:
-1. The URL to analyze
-2. The instruction about what to look for
-
-Output format must be:
-```url
-URL_HERE
-INSTRUCTION_HERE
-```
-
-Think step-by-step about what the user wants to find in the URL and format your response accordingly.
+Please analyze the content and respond with text that answers the user's request.
 """
 )
 
@@ -423,4 +417,123 @@ This output *must* be between the markdown tags ```table ... ```.
 Focus on extracting meaningful numerical relationships that would be useful for data visualization.
 If multiple numerical sequences are found, create separate tables for each distinct dataset.
 """
+)
+
+
+answerer_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to analyze multiple input artifacts from different agents and generate a comprehensive answer to a research query.
+
+You will receive artifacts from various sources including:
+- Document Retriever Agent: Relevant text chunks from documents
+- SQL Agent: Query results from databases  
+- Web Search Agent: Search results from the internet
+- Other agents: Additional relevant data
+
+Input Artifacts:
+{artifacts_content}
+
+Instructions:
+1. Analyze ALL provided artifacts carefully
+2. Extract relevant information that answers the research query
+3. Synthesize information from multiple sources
+4. Create a coherent, well-structured answer
+5. Provide proper citations for each piece of information
+
+Output Format:
+Create a markdown table with exactly these columns:
+| paragraph | source |
+
+Where:
+- paragraph: A coherent paragraph answering part of the research query
+- source: The specific source/citation for that information (extracted from the artifact metadata)
+
+Requirements:
+- Each paragraph should be self-contained and informative
+- Include specific data, facts, or insights from the artifacts
+- Cite sources accurately (use artifact descriptions, URLs, table names, document names, etc.)
+- Ensure comprehensive coverage of the research query
+- Maintain logical flow between paragraphs
+
+This output *must* be between the markdown tags ```table ... ```.
+
+Focus on creating a thorough, well-cited answer that leverages all available information sources.
+    """
+)
+
+
+status_evaluation_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to evaluate whether a specific todo step has been completed based on an agent's response.
+
+**Current Step Being Evaluated:**
+{current_step_description}
+
+**Agent Response:**
+{agent_response}
+
+**Agent Name:** {agent_name}
+
+**Context:** This step was assigned to {agent_name} to accomplish: "{current_step_description}"
+
+Instructions:
+1. Analyze the agent's response carefully
+2. Determine if the specific step described above has been successfully completed
+3. Consider partial completion vs full completion
+4. Look for error messages or incomplete results
+
+Your evaluation should be based on:
+- Did the agent provide a meaningful response related to the step?
+- Are there any error messages or failures mentioned?
+- Does the response indicate the task is finished or still in progress?
+- Is the output what would be expected for completing this specific step?
+
+Respond with exactly one word:
+- "completed" if the step has been fully accomplished
+- "in_progress" if the agent is working on it but not finished
+- "pending" if the step hasn't been started or failed
+
+Your response must be exactly one of these three words, nothing else.
+    """
+)
+
+
+plan_change_evaluation_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to evaluate whether an agent's response reveals new information that requires changing the original plan.
+
+**Original Todo List:**
+{original_todo_list}
+
+**Agent Response:**
+{agent_response}
+
+**Agent Name:** {agent_name}
+
+**Current Context:** The {agent_name} was working on the current plan when it provided this response.
+
+Instructions:
+1. Analyze the agent's response for any new information, requirements, or discoveries
+2. Determine if this new information affects the remaining steps in the original plan
+3. Consider if new steps need to be added, existing steps need modification, or the approach needs to change
+
+Evaluate if plan changes are needed based on:
+- Did the agent discover unexpected data or constraints?
+- Are there new requirements or dependencies revealed?
+- Did the agent encounter errors that require a different approach?
+- Does the response suggest additional steps or tools are needed?
+- Has the scope or complexity of the task changed?
+
+Examples that would require plan changes:
+- "The database schema is different than expected, we need to use table X instead of Y"
+- "The data contains null values, we need to add data cleaning steps"
+- "Authentication is required before we can access this API"
+- "The visualization requires additional data processing steps"
+
+Respond with exactly one word:
+- "yes" if the plan needs to be updated based on this response
+- "no" if the current plan can continue unchanged
+
+Your response must be exactly one of these two words, nothing else.
+    """
 )

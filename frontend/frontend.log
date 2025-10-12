@@ -1,0 +1,36 @@
+
+> shadcn-chatbot-kit@0.0.1 dev /home/alce/work/home/alce/src/agents_framework/frontend
+> turbo run dev --parallel
+
+• Packages in scope: www
+• Running dev in 1 packages
+• Remote caching disabled
+www:dev: cache bypass, force executing 82ad29905d546c96
+www:dev: 
+www:dev: > www@0.0.1 dev /home/alce/work/home/alce/src/agents_framework/frontend/apps/www
+www:dev: > next dev -p 3333
+www:dev: 
+www:dev:  ⨯ Failed to start server
+www:dev: Error: listen EADDRINUSE: address already in use :::3333
+www:dev:     at Server.setupListenHandle [as _listen2] (node:net:1939:16)
+www:dev:     at listenInCluster (node:net:1996:12)
+www:dev:     at Server.listen (node:net:2101:7)
+www:dev:     at /home/alce/work/home/alce/src/agents_framework/frontend/node_modules/.pnpm/next@14.3.0-canary.43_@babel+core@7.24.6_@opentelemetry+api@1.9.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/server/lib/start-server.js:281:16
+www:dev:     at new Promise (<anonymous>)
+www:dev:     at startServer (/home/alce/work/home/alce/src/agents_framework/frontend/node_modules/.pnpm/next@14.3.0-canary.43_@babel+core@7.24.6_@opentelemetry+api@1.9.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/server/lib/start-server.js:191:11)
+www:dev:     at /home/alce/work/home/alce/src/agents_framework/frontend/node_modules/.pnpm/next@14.3.0-canary.43_@babel+core@7.24.6_@opentelemetry+api@1.9.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/server/lib/start-server.js:311:52
+www:dev:     at Span.traceAsyncFn (/home/alce/work/home/alce/src/agents_framework/frontend/node_modules/.pnpm/next@14.3.0-canary.43_@babel+core@7.24.6_@opentelemetry+api@1.9.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/trace/trace.js:157:26)
+www:dev:     at process.<anonymous> (/home/alce/work/home/alce/src/agents_framework/frontend/node_modules/.pnpm/next@14.3.0-canary.43_@babel+core@7.24.6_@opentelemetry+api@1.9.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/server/lib/start-server.js:311:35)
+www:dev:     at process.emit (node:events:518:28) {
+www:dev:   code: 'EADDRINUSE',
+www:dev:   errno: -98,
+www:dev:   syscall: 'listen',
+www:dev:   address: '::',
+www:dev:   port: 3333
+www:dev: }
+www:dev: [?25h
+
+ Tasks:    1 successful, 1 total
+Cached:    0 cached, 1 total
+  Time:    1.305s 
+

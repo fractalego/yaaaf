@@ -48,9 +48,6 @@ class StreamStatusResponse(BaseModel):
     is_active: bool
 
 
-class DebugArtifactsArguments(BaseModel):
-    stream_id: str
-
 
 class ArtefactOutput(BaseModel):
     data: str

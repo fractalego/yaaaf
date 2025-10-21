@@ -15,6 +15,7 @@ class ClientSettings(BaseSettings):
     temperature: float = 0.5
     max_tokens: int = 1024
     host: str = "http://localhost:11434"
+    disable_thinking: bool = True
 
 
 class SourceSettings(BaseSettings):

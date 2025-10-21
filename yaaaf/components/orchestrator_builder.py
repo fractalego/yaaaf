@@ -277,6 +277,7 @@ class OrchestratorBuilder:
             temperature=temperature,
             max_tokens=max_tokens,
             host=host,
+            disable_thinking=self.config.client.disable_thinking,
         )
 
     def _get_agent_name(self, agent_config) -> str:
@@ -347,6 +348,7 @@ class OrchestratorBuilder:
             temperature=self.config.client.temperature,
             max_tokens=self.config.client.max_tokens,
             host=self.config.client.host,
+            disable_thinking=self.config.client.disable_thinking,
         )
 
         # Prepare sources

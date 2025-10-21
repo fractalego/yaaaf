@@ -30,14 +30,24 @@ class Messages(BaseModel):
 
     def add_system_prompt(self, prompt: str | PromptTemplate) -> "Messages":
         if isinstance(prompt, PromptTemplate):
-            prompt = prompt.complete()
+            try:
+                prompt = prompt.complete()
+            except KeyError as e:
+                # If the template has placeholders but no parameters were provided,
+                # use the raw prompt string as a fallback
+                prompt = prompt.prompt
         system_prompt = Utterance(role="system", content=prompt)
         return Messages(utterances=[system_prompt] + self.utterances)
 
     def set_system_prompt(self, prompt: str | PromptTemplate) -> "Messages":
         """Replace or set the system prompt, removing any existing system messages."""
         if isinstance(prompt, PromptTemplate):
-            prompt = prompt.complete()
+            try:
+                prompt = prompt.complete()
+            except KeyError as e:
+                # If the template has placeholders but no parameters were provided,
+                # use the raw prompt string as a fallback
+                prompt = prompt.prompt
         system_prompt = Utterance(role="system", content=prompt)
         # Filter out any existing system prompts
         non_system_utterances = [u for u in self.utterances if u.role != "system"]

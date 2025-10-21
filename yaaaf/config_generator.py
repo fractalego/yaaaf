@@ -16,7 +16,7 @@ class ConfigGenerator:
 
     def __init__(self):
         self.config = {
-            "client": {"model": "qwen2.5:32b", "temperature": 0.7, "max_tokens": 1024},
+            "client": {"model": "qwen2.5:32b", "temperature": 0.7, "max_tokens": 1024, "disable_thinking": True},
             "agents": [],
             "sources": [],
         }
@@ -129,6 +129,13 @@ class ConfigGenerator:
                     print("❌ Max tokens must be positive.")
             except ValueError:
                 print("❌ Please enter a valid number.")
+        
+        # Disable thinking
+        disable_thinking = self.get_yes_no(
+            "Disable thinking tags (for faster response with some models)", 
+            default=True
+        )
+        self.config["client"]["disable_thinking"] = disable_thinking
 
     def configure_agents(self):
         """Configure which agents to enable."""

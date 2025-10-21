@@ -37,12 +37,14 @@ class OrchestratorAgent(CustomAgent):
         self._needs_replanning: bool = False
         self._current_stream_id: Optional[str] = None
 
+    @handle_exceptions
     async def _query_custom(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> str:
         """Custom orchestrator logic."""
         return await self._orchestrate_query(messages, notes)
     
+    @handle_exceptions
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None, stream_id: Optional[str] = None
     ) -> str:
@@ -64,7 +66,14 @@ class OrchestratorAgent(CustomAgent):
         messages = messages.apply(self.simplify_agents_tags)
 
         # Extract goal once at the beginning
-        goal = await self._goal_extractor.extract(messages)
+        try:
+            goal = await self._goal_extractor.extract(messages)
+        except Exception as e:
+            # If goal extraction fails, use a fallback goal and let the error propagate
+            goal = "Processing user request"
+            _logger.warning(f"Goal extraction failed, using fallback: {e}")
+            # Re-raise the exception to be handled by the @handle_exceptions decorator
+            raise
 
         # Update status with extracted goal
         if stream_id:

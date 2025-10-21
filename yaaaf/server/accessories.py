@@ -49,14 +49,26 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
             _logger.info(f"Query blocked by safety filter for stream {stream_id}")
             return
 
-        await orchestrator.query(messages=messages, notes=notes, stream_id=stream_id)
+        result = await orchestrator.query(messages=messages, notes=notes, stream_id=stream_id)
+        
+        # Check if the result is an error message (contains <taskcompleted/>)
+        if result and "<taskcompleted/>" in result:
+            # This is an error from the @handle_exceptions decorator
+            error_note = Note(
+                message=result,
+                artefact_id=None,
+                agent_name="system",
+                model_name=None,
+            )
+            notes.append(error_note)
+            _logger.info(f"Added error message to notes for stream {stream_id}")
 
         # Mark stream as completed
         if stream_id in _stream_id_to_status:
             _stream_id_to_status[stream_id].is_active = False
             _stream_id_to_status[stream_id].current_agent = ""
     except OllamaConnectionError as e:
-        error_message = f"🔌 **Connection Error**: {e}"
+        error_message = f"🔌 **Connection Error**: {e}\n\n<taskcompleted/>"
         _logger.error(
             f"Accessories: Ollama connection failed for stream {stream_id}: {e}"
         )
@@ -71,10 +83,13 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
         if stream_id in _stream_id_to_messages:
             _stream_id_to_messages[stream_id].append(error_note)
 
-        # Don't re-raise to prevent server error; error is already in notes
+        # Mark stream as completed
+        if stream_id in _stream_id_to_status:
+            _stream_id_to_status[stream_id].is_active = False
+            _stream_id_to_status[stream_id].current_agent = ""
 
     except OllamaResponseError as e:
-        error_message = f"⚠️ **Ollama Error**: {e}"
+        error_message = f"⚠️ **Ollama Error**: {e}\n\n<taskcompleted/>"
         _logger.error(f"Accessories: Ollama response error for stream {stream_id}: {e}")
 
         # Create user-friendly error note for frontend
@@ -87,10 +102,13 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
         if stream_id in _stream_id_to_messages:
             _stream_id_to_messages[stream_id].append(error_note)
 
-        # Don't re-raise to prevent server error; error is already in notes
+        # Mark stream as completed
+        if stream_id in _stream_id_to_status:
+            _stream_id_to_status[stream_id].is_active = False
+            _stream_id_to_status[stream_id].current_agent = ""
 
     except Exception as e:
-        error_message = f"❌ **System Error**: An unexpected error occurred: {e}"
+        error_message = f"❌ **System Error**: An unexpected error occurred: {e}\n\n<taskcompleted/>"
         _logger.error(f"Accessories: Failed to compute for stream {stream_id}: {e}")
 
         # Store error message in notes for frontend
@@ -103,7 +121,10 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
         if stream_id in _stream_id_to_messages:
             _stream_id_to_messages[stream_id].append(error_note)
 
-        # Don't re-raise to prevent server error; error is already in notes
+        # Mark stream as completed
+        if stream_id in _stream_id_to_status:
+            _stream_id_to_status[stream_id].is_active = False
+            _stream_id_to_status[stream_id].current_agent = ""
 
 
 def get_utterances(stream_id):

@@ -313,6 +313,22 @@ The arguments column should contain valid JSON that matches the tool's input sch
 
 url_agent_prompt_template = PromptTemplate(
     prompt="""
+You are a URL fetching and analysis agent. Your task is to:
+1. Extract URLs from user instructions
+2. Fetch the content from those URLs
+3. Analyze and summarize the content
+4. Provide relevant information based on the user's request
+
+Output the URL you want to fetch between ```url and ``` tags.
+For example: ```url https://example.com ```
+
+After fetching, analyze the content and provide a useful response.
+"""
+)
+
+# Template for when we have URL content to analyze
+url_content_template = PromptTemplate(
+    prompt="""
 URL: {url}
 Content from the URL:
 {content}

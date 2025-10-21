@@ -21,7 +21,6 @@ class UserInputAgent(CustomAgent):
         self._output_tag = "```question"
         self._completing_tags = [task_completed_tag, task_paused_tag]
         self._stop_sequences = [task_completed_tag, task_paused_tag]
-        self._max_steps = 5
 
     @staticmethod
     def get_info() -> str:
@@ -47,7 +46,12 @@ Describe what information you need from the user.
 
     async def _query_custom(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
         """Custom user input logic."""
-        messages = messages.add_system_prompt(self._system_prompt)
+        # Complete the system prompt with required parameters
+        completed_prompt = self._system_prompt.complete(
+            task_paused_tag=task_paused_tag,
+            task_completed_tag=task_completed_tag
+        )
+        messages = messages.add_system_prompt(completed_prompt)
         current_output = "No output"
         user_question = ""
 
@@ -96,6 +100,8 @@ Describe what information you need from the user.
                     notes.append(note)
 
                 # Return with pause tag to indicate waiting for user input
+                if task_paused_tag not in answer:
+                    answer = f"{answer}\n\n{task_paused_tag}"
                 return f"{current_output}{answer}"
 
             # Check if agent is providing final output

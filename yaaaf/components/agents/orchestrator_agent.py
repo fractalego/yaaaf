@@ -22,7 +22,6 @@ class OrchestratorAgent(CustomAgent):
     _completing_tags: List[str] = [task_completed_tag, task_paused_tag]
     _agents_map: {str: BaseAgent} = {}
     _stop_sequences = []
-    _max_steps = 10
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):

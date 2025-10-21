@@ -8,6 +8,7 @@ from yaaaf.components.agents.artefacts import ArtefactStorage, Artefact
 from yaaaf.components.agents.hash_utils import create_hash
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.decorators import handle_exceptions
+from yaaaf.components.agents.agent_steps_config import AGENT_MAX_STEPS, DEFAULT_MAX_STEPS
 
 if TYPE_CHECKING:
     from yaaaf.components.data_types import ClientResponse
@@ -33,7 +34,6 @@ class BaseAgent(ABC):
     # Class attributes with defaults
     _completing_tags: List[str] = [task_completed_tag]
     _stop_sequences: List[str] = [task_completed_tag]
-    _max_steps: int = 5
     _output_tag: Optional[str] = None
     _system_prompt: Optional[PromptTemplate] = None
     _storage = ArtefactStorage()  # Singleton instance
@@ -44,6 +44,10 @@ class BaseAgent(ABC):
         self._artefact_extractor = None
         self._client: Optional["BaseClient"] = None
         self._executor: Optional["ToolExecutor"] = None
+        
+        # Get max steps from config based on agent name
+        agent_name = get_agent_name_from_class(self.__class__)
+        self._max_steps = AGENT_MAX_STEPS.get(agent_name, DEFAULT_MAX_STEPS)
     
     async def query(
         self, messages: Messages, notes: Optional[List[Note]] = None

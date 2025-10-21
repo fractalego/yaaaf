@@ -4,7 +4,7 @@ from typing import List, Tuple, Optional
 
 from yaaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
-from yaaaf.components.agents.base_agent import BaseAgent
+from yaaaf.components.agents.base_agent import CustomAgent, BaseAgent
 from yaaaf.components.agents.settings import task_completed_tag, task_paused_tag
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Note
@@ -18,7 +18,7 @@ from yaaaf.server.config import get_config
 _logger = logging.getLogger(__name__)
 
 
-class OrchestratorAgent(BaseAgent):
+class OrchestratorAgent(CustomAgent):
     _completing_tags: List[str] = [task_completed_tag, task_paused_tag]
     _agents_map: {str: BaseAgent} = {}
     _stop_sequences = []
@@ -26,7 +26,7 @@ class OrchestratorAgent(BaseAgent):
     _storage = ArtefactStorage()
 
     def __init__(self, client: BaseClient):
-        self._client = client
+        super().__init__(client)
         self._agents_map = {
             key: agent(client) for key, agent in self._agents_map.items()
         }
@@ -37,8 +37,14 @@ class OrchestratorAgent(BaseAgent):
         self._needs_replanning: bool = False
         self._current_stream_id: Optional[str] = None
 
+    async def _query_custom(
+        self, messages: Messages, notes: Optional[List[Note]] = None
+    ) -> str:
+        """Custom orchestrator logic."""
+        return await self._orchestrate_query(messages, notes)
+    
     @handle_exceptions
-    async def query(
+    async def _orchestrate_query(
         self,
         messages: Messages,
         notes: Optional[List[Note]] = None,
@@ -572,3 +578,8 @@ Orchestrator agent: This agent orchestrates the agents.
                     logger.warning(f"Failed to process table for display: {e}")
 
         return answer
+
+    @staticmethod
+    def get_info() -> str:
+        """Get a brief description of what this agent does."""
+        return "Orchestrates multiple specialized agents to complete complex tasks"

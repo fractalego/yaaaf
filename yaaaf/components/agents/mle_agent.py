@@ -1,154 +1,45 @@
 import logging
-import os
-import sys
 
-from io import StringIO
-from typing import List, Optional
-
-from yaaaf.components.agents.artefact_utils import (
-    get_table_and_model_from_artefacts,
-    get_artefacts_from_utterance_content,
-    create_prompt_from_artefacts,
-)
-from yaaaf.components.extractors.artefact_extractor import ArtefactExtractor
-from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
-from yaaaf.components.agents.base_agent import BaseAgent
-from yaaaf.components.agents.hash_utils import create_hash
-from yaaaf.components.agents.settings import task_completed_tag
-from yaaaf.components.agents.texts import no_artefact_text
-from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
-from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages, Note
+from yaaaf.components.agents.base_agent import ToolBasedAgent
+from yaaaf.components.executors import PythonExecutor
 from yaaaf.components.agents.prompts import (
     mle_agent_prompt_template_without_model,
     mle_agent_prompt_template_with_model,
 )
-from yaaaf.components.decorators import handle_exceptions
+from yaaaf.components.client import BaseClient
 
 _logger = logging.getLogger(__name__)
 
 
-class MleAgent(BaseAgent):
-    _completing_tags: List[str] = [task_completed_tag]
-    _output_tag = "```python"
-    _stop_sequences = _completing_tags
-    _max_steps = 5
-    _storage = ArtefactStorage()
+class MleAgent(ToolBasedAgent):
+    """Agent that executes machine learning Python code."""
 
     def __init__(self, client: BaseClient):
-        super().__init__()
-        self._client = client
-        self._artefact_extractor = ArtefactExtractor(client)
-
-    @handle_exceptions
-    async def query(
-        self, messages: Messages, notes: Optional[List[Note]] = None
-    ) -> str:
-        thinking_artifacts = []  # Track all thinking artifacts
-        last_utterance = messages.utterances[-1]
-        artefact_list: List[Artefact] = get_artefacts_from_utterance_content(
-            last_utterance.content
-        )
-        # Try to extract artefacts from notes if none found in utterance
-        artefact_list = await self._try_extract_artefacts_from_notes(
-            artefact_list, last_utterance, notes
-        )
-
-        if not artefact_list:
-            return no_artefact_text
-
-        hash_string: str = create_hash(str(messages))
-        model_name: str = hash_string + ".png"
-        messages = messages.add_system_prompt(
-            create_prompt_from_artefacts(
-                artefact_list,
-                model_name,
-                mle_agent_prompt_template_with_model,
-                mle_agent_prompt_template_without_model,
-            )
-        )
-        df, model = get_table_and_model_from_artefacts(artefact_list)
-        code = ""
-        code_result = "No code found"
-        for step_idx in range(self._max_steps):
-            response = await self._client.predict(
-                messages=messages, stop_sequences=self._stop_sequences
-            )
-
-            # Process response to create thinking artifacts
-
-            clean_message, thinking_artifact_ref = self._process_client_response(
-                response, notes
-            )
-
-            if thinking_artifact_ref:
-                thinking_artifacts.append(thinking_artifact_ref)
-            answer = clean_message
-
-            # Log internal thinking step
-            if (
-                notes is not None and step_idx > 0
-            ):  # Skip first step to avoid duplication with orchestrator
-                model_name = getattr(self._client, "model", None)
-                internal_note = Note(
-                    message=f"[MLE Step {step_idx}] {answer}",
-                    artefact_id=None,
-                    agent_name=self.get_name(),
-                    model_name=model_name,
-                    internal=True,
-                )
-                notes.append(internal_note)
-
-            messages.add_assistant_utterance(answer)
-            code = get_first_text_between_tags(answer, self._output_tag, "```")
-            if code:
-                old_stdout = sys.stdout
-                redirected_output = sys.stdout = StringIO()
-                global_variables = globals().copy()
-                global_variables.update({"dataframe": df, "sklearn_model": model})
-                exec(code, global_variables)
-                sys.stdout = old_stdout
-                code_result = redirected_output.getvalue()
-                if code_result.strip() == "":
-                    code_result = ""
-
-            if (
-                self.is_complete(answer)
-                or answer.strip() == ""
-                or code_result.strip() == ""
-            ):
-                break
-
-            messages.add_assistant_utterance(
-                f"The result is: {code_result}. If there are no errors write {self._completing_tags[0]} at the beginning of your answer.\n"
-            )
-
-        if os.path.exists(model_name):
-            self._storage.store_artefact(
-                hash_string,
-                Artefact(
-                    type=Artefact.Types.MODEL,
-                    description=str(messages),
-                    code=code,
-                    data=df,
-                    id=hash_string,
-                ),
-            )
-            os.remove(model_name)
-        return (
-            f"The result is in this artefact <artefact type='model'>{hash_string}</artefact>"
-            f"Additionally, the model returned the output {code_result}.\n"
-        )
+        """Initialize MLE agent."""
+        super().__init__(client, PythonExecutor(output_type="mixed"))
+        self._output_tag = "```python"
+        
+        # Use model-specific prompt template
+        try:
+            self._system_prompt = mle_agent_prompt_template_with_model
+        except Exception:
+            self._system_prompt = mle_agent_prompt_template_without_model
 
     @staticmethod
     def get_info() -> str:
-        return "This agent is given the relevant table, quickly trains a small sklearn model and saves it in a joblib file."
+        """Get a brief description of what this agent does."""
+        return "Executes machine learning and data science Python code"
 
     def get_description(self) -> str:
         return f"""
-Visualization agent: {self.get_info()}
-You can use linear interpolation, polynomial regression, SVM, logistic regression, decision trees, random forests.
-To call this agent write {self.get_opening_tag()} ENGLISH INSTRUCTIONS AND ARTEFACTS THAT DESCRIBE WHAT TO APPLY THE SKLEARN MODEL TO {self.get_closing_tag()}
-The arguments within the tags must be: a) instructions about what to look for in the data 2) the artefacts <artefact> ... </artefact> that describe were found by the other agents above (both tables and models).
-The information about what to plot will be then used by the agent.
+MLE agent: {self.get_info()}.
+This agent can:
+- Execute Python ML/DS code
+- Train machine learning models
+- Perform data analysis
+- Create ML pipelines
+- Generate predictions and insights
+
+To call this agent write {self.get_opening_tag()} ML_TASK_DESCRIPTION {self.get_closing_tag()}
+Describe the machine learning or data science task you want to accomplish.
         """

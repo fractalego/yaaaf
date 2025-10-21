@@ -1,158 +1,39 @@
-import mdpd
-import re
-import pandas as pd
-import json
+import logging
+from typing import List
 
-from typing import Optional, List, Dict, Any
-
-from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
-from yaaaf.components.agents.base_agent import BaseAgent
+from yaaaf.components.agents.base_agent import ToolBasedAgent
+from yaaaf.components.executors import MCPToolExecutor
 from yaaaf.components.agents.prompts import tool_agent_prompt_template
-from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages, PromptTemplate, Note
 from yaaaf.connectors.mcp_connector import MCPTools
-from yaaaf.components.decorators import handle_exceptions
+
+_logger = logging.getLogger(__name__)
 
 
-class ToolAgent(BaseAgent):
-    _system_prompt: PromptTemplate = tool_agent_prompt_template
-    _completing_tags: List[str] = [task_completed_tag]
-    _output_tag = "```tools"
-    _stop_sequences = [task_completed_tag]
-    _max_steps = 5
-    _storage = ArtefactStorage()
+class ToolAgent(ToolBasedAgent):
+    """Agent that executes MCP tools."""
 
     def __init__(self, client: BaseClient, tools: List[MCPTools]):
-        super().__init__()
-        self._client = client
-        self._tools_description = "\n".join(
-            [
-                f"Tool group index {group_index}:\n{tool_group.get_tools_descriptions()}\n\n"
-                for group_index, tool_group in enumerate(tools)
-            ]
-        )
+        """Initialize tool agent."""
+        super().__init__(client, MCPToolExecutor(tools))
+        self._system_prompt = tool_agent_prompt_template
+        self._output_tag = "```tools"
         self._tools = tools
-
-    @handle_exceptions
-    async def query(
-        self, messages: Messages, notes: Optional[List[Note]] = None
-    ) -> str:
-        thinking_artifacts = []  # Track all thinking artifacts
-        messages = messages.add_system_prompt(
-            self._system_prompt.complete(tools_descriptions=self._tools_description)
-        )
-        all_tool_results = []
-        all_tool_calls = []
-
-        for step_idx in range(self._max_steps):
-            response = await self._client.predict(
-                messages=messages, stop_sequences=self._stop_sequences
-            )
-
-            # Process response to create thinking artifacts
-
-            clean_message, thinking_artifact_ref = self._process_client_response(
-                response, notes
-            )
-
-            if thinking_artifact_ref:
-                thinking_artifacts.append(thinking_artifact_ref)
-            answer = clean_message
-
-            # Log internal thinking step
-            if (
-                notes is not None and step_idx > 0
-            ):  # Skip first step to avoid duplication with orchestrator
-                model_name = getattr(self._client, "model", None)
-                internal_note = Note(
-                    message=f"[Tool Step {step_idx}] {answer}",
-                    artefact_id=None,
-                    agent_name=self.get_name(),
-                    model_name=model_name,
-                    internal=True,
-                )
-                notes.append(internal_note)
-
-            if self.is_complete(answer) or answer.strip() == "":
-                break
-
-            matches = re.findall(
-                rf"{self._output_tag}(.+)```",
-                answer,
-                re.DOTALL | re.MULTILINE,
-            )
-
-            if matches:
-                df = mdpd.from_md(matches[0])
-                tools_and_args_dict: Dict[str, Any] = df.to_dict("list")
-                answer = ""
-
-                for group_index, tool_index, arguments in zip(
-                    tools_and_args_dict["group_index"],
-                    tools_and_args_dict["tool_index"],
-                    tools_and_args_dict["arguments"],
-                ):
-                    # Parse tool index to get group and tool indices
-                    tool_group = self._tools[int(group_index)]
-                    tool = tool_group[int(tool_index)]
-
-                    # Parse arguments JSON
-                    args = (
-                        json.loads(arguments)
-                        if isinstance(arguments, str)
-                        else arguments
-                    )
-
-                    # Call the tool
-                    result = await tool_group.call_tool(tool.name, args)
-                    all_tool_results.append(result)
-                    all_tool_calls.append(f"Tool {tool_index} ({tool.name}): {args}")
-                    answer += f"Tool index: {tool_index} -> {result}\n"
-
-                current_output = all_tool_results.copy()
-                messages = messages.add_user_utterance(
-                    f"The answer is {answer}.\n\nThe output of this query is {current_output}.\n\n\n"
-                    f"If the user's answer is answered write {self._completing_tags[0]} at the beginning of your answer.\n"
-                    f"Otherwise, try to understand from the answer how to modify the tool calls and get better results.\n"
-                )
-            else:
-                messages = messages.add_user_utterance(
-                    f"The answer is {answer} but there is no table.\n"
-                    f"If the user's answer is answered write {self._completing_tags[0]} at the beginning of your answer.\n"
-                    f"Otherwise, try to understand from the answer how to modify the tool calls and get better results.\n"
-                )
-
-        df = pd.DataFrame({"tool_calls": all_tool_calls, "results": all_tool_results})
-        tool_id: str = str(hash(str(messages))).replace("-", "")
-        self._storage.store_artefact(
-            tool_id,
-            Artefact(
-                type=Artefact.Types.TABLE,
-                description=str(messages),
-                data=df,
-                id=tool_id,
-            ),
-        )
-        # Prepare the final response with thinking artifacts at the beginning
-
-        final_response = ""
-
-        if thinking_artifacts:
-            final_response = " ".join(thinking_artifacts) + " "
-
-        final_response += f"The result is in this artefact <artefact type='called-tools-table'>{tool_id}</artefact>."
-
-        return final_response
 
     @staticmethod
     def get_info() -> str:
-        return "This agent uses MCP (Model Context Protocol) tools to perform various operations."
+        """Get a brief description of what this agent does."""
+        return "Executes external tools via MCP (Model Context Protocol)"
 
     def get_description(self) -> str:
         return f"""
-Tool agent: {self.get_info()}
-Each tool group contains a collection of tools that can be called with specific arguments.
-This agent accepts a query in plain English and uses the appropriate tools to gather information or perform actions.
-The tools provide the capabilities needed to answer the user's question or complete the requested task.
+Tool agent: {self.get_info()}.
+This agent can:
+- Execute external tools and services
+- Call APIs through MCP connectors
+- Access system utilities
+- Integrate with external applications
+
+To call this agent write {self.get_opening_tag()} TOOL_REQUEST {self.get_closing_tag()}
+Specify which tool you want to use and provide necessary parameters.
         """

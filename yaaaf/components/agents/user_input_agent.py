@@ -1,34 +1,52 @@
-from typing import List, Optional
+import logging
 
-from yaaaf.components.agents.base_agent import BaseAgent
-from yaaaf.components.agents.settings import task_completed_tag, task_paused_tag
+from yaaaf.components.agents.base_agent import CustomAgent
 from yaaaf.components.agents.prompts import user_input_agent_prompt_template
+from yaaaf.components.agents.settings import task_completed_tag, task_paused_tag
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import PromptTemplate, Messages, Note
-from yaaaf.components.decorators import handle_exceptions
+from yaaaf.components.data_types import Messages, Note
+from typing import Optional, List
+
+_logger = logging.getLogger(__name__)
 
 
-class UserInputAgent(BaseAgent):
-    _system_prompt: PromptTemplate = user_input_agent_prompt_template
-    _completing_tags: List[str] = [task_completed_tag, task_paused_tag]
-    _output_tag = "```question"
-    _stop_sequences = [task_completed_tag, task_paused_tag]
-    _max_steps = 5
+class UserInputAgent(CustomAgent):
+    """Agent that handles user interaction and input requests."""
 
-    def __init__(self, client: BaseClient) -> None:
-        super().__init__()
-        self._client = client
+    def __init__(self, client: BaseClient):
+        """Initialize user input agent."""
+        super().__init__(client)
+        self._system_prompt = user_input_agent_prompt_template
+        self._output_tag = "```question"
+        self._completing_tags = [task_completed_tag, task_paused_tag]
+        self._stop_sequences = [task_completed_tag, task_paused_tag]
+        self._max_steps = 5
+
+    @staticmethod
+    def get_info() -> str:
+        """Get a brief description of what this agent does."""
+        return "Handles user interaction and input requests"
+
+    def get_description(self) -> str:
+        return f"""
+User Input agent: {self.get_info()}.
+This agent can:
+- Ask questions to the user
+- Request clarification or additional information
+- Pause workflow for user input
+- Handle interactive conversations
+
+To call this agent write {self.get_opening_tag()} INPUT_REQUEST {self.get_closing_tag()}
+Describe what information you need from the user.
+        """
 
     def is_paused(self, answer: str) -> bool:
         """Check if the agent has paused execution to wait for user input."""
         return task_paused_tag in answer
 
-    @handle_exceptions
-    async def query(
-        self, messages: Messages, notes: Optional[List[Note]] = None
-    ) -> str:
-        thinking_artifacts = []  # Track all thinking artifacts
+    async def _query_custom(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
+        """Custom user input logic."""
         messages = messages.add_system_prompt(self._system_prompt)
         current_output = "No output"
         user_question = ""
@@ -38,20 +56,13 @@ class UserInputAgent(BaseAgent):
                 messages=messages, stop_sequences=self._stop_sequences
             )
 
-            # Process response to create thinking artifacts
-
             clean_message, thinking_artifact_ref = self._process_client_response(
                 response, notes
             )
-
-            if thinking_artifact_ref:
-                thinking_artifacts.append(thinking_artifact_ref)
             answer = clean_message
 
             # Log internal thinking step
-            if (
-                notes is not None and step_idx > 0
-            ):  # Skip first step to avoid duplication with orchestrator
+            if notes is not None and step_idx > 0:
                 model_name = getattr(self._client, "model", None)
                 internal_note = Note(
                     message=f"[User Input Step {step_idx}] {answer}",
@@ -66,48 +77,40 @@ class UserInputAgent(BaseAgent):
             if answer.strip() == "":
                 break
 
-            # Check if agent is asking a question to pause for user input
-            question = get_first_text_between_tags(answer, self._output_tag, "```")
+            # Extract question from the response
+            user_question = get_first_text_between_tags(answer, self._output_tag, "```")
 
-            if question:
-                user_question = question.strip()
-                # Return the question with paused tag to signal frontend
-                return f"{user_question} {task_paused_tag}"
+            if user_question:
+                user_question = user_question.strip()
+                current_output = f"Question for user: {user_question}\n\n"
 
-            # If no question format found but contains paused tag, extract the question
-            if self.is_paused(answer):
-                # Extract question from the answer (before the paused tag)
-                question_part = answer.split(task_paused_tag)[0].strip()
-                return f"{question_part} {task_paused_tag}"
+                # Add question to notes for visibility
+                if notes is not None:
+                    model_name = getattr(self._client, "model", None)
+                    note = Note(
+                        message=f"User question:\n{user_question}",
+                        artefact_id=None,
+                        agent_name=self.get_name(),
+                        model_name=model_name,
+                    )
+                    notes.append(note)
 
-            # Check if completed with task_completed_tag
+                # Return with pause tag to indicate waiting for user input
+                return f"{current_output}{answer}"
+
+            # Check if agent is providing final output
             if task_completed_tag in answer:
-                current_output = answer.replace(task_completed_tag, "").strip()
-                break
+                return answer
 
-            # Continue the conversation if no pause or completion
+            # Check if agent is paused
+            if self.is_paused(answer):
+                return answer
+
+            # Continue the conversation
             messages = messages.add_user_utterance(
                 f"Your response: {answer}\n\n"
-                f"If you need more information from the user, ask a specific question using the ```question format and then use {task_paused_tag}.\n"
-                f"If you have enough information to complete the task, provide your final answer and use {task_completed_tag}."
+                f"Please provide a user question using the ```question format, or if the task is complete, use {task_completed_tag}.\n"
+                f"If you need to pause for user input, use {task_paused_tag}."
             )
 
-            # Extract any regular output
-            current_output = answer
-
-        # Clean up the final output
-        final_output = current_output.replace(task_paused_tag, "").strip()
-        return final_output
-
-    @staticmethod
-    def get_info() -> str:
-        return "This agent can interact with the user to gather additional information needed to complete requests."
-
-    def get_description(self) -> str:
-        return f"""
-User Input agent: {self.get_info()}
-Use this agent when you need clarification, preferences, or additional details from the user.
-The agent will pause execution and wait for user responses when needed.
-To call this agent write {self.get_opening_tag()} TASK_THAT_NEEDS_USER_INPUT {self.get_closing_tag()}
-The agent can ask questions and pause the workflow until the user provides answers.
-        """
+        return f"Could not generate a suitable user question. {task_completed_tag}"

@@ -43,6 +43,12 @@ class OrchestratorAgent(CustomAgent):
         """Custom orchestrator logic."""
         return await self._orchestrate_query(messages, notes)
     
+    async def query(
+        self, messages: Messages, notes: Optional[List[Note]] = None, stream_id: Optional[str] = None
+    ) -> str:
+        """Override query to accept stream_id for orchestrator."""
+        return await self._orchestrate_query(messages, notes, stream_id)
+    
     @handle_exceptions
     async def _orchestrate_query(
         self,

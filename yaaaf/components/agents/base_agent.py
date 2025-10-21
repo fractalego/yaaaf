@@ -67,9 +67,7 @@ class BaseAgent(ABC):
         
         # Add system prompt if available
         if self._system_prompt:
-            messages = messages.add_system_utterance(
-                self._system_prompt.render_prompt()
-            )
+            messages = messages.add_system_prompt(self._system_prompt)
         
         # Multi-step execution loop - abstracted reflection pattern
         for step_idx in range(self._max_steps):

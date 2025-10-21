@@ -6,14 +6,14 @@
     "host": "http://localhost:11434"
   },
   "agents": [
-    "reflection",
+    "todo",
     {
       "name": "visualization",
       "model": "qwen2.5-coder:32b",
       "temperature": 0.1
     },
     "sql",
-    "rag",
+    "document_retriever",
     "reviewer",
     "websearch",
     "url",

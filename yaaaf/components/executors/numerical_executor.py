@@ -93,9 +93,8 @@ class NumericalExecutor(ToolExecutor):
         csv_content = result.to_csv(index=False)
         
         return Artefact(
-            artifact_id=artifact_id,
-            artifact_type="table",
-            content=csv_content,
-            name=f"numerical_analysis_{create_hash(instruction)[:8]}",
+            id=artifact_id,
+            type=Artefact.Types.TABLE,
+            data=result,
             description=f"Numerical sequence analysis: {instruction[:50]}..."
         )

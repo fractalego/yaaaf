@@ -91,9 +91,8 @@ class MCPToolExecutor(ToolExecutor):
         content = json.dumps(result, indent=2)
         
         return Artefact(
-            artifact_id=artifact_id,
-            artifact_type="text",
-            content=content,
-            name=f"tool_result_{create_hash(instruction)[:8]}",
+            id=artifact_id,
+            type="text",
+            data=content,
             description=f"Result from tool: {result['tool_name']}"
         )

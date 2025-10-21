@@ -106,9 +106,8 @@ class BashExecutor(ToolExecutor):
     def transform_to_artifact(self, result: Any, instruction: str, artifact_id: str) -> Artefact:
         """Transform bash output to artifact."""
         return Artefact(
-            artifact_id=artifact_id,
-            artifact_type="text",
-            content=result,
-            name=f"bash_output_{create_hash(instruction)[:8]}",
+            id=artifact_id,
+            type="text",
+            data=result,
             description=f"Output from bash command: {instruction[:50]}..."
         )

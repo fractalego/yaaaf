@@ -97,9 +97,8 @@ class URLExecutor(ToolExecutor):
     def transform_to_artifact(self, result: Any, instruction: str, artifact_id: str) -> Artefact:
         """Transform URL content to artifact."""
         return Artefact(
-            artifact_id=artifact_id,
-            artifact_type="text",
-            content=result["content"],
-            name=f"url_content_{create_hash(instruction)[:8]}",
+            id=artifact_id,
+            type="text",
+            data=result["content"],
             description=f"Content from {result['url']}: {result.get('title', 'No title')}"
         )

@@ -83,13 +83,9 @@ class TodoExecutor(ToolExecutor):
 
     def transform_to_artifact(self, result: Any, instruction: str, artifact_id: str) -> Artefact:
         """Transform todo list to artifact."""
-        # Convert DataFrame to CSV string for storage
-        csv_content = result.to_csv(index=False)
-        
         return Artefact(
-            artifact_id=artifact_id,
-            artifact_type="table",
-            content=csv_content,
-            name=f"todo_list_{create_hash(instruction)[:8]}",
+            id=artifact_id,
+            type=Artefact.Types.TODO_LIST,
+            data=result,
             description=f"Todo list with {len(result)} tasks"
         )

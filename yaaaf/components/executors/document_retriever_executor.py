@@ -76,9 +76,8 @@ class DocumentRetrieverExecutor(ToolExecutor):
     def transform_to_artifact(self, result: Any, instruction: str, artifact_id: str) -> Artefact:
         """Transform retrieved documents to artifact."""
         return Artefact(
-            artifact_id=artifact_id,
-            artifact_type="text",
-            content=result["content"],
-            name=f"retrieved_docs_{create_hash(instruction)[:8]}",
+            id=artifact_id,
+            type="text",
+            data=result["content"],
             description=f"Retrieved documents for query: {result['query']}"
         )

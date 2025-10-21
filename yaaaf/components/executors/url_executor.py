@@ -99,6 +99,6 @@ class URLExecutor(ToolExecutor):
         return Artefact(
             id=artifact_id,
             type="text",
-            data=result["content"],
+            code=result["content"],  # Use 'code' field for text content
             description=f"Content from {result['url']}: {result.get('title', 'No title')}"
         )

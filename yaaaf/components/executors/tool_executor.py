@@ -93,6 +93,6 @@ class MCPToolExecutor(ToolExecutor):
         return Artefact(
             id=artifact_id,
             type="text",
-            data=content,
+            code=content,  # Use 'code' field for text content
             description=f"Result from tool: {result['tool_name']}"
         )

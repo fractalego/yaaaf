@@ -108,6 +108,6 @@ class BashExecutor(ToolExecutor):
         return Artefact(
             id=artifact_id,
             type="text",
-            data=result,
+            code=result,  # Use 'code' field for text content
             description=f"Output from bash command: {instruction[:50]}..."
         )

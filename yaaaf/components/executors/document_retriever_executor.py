@@ -78,6 +78,6 @@ class DocumentRetrieverExecutor(ToolExecutor):
         return Artefact(
             id=artifact_id,
             type="text",
-            data=result["content"],
+            code=result["content"],  # Use 'code' field for text content
             description=f"Retrieved documents for query: {result['query']}"
         )

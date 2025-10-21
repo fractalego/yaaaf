@@ -118,9 +118,12 @@ class ResponseProcessor:
         artefacts: List[Artefact]
     ) -> Optional[str]:
         """Check if response contains todo artifact and return its ID."""
+        _logger.info(f"[RESPONSE_PROCESSOR] Checking for todo artifact - agent: {agent_name}, artifacts: {len(artefacts)}")
         if agent_name == "todoagent" and artefacts:
             for artifact in artefacts:
+                _logger.info(f"[RESPONSE_PROCESSOR] Found artifact type: {artifact.type}, id: {artifact.id}")
                 if artifact.type == Artefact.Types.TODO_LIST:
+                    _logger.info(f"[RESPONSE_PROCESSOR] Found todo artifact with ID: {artifact.id}")
                     return artifact.id
         return None
     

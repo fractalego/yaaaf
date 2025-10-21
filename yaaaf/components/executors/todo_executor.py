@@ -35,14 +35,9 @@ class TodoExecutor(ToolExecutor):
     async def execute_operation(self, instruction: str, context: Dict[str, Any]) -> Tuple[Any, Optional[str]]:
         """Create or update todo list table."""
         try:
-            # Parse the table instruction and create DataFrame
+            # Parse markdown table from instruction
             if instruction.strip():
-                # Try to parse as CSV
-                try:
-                    df = pd.read_csv(StringIO(instruction))
-                except Exception:
-                    # If CSV parsing fails, create a simple todo structure
-                    df = self._create_todo_table(instruction, context)
+                df = self._parse_markdown_table(instruction)
             else:
                 # Create empty todo template
                 df = self._create_empty_todo_table()
@@ -53,6 +48,42 @@ class TodoExecutor(ToolExecutor):
             error_msg = f"Error processing todo list: {str(e)}"
             _logger.error(error_msg)
             return None, error_msg
+    
+    def _parse_markdown_table(self, table_text: str) -> pd.DataFrame:
+        """Parse markdown table into DataFrame."""
+        lines = [line.strip() for line in table_text.split('\n') if line.strip()]
+        
+        # Find header and data rows (skip separator lines with ---)
+        header_row = None
+        data_rows = []
+        
+        for line in lines:
+            if '---' in line:
+                continue  # Skip separator lines
+            if '|' in line:
+                # Clean up the line - remove leading/trailing pipes and split
+                cells = [cell.strip() for cell in line.strip('|').split('|')]
+                if header_row is None:
+                    header_row = cells
+                else:
+                    data_rows.append(cells)
+        
+        if not header_row:
+            # No valid table found, create empty todo table
+            return self._create_empty_todo_table()
+        
+        # Create DataFrame
+        if data_rows:
+            df = pd.DataFrame(data_rows, columns=header_row)
+        else:
+            df = pd.DataFrame(columns=header_row)
+            
+        # Ensure it has the expected columns for a todo list
+        expected_cols = ["ID", "Task", "Status", "Agent/Tool"]
+        if not all(col in df.columns for col in expected_cols):
+            _logger.warning(f"Todo table missing expected columns. Found: {df.columns.tolist()}")
+            
+        return df
 
     def _create_todo_table(self, instruction: str, context: Dict[str, Any]) -> pd.DataFrame:
         """Create a todo table from instruction text."""
@@ -75,7 +106,7 @@ class TodoExecutor(ToolExecutor):
 
     def _create_empty_todo_table(self) -> pd.DataFrame:
         """Create an empty todo table template."""
-        return pd.DataFrame(columns=["ID", "Task", "Status", "Priority", "Agent"])
+        return pd.DataFrame(columns=["ID", "Task", "Status", "Agent/Tool"])
 
     def validate_result(self, result: Any) -> bool:
         """Validate todo list result."""

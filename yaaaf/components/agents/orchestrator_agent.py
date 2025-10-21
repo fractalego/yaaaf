@@ -72,6 +72,10 @@ class OrchestratorAgent(CustomAgent):
         goal = await self._extract_goal(messages)
         self._status_tracker.update_stream_status(goal=goal, current_agent="orchestrator")
         
+        # Auto-call todo agent first if no todo artifact exists
+        if not self._status_tracker.has_todo_artifact:
+            await self._auto_call_todo_agent(messages, notes, goal)
+        
         # Main orchestration loop
         answer = ""
         for step_index in range(self._max_steps):
@@ -115,6 +119,34 @@ class OrchestratorAgent(CustomAgent):
             answer = await self._handle_max_steps_reached(answer, notes)
         
         return answer
+    
+    async def _auto_call_todo_agent(self, messages: Messages, notes: Optional[List[Note]], goal: str) -> None:
+        """Automatically call todo agent first to create initial task plan."""
+        # Find todo agent
+        todo_agent = None
+        for agent in self._agent_manager._agents.values():
+            if agent.get_name() == "todoagent":
+                todo_agent = agent
+                break
+        
+        if todo_agent and todo_agent.get_budget() > 0:
+            _logger.info("Auto-calling todo agent to create initial plan")
+            
+            # Create the orchestrator's decision to call todo agent
+            orchestrator_decision = f"<todoagent>Create a structured todo list for: {goal}</todoagent>"
+            
+            # Create note showing orchestrator's decision to call todo agent
+            if notes is not None:
+                self._response_processor.create_orchestrator_note(
+                    orchestrator_decision, todo_agent.get_name(), getattr(self._client, "model", None), notes
+                )
+            
+            # Create instruction for todo agent based on goal
+            instruction = f"Create a structured todo list for: {goal}"
+            
+            # Execute todo agent
+            response = await self._execute_agent(todo_agent, instruction, messages, notes)
+            _logger.info(f"Todo agent auto-call completed: {response[:100]}...")
     
     async def _extract_goal(self, messages: Messages) -> str:
         """Extract goal with error handling."""
@@ -208,10 +240,16 @@ class OrchestratorAgent(CustomAgent):
         )
         if todo_artifact_id:
             self._status_tracker.set_todo_artifact(todo_artifact_id)
+            _logger.info(f"[ORCHESTRATOR] Set todo artifact ID: {todo_artifact_id} for agent: {agent.get_name()}")
+        else:
+            _logger.info(f"[ORCHESTRATOR] No todo artifact found for agent: {agent.get_name()}, artifacts count: {len(artefacts)}")
         
         # Update task status if we have a todo list
         if self._status_tracker.has_todo_artifact and agent.get_name() != "todoagent":
+            _logger.info(f"[ORCHESTRATOR] Updating task status for agent: {agent.get_name()}")
             await self._status_tracker.update_task_status(response, agent.get_name())
+        else:
+            _logger.info(f"[ORCHESTRATOR] NOT updating status - has_todo: {self._status_tracker.has_todo_artifact}, agent: {agent.get_name()}")
         
         # Create agent note
         agent_model_name = getattr(agent._client, "model", None) if agent else None

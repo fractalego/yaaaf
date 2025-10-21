@@ -30,21 +30,22 @@ class StatusTracker:
         """Set the current todo artifact ID."""
         self._current_todo_artifact_id = artifact_id
         self._needs_replanning = False
-        _logger.info(f"Stored todo artifact ID: {artifact_id}")
+        _logger.info(f"[STATUS_TRACKER] Stored todo artifact ID: {artifact_id}, has_todo_artifact: {self.has_todo_artifact}")
     
     def trigger_replanning(self) -> None:
-        """Trigger replanning by resetting todo artifact."""
+        """Trigger replanning by marking that replanning is needed."""
         self._needs_replanning = True
-        self._current_todo_artifact_id = None
-        _logger.info("Plan change detected - triggering replanning")
+        # Don't clear the todo artifact ID - we'll update the same artifact
+        _logger.info(f"[STATUS_TRACKER] Plan change detected - triggering replanning. Keeping todo artifact: {self._current_todo_artifact_id}")
     
     async def update_task_status(self, response: str, agent_name: str) -> Optional[str]:
         """Update task status based on agent response."""
         if not self._current_todo_artifact_id:
+            _logger.warning(f"[STATUS_TRACKER] No todo artifact ID set, cannot update status for agent: {agent_name}")
             return None
         
         _logger.info(
-            f"Calling status extractor for agent {agent_name} with response: {response[:200]}..."
+            f"[STATUS_TRACKER] Calling status extractor for agent {agent_name} with artifact ID: {self._current_todo_artifact_id}"
         )
         
         updated_artifact_id, needs_replanning = await self._status_extractor.extract_and_update_status(

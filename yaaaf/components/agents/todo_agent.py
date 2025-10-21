@@ -14,7 +14,10 @@ class TodoAgent(ToolBasedAgent):
     def __init__(self, client: BaseClient, agents_and_sources_and_tools_list: str = ""):
         """Initialize todo agent."""
         super().__init__(client, TodoExecutor(agents_and_sources_and_tools_list))
-        self._system_prompt = todo_agent_prompt_template
+        # Complete the prompt template with the agents list
+        self._system_prompt = todo_agent_prompt_template.complete(
+            agents_and_sources_and_tools_list=agents_and_sources_and_tools_list
+        )
         self._output_tag = "```table"
 
     @staticmethod

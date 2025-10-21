@@ -53,8 +53,11 @@ Only give one SQL instruction string per answer.
 todo_agent_prompt_template = PromptTemplate(
     prompt="""
 Your task is to create a structured todo list for planning how to answer the user's query.
-Analyze the instructions and break them down into actionable todo items with priorities.
-Mention the specific agents and tools you will use by their exact names.
+Analyze the instructions and break them down into actionable todo items.
+
+IMPORTANT: In the Agent/Tool column, you MUST use the EXACT agent names from the list below.
+Do NOT invent agent names. Only use the agents that are actually available.
+
 These are the agents and tools you can use:
 {agents_and_sources_and_tools_list}
 
@@ -66,9 +69,9 @@ Create a todo list as a markdown table with the following columns:
 
 The table must be structured as follows:
 | ID | Task | Status | Agent/Tool |
-| --- | ---- | ------ | -------- | ----------- |
+| --- | ---- | ------ | -------- |
 | 1 | Example task | pending | ExampleAgent |
-... | ... | ... | ... | ...|
+| ... | ... | ... | ... |
 
 When you are satisfied with the todo list, output it between markdown tags ```table ... ```
 You MUST use the ```table ... ``` tags to indicate the start and end of the todo list.

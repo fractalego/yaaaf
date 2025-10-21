@@ -1,8 +1,6 @@
 import base64
 import logging
-import os
-import tempfile
-from io import StringIO
+from io import StringIO, BytesIO
 from typing import Any, Tuple, Optional, Dict, List
 
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
@@ -28,7 +26,7 @@ class PythonExecutor(ToolExecutor):
         self._output_type = output_type
         self._max_image_size_mb = max_image_size_mb
         self._storage = ArtefactStorage()
-        self._temp_image_path = None
+        self._image_buffer = None
 
     async def prepare_context(
         self, messages: Messages, notes: Optional[List[Note]] = None
@@ -85,11 +83,10 @@ class PythonExecutor(ToolExecutor):
             exec(instruction, globals_dict)
 
             if self._output_type == "image":
-                # Check if image was saved
-                if self._temp_image_path and os.path.exists(self._temp_image_path):
-                    # Read and encode the image
-                    with open(self._temp_image_path, "rb") as f:
-                        image_data = f.read()
+                # Check if image was saved to buffer
+                if self._image_buffer:
+                    # Get image data from buffer
+                    image_data = self._image_buffer.getvalue()
 
                     # Check size
                     size_mb = len(image_data) / (1024 * 1024)
@@ -102,9 +99,8 @@ class PythonExecutor(ToolExecutor):
                     # Encode to base64
                     image_base64 = base64.b64encode(image_data).decode("utf-8")
 
-                    # Clean up temp file
-                    os.remove(self._temp_image_path)
-                    self._temp_image_path = None
+                    # Clear buffer for next use
+                    self._image_buffer = None
 
                     return image_base64, None
                 else:
@@ -125,10 +121,10 @@ class PythonExecutor(ToolExecutor):
             _logger.error(error_msg)
             return None, error_msg
         finally:
-            # Clean up temp file if it exists
-            if self._temp_image_path and os.path.exists(self._temp_image_path):
-                os.remove(self._temp_image_path)
-                self._temp_image_path = None
+            # Clear image buffer if it exists
+            if self._image_buffer:
+                self._image_buffer.close()
+                self._image_buffer = None
 
     def validate_result(self, result: Any) -> bool:
         """Validate execution result.
@@ -223,22 +219,26 @@ class PythonExecutor(ToolExecutor):
                 globals_dict[var_name] = artifact.data
                 _logger.info(f"Added DataFrame '{var_name}' to globals")
 
-        # For image output, override plt.savefig
+        # For image output, override plt.savefig to use BytesIO buffer
         if self._output_type == "image":
             original_savefig = (
                 globals_dict.get("plt", {}).savefig if "plt" in globals_dict else None
             )
 
             def custom_savefig(*args, **kwargs):
-                # Create temp file for image
-                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                    self._temp_image_path = tmp.name
+                # Create BytesIO buffer for image
+                self._image_buffer = BytesIO()
 
-                # Call original savefig with our temp path
+                # Set format to PNG if not specified
+                if "format" not in kwargs:
+                    kwargs["format"] = "png"
+
+                # Call original savefig with our buffer
                 if args:
-                    args = (self._temp_image_path,) + args[1:]
+                    # Replace first argument (filename) with buffer
+                    args = (self._image_buffer,) + args[1:]
                 else:
-                    kwargs["fname"] = self._temp_image_path
+                    kwargs["fname"] = self._image_buffer
 
                 if original_savefig:
                     original_savefig(*args, **kwargs)

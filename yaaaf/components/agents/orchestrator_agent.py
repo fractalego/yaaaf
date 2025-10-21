@@ -93,20 +93,20 @@ class OrchestratorAgent(CustomAgent):
             if thinking_ref:
                 answer = f"{thinking_ref} {answer}"
             
-            # Create orchestrator note
-            self._response_processor.create_orchestrator_note(
-                answer, self.get_name(), getattr(self._client, "model", None), notes
-            )
-            
             # Check for completion
             if self._should_complete(answer):
+                # Create orchestrator note for final response
+                if notes is not None:
+                    self._response_processor.create_orchestrator_note(
+                        answer, self.get_name(), getattr(self._client, "model", None), notes
+                    )
                 if self.is_complete(answer):
                     await self._handle_completion(answer, notes)
                     answer = await self._maybe_add_summary(answer, notes)
                 break
             
             # Route to agent and execute
-            answer = await self._execute_agent_if_needed(answer, messages, notes)
+            answer, messages = await self._execute_agent_if_needed(answer, messages, notes)
             if self.is_complete(answer):
                 break
         
@@ -131,26 +131,40 @@ class OrchestratorAgent(CustomAgent):
             (self.is_complete(answer) or answer.strip() == "")
         )
     
-    async def _execute_agent_if_needed(self, answer: str, messages: Messages, notes: Optional[List[Note]]) -> str:
+    async def _execute_agent_if_needed(self, answer: str, messages: Messages, notes: Optional[List[Note]]) -> tuple[str, Messages]:
         """Execute agent if routing is needed."""
         agent_to_call, instruction = self._agent_manager.route_to_agent(answer)
         
         if agent_to_call is None:
             # No agent to call, provide feedback
-            messages = messages.add_assistant_utterance(answer)
-            messages = messages.add_user_utterance(
+            updated_messages = messages.add_assistant_utterance(answer)
+            updated_messages = updated_messages.add_user_utterance(
                 "You didn't call any agent. Is the answer finished or did you miss outputting the tags? "
                 "Reminder: use the relevant html tags to call the agents."
             )
-            return answer
+            return answer, updated_messages
+        
+        # Create orchestrator note showing the decision to call an agent
+        if notes is not None:
+            self._response_processor.create_orchestrator_note(
+                answer, agent_to_call.get_name(), getattr(self._client, "model", None), notes
+            )
         
         # Check agent budget
         if agent_to_call.get_budget() <= 0:
             _logger.warning(f"Agent {agent_to_call.get_name()} has exhausted its budget")
-            return f"Agent {agent_to_call.get_name()} has exhausted its budget and cannot be called again."
+            return f"Agent {agent_to_call.get_name()} has exhausted its budget and cannot be called again.", messages
         
-        # Execute agent
-        return await self._execute_agent(agent_to_call, instruction, messages, notes)
+        # Execute agent and update conversation
+        agent_response = await self._execute_agent(agent_to_call, instruction, messages, notes)
+        
+        # Update messages with agent response and feedback for next iteration
+        updated_messages = messages.add_assistant_utterance(answer)
+        updated_messages = updated_messages.add_user_utterance(
+            f"The answer from the agent is:\n\n{agent_response}\n\nWhen you are 100% sure about the answer and the task is done, write the tag {task_completed_tag}."
+        )
+        
+        return agent_response, updated_messages
     
     async def _execute_agent(self, agent: BaseAgent, instruction: str, messages: Messages, notes: Optional[List[Note]]) -> str:
         """Execute a specific agent with instruction."""

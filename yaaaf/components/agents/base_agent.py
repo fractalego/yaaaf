@@ -9,6 +9,7 @@ from yaaaf.components.agents.hash_utils import create_hash
 from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.decorators import handle_exceptions
 from yaaaf.components.agents.agent_steps_config import AGENT_MAX_STEPS, DEFAULT_MAX_STEPS
+from yaaaf.components.agents.artefact_utils import create_prompt_from_artefacts
 
 if TYPE_CHECKING:
     from yaaaf.components.data_types import ClientResponse
@@ -71,7 +72,9 @@ class BaseAgent(ABC):
         
         # Add system prompt if available
         if self._system_prompt:
-            messages = messages.add_system_prompt(self._system_prompt)
+            # Try to complete prompt with artifacts if available
+            completed_prompt = self._try_complete_prompt_with_artifacts(context)
+            messages = messages.add_system_prompt(completed_prompt)
         
         # Multi-step execution loop - abstracted reflection pattern
         for step_idx in range(self._max_steps):
@@ -182,6 +185,21 @@ class BaseAgent(ABC):
     
     def is_complete(self, answer: str) -> bool:
         return any(tag in answer for tag in self._completing_tags)
+    
+    def _try_complete_prompt_with_artifacts(self, context: dict) -> str:
+        """Try to complete prompt template with artifacts if available."""
+        artifacts = context.get("artifacts", [])
+        
+        # Always try to complete with artifacts - if no variables exist, nothing happens
+        if isinstance(self._system_prompt, PromptTemplate):
+            return create_prompt_from_artefacts(
+                artifacts,
+                filename=getattr(self, '_artifact_filename', 'output.png'),
+                prompt_with_model=getattr(self, '_system_prompt_with_model', None),
+                prompt_without_model=self._system_prompt
+            )
+        
+        return self._system_prompt
     
     # === Utility Methods ===
     

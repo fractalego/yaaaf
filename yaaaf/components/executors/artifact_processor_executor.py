@@ -24,12 +24,26 @@ class ArtifactProcessorExecutor(ToolExecutor):
         
     async def prepare_context(self, messages: Messages, notes: Optional[list[Note]] = None) -> Dict[str, Any]:
         """Prepare context for artifact processing."""
-        # Get artifacts from the last utterance
-        last_utterance = messages.utterances[-1] if messages.utterances else None
         artefact_list = []
+        last_utterance = messages.utterances[-1] if messages.utterances else None
         
+        # First check the last utterance for artifacts
         if last_utterance:
             artefact_list = get_artefacts_from_utterance_content(last_utterance.content)
+        
+        # If no artifacts found, look through notes in reverse order
+        if not artefact_list and notes:
+            for i in range(len(notes) - 1, -1, -1):
+                note = notes[i]
+                if note.message:
+                    artefacts = get_artefacts_from_utterance_content(note.message)
+                    if artefacts:
+                        artefact_list = artefacts
+                        _logger.info(f"Found {len(artefacts)} artifacts in note from {note.agent_name}")
+                        break
+        
+        if not artefact_list:
+            _logger.info("No artifacts found in utterances or notes")
         
         return {
             "messages": messages,

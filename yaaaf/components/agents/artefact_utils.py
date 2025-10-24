@@ -1,7 +1,7 @@
 import re
 import pandas as pd
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, Tuple, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import sklearn.base
@@ -56,6 +56,7 @@ def create_prompt_from_artefacts(
     filename: str,
     prompt_with_model: PromptTemplate | None,
     prompt_without_model: PromptTemplate,
+    data_source_name: Optional[str] = None,
 ) -> str:
     table_artefacts = [
         item
@@ -74,18 +75,27 @@ def create_prompt_from_artefacts(
             )
         ]
 
+    # Generate data source name if not provided
+    if data_source_name is None:
+        data_source_name = f"df_{table_artefacts[0].id[:8]}" if table_artefacts[0].id else "dataframe"
+    
+    # Get actual schema from DataFrame if available
+    schema = table_artefacts[0].description
+    if hasattr(table_artefacts[0].data, 'dtypes'):
+        schema = table_artefacts[0].data.dtypes.to_string()
+    
     if not models_artefacts or not prompt_with_model:
         return prompt_without_model.complete(
-            data_source_name="dataframe",
-            data_source_type=str(type(table_artefacts[0].data)),
-            schema=table_artefacts[0].description,
+            data_source_name=data_source_name,
+            data_source_type="pandas.DataFrame",
+            schema=schema,
             filename=filename,
         )
 
     return prompt_with_model.complete(
-        data_source_name="dataframe",
-        data_source_type=str(type(table_artefacts[0].data)),
-        schema=table_artefacts[0].description,
+        data_source_name=data_source_name,
+        data_source_type="pandas.DataFrame",
+        schema=schema,
         model_name="sklearn_model",
         sklearn_model=models_artefacts[0].model,
         training_code=models_artefacts[0].code,

@@ -34,4 +34,7 @@ This agent can:
 
 To call this agent write {self.get_opening_tag()} ANSWER_REQUEST {self.get_closing_tag()}
 Describe what you want the agent to analyze or answer.
+
+IMPORTANT: This agent processes artifacts automatically. Include artifact references in your instruction using the format:
+<artefact type='table'>artifact_id</artefact> or <artefact type='text'>artifact_id</artefact>
         """

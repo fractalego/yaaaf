@@ -450,7 +450,7 @@ You will receive artifacts from various sources including:
 - Other agents: Additional relevant data
 
 Input Artifacts:
-{artifacts_content}
+{artifact_list}
 
 Instructions:
 1. Analyze ALL provided artifacts carefully

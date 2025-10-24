@@ -1,4 +1,5 @@
 import logging
+import mdpd
 import pandas as pd
 from typing import Dict, Any, Optional, Tuple
 
@@ -21,6 +22,21 @@ class ArtifactProcessorExecutor(ToolExecutor):
         self._storage = ArtefactStorage()
         self._artefact_extractor = ArtefactExtractor(client)
         self._output_tag = output_tag
+        
+    def _parse_markdown_table(self, text: str) -> pd.DataFrame | None:
+        """Parse markdown table from text into DataFrame using mdpd library."""
+        if not text:
+            return None
+            
+        try:
+            # Use mdpd to parse the markdown table directly
+            df = mdpd.from_md(text)
+            _logger.info(f"Parsed markdown table with {len(df)} rows and {len(df.columns)} columns")
+            return df
+            
+        except Exception as e:
+            _logger.warning(f"Failed to parse markdown table with mdpd: {e}")
+            return None
         
     async def prepare_context(self, messages: Messages, notes: Optional[list[Note]] = None) -> Dict[str, Any]:
         """Prepare context for artifact processing."""
@@ -65,18 +81,12 @@ class ArtifactProcessorExecutor(ToolExecutor):
             if not artifacts:
                 return None, "No artifacts found to process"
             
-            # Create a simple DataFrame with artifact information
-            artifact_data = []
-            for i, artifact in enumerate(artifacts):
-                artifact_data.append({
-                    "Index": i + 1,
-                    "Type": artifact.type,
-                    "Name": getattr(artifact, 'name', artifact.id),
-                    "Description": getattr(artifact, 'description', 'No description'),
-                    "ID": artifact.id
-                })
-            
-            df = pd.DataFrame(artifact_data)
+            # Create a simple DataFrame with the table in the instructions
+            df = self._parse_markdown_table(instruction)
+
+            # If no markdown table found in instruction, create DataFrame from artifacts
+            if df is None:
+                return "No valid markdown table found in instruction", None
             
             # If instruction contains specific processing logic, apply it here
             # For now, return the basic artifact summary table
@@ -94,9 +104,6 @@ class ArtifactProcessorExecutor(ToolExecutor):
 
     def transform_to_artifact(self, result: Any, instruction: str, artifact_id: str) -> Artefact:
         """Transform processed result to artifact."""
-        # Convert DataFrame to CSV string for storage
-        csv_content = result.to_csv(index=False)
-        
         return Artefact(
             id=artifact_id,
             type=Artefact.Types.TABLE,

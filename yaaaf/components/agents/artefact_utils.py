@@ -113,12 +113,16 @@ def create_prompt_from_artefacts(
     if hasattr(table_artefacts[0].data, 'dtypes'):
         schema = table_artefacts[0].data.dtypes.to_string()
     
+    # Generate artifact list for prompts that need it
+    artifact_list = _generate_artifact_list(artefact_list)
+    
     if not models_artefacts or not prompt_with_model:
         return prompt_without_model.complete(
             data_source_name=data_source_name,
             data_source_type="pandas.DataFrame",
             schema=schema,
             filename=filename,
+            artifact_list=artifact_list,
         )
 
     return prompt_with_model.complete(
@@ -129,4 +133,39 @@ def create_prompt_from_artefacts(
         sklearn_model=models_artefacts[0].model,
         training_code=models_artefacts[0].code,
         filename=filename,
+        artifact_list=artifact_list,
     )
+
+
+def _generate_artifact_list(artefact_list: List[Artefact]) -> str:
+    """Generate a formatted list of artifacts for inclusion in prompts."""
+    if not artefact_list:
+        return ""
+    
+    artifact_strings = []
+    for artifact in artefact_list:
+        content = ""
+        
+        if artifact.type == Artefact.Types.TABLE and hasattr(artifact.data, 'to_markdown'):
+            # Convert DataFrame to markdown
+            try:
+                content = artifact.data.to_markdown(index=False)
+            except Exception as e:
+                content = f"Table artifact: {artifact.description or 'Unable to display table'}"
+        elif artifact.type == Artefact.Types.IMAGE:
+            content = f"Image artifact: {artifact.description or 'Image data'}"
+        elif artifact.type == Artefact.Types.TODO_LIST and hasattr(artifact.data, 'to_markdown'):
+            # Todo lists are also tables
+            try:
+                content = artifact.data.to_markdown(index=False)
+            except Exception as e:
+                content = f"Todo list artifact: {artifact.description or 'Unable to display todo list'}"
+        elif artifact.code:
+            # For artifacts with code (like models)
+            content = f"{artifact.type} artifact:\n{artifact.code[:500]}..." if len(artifact.code) > 500 else artifact.code
+        else:
+            content = artifact.description or f"{artifact.type} artifact"
+        
+        artifact_strings.append(f'<item source="{artifact.id}">\n{content}\n</item>')
+    
+    return "\n\n".join(artifact_strings)

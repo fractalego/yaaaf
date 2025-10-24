@@ -6,6 +6,7 @@ from yaaaf.components.executors import SQLExecutor
 from yaaaf.components.agents.prompts import sql_agent_prompt_template
 from yaaaf.components.client import BaseClient
 from yaaaf.components.sources.sqlite_source import SqliteSource
+from yaaaf.components.agents.artefact_utils import create_prompt_from_sources
 
 _logger = logging.getLogger(__name__)
 
@@ -16,7 +17,8 @@ class SqlAgent(ToolBasedAgent):
     def __init__(self, client: BaseClient, sources: List[SqliteSource]):
         """Initialize SQL agent with client and data sources."""
         super().__init__(client, SQLExecutor(sources))
-        self._system_prompt = sql_agent_prompt_template
+        # Complete the prompt template with schema from sources
+        self._system_prompt = create_prompt_from_sources(sources, sql_agent_prompt_template)
         self._output_tag = "```sql"
 
     @staticmethod

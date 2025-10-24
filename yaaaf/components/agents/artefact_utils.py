@@ -51,6 +51,35 @@ def get_table_and_model_from_artefacts(
     ].model if models_artefacts else None
 
 
+def create_prompt_from_sources(
+    sources: List,
+    prompt_template: PromptTemplate,
+) -> str:
+    """Create a completed prompt from SQL sources.
+    
+    Args:
+        sources: List of SQL sources (e.g., SqliteSource objects)
+        prompt_template: The prompt template to complete
+        
+    Returns:
+        Completed prompt with schema information
+    """
+    schema_descriptions = []
+    
+    for source in sources:
+        if hasattr(source, 'get_schema_description'):
+            schema_desc = source.get_schema_description()
+            if schema_desc:
+                schema_descriptions.append(f"Source: {source.name}\n{schema_desc}")
+        elif hasattr(source, 'schema'):
+            schema_descriptions.append(f"Source: {getattr(source, 'name', 'Unknown')}\n{source.schema}")
+    
+    # Join all schema descriptions
+    full_schema = "\n\n".join(schema_descriptions) if schema_descriptions else "No schema information available"
+    
+    return prompt_template.complete(schema=full_schema)
+
+
 def create_prompt_from_artefacts(
     artefact_list: List[Artefact],
     filename: str,

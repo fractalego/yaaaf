@@ -560,7 +560,7 @@ Your response must be exactly one of these two words, nothing else.
 
 planner_agent_prompt_template = PromptTemplate(
     prompt="""
-Your task is to create an execution plan as a Directed Acyclic Graph (DAG) that shows how ARTIFACTS flow from sources through transformers to sinks.
+Your task is to create an execution plan as an asset-based workflow that shows how ARTIFACTS flow from sources through transformers to sinks.
 
 You are a planning expert who understands:
 1. Agent taxonomies:
@@ -580,53 +580,71 @@ You are a planning expert who understands:
 Available agents and their artifact handling:
 {agent_descriptions}
 
-Instructions for creating the DAG:
+Instructions for creating the workflow:
 1. Analyze the user's goal to identify the required FINAL ARTIFACT type
 2. Work backwards from the sink to determine what artifacts it needs
 3. Plan transformation steps that produce the required artifacts
 4. Identify source agents that can produce initial artifacts
-5. Label edges with artifact types being transferred
+5. Define dependencies through inputs field
 
-DAG Format Rules:
-- Use Graphviz dot language syntax
-- Nodes: agent names with purpose labels
-- Edges: labeled with artifact type being passed
-- Each edge must specify the artifact type in square brackets
-- Color-code by artifact type for clarity
+Workflow Format Rules:
+- Use YAML asset-based syntax inspired by Prefect/Dagster
+- Each asset has: name, agent, description, type, inputs (optional), conditions (optional)
+- Assets without inputs are source nodes
+- Dependencies are explicit through inputs field
+- Include validation and error handling where appropriate
 
 Example format:
-```dot
-digraph ExecutionPlan {
-    // Define graph properties
-    rankdir=LR;
-    node [shape=box, style="rounded,filled", fillcolor=lightblue];
-    edge [fontsize=10];
+```yaml
+assets:
+  sales_data:
+    agent: SqlAgent
+    description: "Extract sales data from database"
+    type: TABLE
+    validation:
+      - row_count > 0
+      - columns: [date, sales, region]
     
-    // Color scheme for artifact types
-    // TABLE=blue, TEXT=green, IMAGE=red, MODEL=purple
+  validated_data:
+    agent: ReviewerAgent
+    description: "Validate data quality and clean"
+    type: TABLE
+    inputs: [sales_data]
+    conditions:
+      - if: sales_data.row_count < 100
+        params: {{strict_validation: false}}
     
-    // Source agents
-    SqlAgent [label="SQL Agent\\nExtract sales data"];
+  trend_analysis:
+    agent: NumericalSequencesAgent
+    description: "Extract numerical trends and patterns"
+    type: TABLE
+    inputs: [validated_data]
     
-    // Transformer agents
-    ReviewerAgent [label="Reviewer\\nValidate data quality"];
-    NumericalSequencesAgent [label="Numerical Sequences\\nExtract trends"];
-    
-    // Sink agents
-    VisualizationAgent [label="Visualization\\nCreate charts", fillcolor=lightcoral];
-    
-    // Define artifact flow
-    SqlAgent -> ReviewerAgent [label="[TABLE]", color=blue];
-    ReviewerAgent -> NumericalSequencesAgent [label="[TABLE]", color=blue];
-    NumericalSequencesAgent -> VisualizationAgent [label="[TABLE]", color=blue];
-}
+  sales_visualization:
+    agent: VisualizationAgent
+    description: "Create sales charts and graphs"
+    type: IMAGE
+    inputs: [trend_analysis]
+    conditions:
+      - if: trend_analysis.row_count > 1000
+        params: {{chart_type: "heatmap"}}
+      - else:
+        params: {{chart_type: "bar"}}
 ```
+
+Optional features you can include:
+- validation: Data quality checks (row_count, columns, constraints)
+- conditions: Conditional execution based on input data
+- retry_policy: Error handling (max_attempts, backoff)
+- on_error: Fallback actions
+- params: Agent-specific parameters based on conditions
 
 Important considerations:
 - Each agent has INPUT and OUTPUT artifact requirements
 - Some agents can handle multiple artifact types
 - Ensure artifact type compatibility along the entire path
 - The final artifact must match what the sink agent expects
+- Use meaningful asset names that describe the data transformation
 
 Think step-by-step:
 1. What is the desired final output (artifact type)?
@@ -635,6 +653,6 @@ Think step-by-step:
 4. Which agents can transform/produce those artifacts?
 5. What source agents can start the artifact chain?
 
-Output your DAG between ```dot and ``` tags.
+Output your workflow between ```yaml and ``` tags.
     """
 )

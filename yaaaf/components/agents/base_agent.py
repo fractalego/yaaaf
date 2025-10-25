@@ -2,7 +2,7 @@ import logging
 from typing import Optional, List, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
-from yaaaf.components.data_types import Note, Messages, PromptTemplate
+from yaaaf.components.data_types import Note, Messages, PromptTemplate, AgentTaxonomy
 from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.agents.artefacts import ArtefactStorage, Artefact
 from yaaaf.components.agents.hash_utils import create_hash
@@ -172,6 +172,15 @@ class BaseAgent(ABC):
     
     def reset_budget(self) -> None:
         self._budget = self._original_budget
+    
+    def get_taxonomy(self) -> AgentTaxonomy:
+        """Get the taxonomy classification for this agent.
+        
+        Returns:
+            AgentTaxonomy object describing the agent's classification
+        """
+        from yaaaf.components.agents.agent_taxonomies import get_agent_taxonomy
+        return get_agent_taxonomy(self.__class__.__name__)
     
     def set_budget(self, budget: int) -> None:
         self._budget = budget

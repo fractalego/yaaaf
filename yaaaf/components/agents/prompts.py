@@ -556,3 +556,85 @@ Respond with exactly one word:
 Your response must be exactly one of these two words, nothing else.
     """
 )
+
+
+planner_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to create an execution plan as a Directed Acyclic Graph (DAG) that shows how ARTIFACTS flow from sources through transformers to sinks.
+
+You are a planning expert who understands:
+1. Agent taxonomies:
+   - EXTRACTORS (Sources): Pull data from external sources, produce artifacts
+   - TRANSFORMERS (Processors): Transform artifacts into new artifacts
+   - SYNTHESIZERS: Combine multiple artifacts into unified artifacts
+   - GENERATORS (Sinks): Consume artifacts to create final outputs
+
+2. Artifact types:
+   - TABLE: Tabular data (DataFrames)
+   - TEXT: Text content (documents, responses)
+   - IMAGE: Visual outputs (charts, plots)
+   - MODEL: Trained ML models
+   - TODO_LIST: Task tracking tables
+   - JSON: Structured data
+
+Available agents and their artifact handling:
+{agent_descriptions}
+
+Instructions for creating the DAG:
+1. Analyze the user's goal to identify the required FINAL ARTIFACT type
+2. Work backwards from the sink to determine what artifacts it needs
+3. Plan transformation steps that produce the required artifacts
+4. Identify source agents that can produce initial artifacts
+5. Label edges with artifact types being transferred
+
+DAG Format Rules:
+- Use Graphviz dot language syntax
+- Nodes: agent names with purpose labels
+- Edges: labeled with artifact type being passed
+- Each edge must specify the artifact type in square brackets
+- Color-code by artifact type for clarity
+
+Example format:
+```dot
+digraph ExecutionPlan {
+    // Define graph properties
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fillcolor=lightblue];
+    edge [fontsize=10];
+    
+    // Color scheme for artifact types
+    // TABLE=blue, TEXT=green, IMAGE=red, MODEL=purple
+    
+    // Source agents
+    SqlAgent [label="SQL Agent\\nExtract sales data"];
+    
+    // Transformer agents
+    ReviewerAgent [label="Reviewer\\nValidate data quality"];
+    NumericalSequencesAgent [label="Numerical Sequences\\nExtract trends"];
+    
+    // Sink agents
+    VisualizationAgent [label="Visualization\\nCreate charts", fillcolor=lightcoral];
+    
+    // Define artifact flow
+    SqlAgent -> ReviewerAgent [label="[TABLE]", color=blue];
+    ReviewerAgent -> NumericalSequencesAgent [label="[TABLE]", color=blue];
+    NumericalSequencesAgent -> VisualizationAgent [label="[TABLE]", color=blue];
+}
+```
+
+Important considerations:
+- Each agent has INPUT and OUTPUT artifact requirements
+- Some agents can handle multiple artifact types
+- Ensure artifact type compatibility along the entire path
+- The final artifact must match what the sink agent expects
+
+Think step-by-step:
+1. What is the desired final output (artifact type)?
+2. Which sink agent produces that artifact type?
+3. What artifact type does that sink need as input?
+4. Which agents can transform/produce those artifacts?
+5. What source agents can start the artifact chain?
+
+Output your DAG between ```dot and ``` tags.
+    """
+)

@@ -2,7 +2,7 @@ import logging
 from typing import Optional, List, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
-from yaaaf.components.data_types import Note, Messages, PromptTemplate, AgentTaxonomy
+from yaaaf.components.data_types import Note, Messages, PromptTemplate, AgentTaxonomy, AgentArtifactSpec
 from yaaaf.components.agents.settings import task_completed_tag
 from yaaaf.components.agents.artefacts import ArtefactStorage, Artefact
 from yaaaf.components.agents.hash_utils import create_hash
@@ -181,6 +181,15 @@ class BaseAgent(ABC):
         """
         from yaaaf.components.agents.agent_taxonomies import get_agent_taxonomy
         return get_agent_taxonomy(self.__class__.__name__)
+    
+    def get_artifact_spec(self) -> AgentArtifactSpec:
+        """Get the artifact specification for this agent.
+        
+        Returns:
+            AgentArtifactSpec object describing what artifacts this agent accepts/produces
+        """
+        from yaaaf.components.data_types import get_agent_artifact_spec
+        return get_agent_artifact_spec(self.__class__.__name__)
     
     def set_budget(self, budget: int) -> None:
         self._budget = budget

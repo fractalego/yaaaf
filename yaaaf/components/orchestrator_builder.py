@@ -1,7 +1,8 @@
 import os
 import logging
 from typing import List
-from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
+from yaaaf.components.agents.plan_driven_orchestrator_agent import OrchestratorAgent
+from yaaaf.components.agents.planner_agent import PlannerAgent
 from yaaaf.components.agents.todo_agent import TodoAgent
 from yaaaf.components.agents.reviewer_agent import ReviewerAgent
 from yaaaf.components.agents.sql_agent import SqlAgent
@@ -46,6 +47,7 @@ class OrchestratorBuilder:
             "numerical_sequences": NumericalSequencesAgent,
             "answerer": AnswererAgent,
             "mle": MleAgent,
+            "planner": PlannerAgent,
         }
 
     def _load_text_from_file(self, file_path: str) -> str:
@@ -359,47 +361,97 @@ class OrchestratorBuilder:
         # Prepare MCP tools
         mcp_tools = await self._create_mcp_tools()
 
-        orchestrator = OrchestratorAgent(orchestrator_client)
-
         # Generate agents/sources/tools list for TodoAgent
         agents_sources_tools_list = self._generate_agents_sources_tools_list(mcp_tools)
 
+        # First build all agents
+        all_agents = {}
         for agent_config in self.config.agents:
             agent_name = self._get_agent_name(agent_config)
+            if agent_name in self._agents_map:
+                agent_client = self._create_client_for_agent(agent_config)
+                agent = self._create_agent(
+                    agent_name,
+                    agent_client,
+                    sql_sources,
+                    rag_sources,
+                    mcp_tools,
+                    agents_sources_tools_list,
+                )
+                if agent:
+                    all_agents[agent_name] = agent
 
-            if agent_name not in self._agents_map:
-                raise ValueError(f"Agent '{agent_name}' is not recognized.")
+        # Check if planner agent is available
+        if "planner" not in all_agents:
+            # Create planner agent if not in config
+            agent_client = orchestrator_client
+            from yaaaf.components.agents.agent_taxonomies import (
+                get_all_agents_with_taxonomy,
+            )
 
-            # Create agent-specific client
-            agent_client = self._create_client_for_agent(agent_config)
+            available_agents = []
+            for agent_name, agent_class in self._agents_map.items():
+                taxonomy = get_all_agents_with_taxonomy().get(agent_class.__name__)
+                if taxonomy:
+                    available_agents.append(
+                        {
+                            "name": agent_class.__name__,
+                            "description": agent_class.get_info(),
+                            "taxonomy": taxonomy,
+                        }
+                    )
+            all_agents["planner"] = PlannerAgent(agent_client, available_agents)
 
-            if agent_name == "sql" and sql_sources:
-                orchestrator.subscribe_agent(
-                    self._agents_map[agent_name](
-                        client=agent_client, sources=sql_sources
-                    )
-                )
-            elif agent_name == "document_retriever" and rag_sources:
-                orchestrator.subscribe_agent(
-                    self._agents_map[agent_name](
-                        client=agent_client, sources=rag_sources
-                    )
-                )
-            elif agent_name == "tool" and mcp_tools:
-                orchestrator.subscribe_agent(
-                    self._agents_map[agent_name](client=agent_client, tools=mcp_tools)
-                )
-            elif agent_name == "todo":
-                orchestrator.subscribe_agent(
-                    self._agents_map[agent_name](
-                        client=agent_client,
-                        agents_and_sources_and_tools_list=agents_sources_tools_list,
-                    )
-                )
-            elif agent_name not in ["sql", "document_retriever", "tool", "todo"]:
-                # All other agents just need a client
-                orchestrator.subscribe_agent(
-                    self._agents_map[agent_name](client=agent_client)
-                )
+        # Create plan-driven orchestrator
+        orchestrator = OrchestratorAgent(orchestrator_client, all_agents)
+        _logger.info("Created plan-driven orchestrator")
 
         return orchestrator
+
+    def _create_agent(
+        self,
+        agent_name: str,
+        agent_client,
+        sql_sources,
+        rag_sources,
+        mcp_tools,
+        agents_sources_tools_list,
+    ):
+        """Helper method to create an agent with appropriate dependencies."""
+        if agent_name == "sql" and sql_sources:
+            return self._agents_map[agent_name](
+                client=agent_client, sources=sql_sources
+            )
+        elif agent_name == "document_retriever" and rag_sources:
+            return self._agents_map[agent_name](
+                client=agent_client, sources=rag_sources
+            )
+        elif agent_name == "tool" and mcp_tools:
+            return self._agents_map[agent_name](client=agent_client, tools=mcp_tools)
+        elif agent_name == "todo" and agents_sources_tools_list:
+            return self._agents_map[agent_name](
+                client=agent_client,
+                agents_and_sources_and_tools_list=agents_sources_tools_list,
+            )
+        elif agent_name == "planner":
+            from yaaaf.components.agents.agent_taxonomies import (
+                get_all_agents_with_taxonomy,
+            )
+
+            available_agents = []
+            for agent_key, agent_class in self._agents_map.items():
+                taxonomy = get_all_agents_with_taxonomy().get(agent_class.__name__)
+                if taxonomy:
+                    available_agents.append(
+                        {
+                            "name": agent_class.__name__,
+                            "description": agent_class.get_info(),
+                            "taxonomy": taxonomy,
+                        }
+                    )
+            return self._agents_map[agent_name](
+                client=agent_client, available_agents=available_agents
+            )
+        elif agent_name in self._agents_map:
+            return self._agents_map[agent_name](client=agent_client)
+        return None

@@ -11,6 +11,7 @@ class ArtifactType(Enum):
     MODEL = "MODEL"  # Trained ML models
     TODO_LIST = "TODO_LIST"  # Task tracking tables
     JSON = "JSON"  # Structured JSON data
+    PLAN = "PLAN"  # Execution plans in YAML format
     ANY = "ANY"  # Can handle any artifact type
 
 
@@ -126,7 +127,7 @@ AGENT_ARTIFACT_SPECS = {
         ArtifactType.TEXT, ArtifactType.TEXT
     ),
     "PlannerAgent": AgentArtifactSpec.transformer_agent(
-        ArtifactType.TEXT, ArtifactType.TEXT
+        ArtifactType.TEXT, ArtifactType.PLAN
     ),
 }
 

@@ -7,7 +7,6 @@ from starlette.middleware.cors import CORSMiddleware
 from yaaaf.server.routes import (
     create_stream,
     get_artifact,
-    get_latest_todo_artifact,
     get_image,
     get_all_utterances,
     get_query_suggestions,
@@ -32,9 +31,6 @@ app.add_api_route("/create_stream", endpoint=create_stream, methods=["POST"])
 app.add_api_route("/get_utterances", endpoint=get_all_utterances, methods=["POST"])
 app.add_api_route("/stream_utterances", endpoint=stream_utterances, methods=["POST"])
 app.add_api_route("/get_artefact", endpoint=get_artifact, methods=["POST"])
-app.add_api_route(
-    "/get_latest_todo", endpoint=get_latest_todo_artifact, methods=["POST"]
-)
 app.add_api_route("/get_image", endpoint=get_image, methods=["POST"])
 app.add_api_route(
     "/get_query_suggestions", endpoint=get_query_suggestions, methods=["POST"]

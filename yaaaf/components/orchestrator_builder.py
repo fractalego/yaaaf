@@ -3,7 +3,6 @@ import logging
 from typing import List
 from yaaaf.components.agents.plan_driven_orchestrator_agent import OrchestratorAgent
 from yaaaf.components.agents.planner_agent import PlannerAgent
-from yaaaf.components.agents.todo_agent import TodoAgent
 from yaaaf.components.agents.reviewer_agent import ReviewerAgent
 from yaaaf.components.agents.sql_agent import SqlAgent
 from yaaaf.components.agents.document_retriever_agent import DocumentRetrieverAgent
@@ -32,7 +31,6 @@ class OrchestratorBuilder:
     def __init__(self, config: Settings):
         self.config = config
         self._agents_map = {
-            "todo": TodoAgent,
             "visualization": VisualizationAgent,
             "sql": SqlAgent,
             "document_retriever": DocumentRetrieverAgent,
@@ -288,56 +286,6 @@ class OrchestratorBuilder:
             return agent_config.name
         return agent_config
 
-    def _generate_agents_sources_tools_list(
-        self, mcp_tools: List[MCPTools] = None
-    ) -> str:
-        """Generate a comprehensive list of available agents, sources, and tools for the TodoAgent."""
-        sections = []
-
-        # Agents section
-        agents_info = ["**Available Agents:**"]
-        configured_agents = [
-            self._get_agent_name(agent_config) for agent_config in self.config.agents
-        ]
-        for agent_name in configured_agents:
-            if agent_name != "todo" and agent_name in self._agents_map:
-                agent_class = self._agents_map[agent_name]
-                # Use common function to get agent name (same as get_name() method)
-                from yaaaf.components.agents.base_agent import get_agent_name_from_class
-
-                actual_agent_name = get_agent_name_from_class(agent_class)
-                # Just use plain agent names without angle brackets
-                agents_info.append(f"• {actual_agent_name}: {agent_class.get_info()}")
-
-        sections.append("\n".join(agents_info))
-
-        # Sources section
-        if self.config.sources:
-            sources_info = ["**Available Data Sources:**"]
-            for source in self.config.sources:
-                source_desc = f"• {source.name} ({source.type}): {source.path}"
-                sources_info.append(source_desc)
-            sections.append("\n".join(sources_info))
-
-        # Tools section (MCP tools if available)
-        tools_info = ["**Available Tools:**"]
-        tools_info.append("• File system operations (via bash agent)")
-        tools_info.append("• Data visualization (matplotlib charts)")
-        tools_info.append("• Web search capabilities")
-        tools_info.append("• SQL database queries")
-        tools_info.append("• Text analysis and processing")
-
-        # Add MCP tools if available
-        if mcp_tools:
-            tools_info.append("\n**MCP Tools:**")
-            for tool_group in mcp_tools:
-                tools_info.append(f"• {tool_group.server_description}:")
-                for tool in tool_group.tools:
-                    tools_info.append(f"  - {tool.name}: {tool.description}")
-
-        sections.append("\n".join(tools_info))
-
-        return "\n\n".join(sections)
 
     async def build(self):
         # Log orchestrator configuration
@@ -361,8 +309,6 @@ class OrchestratorBuilder:
         # Prepare MCP tools
         mcp_tools = await self._create_mcp_tools()
 
-        # Generate agents/sources/tools list for TodoAgent
-        agents_sources_tools_list = self._generate_agents_sources_tools_list(mcp_tools)
 
         # First build all agents
         all_agents = {}
@@ -376,7 +322,6 @@ class OrchestratorBuilder:
                     sql_sources,
                     rag_sources,
                     mcp_tools,
-                    agents_sources_tools_list,
                 )
                 if agent:
                     all_agents[agent_name] = agent
@@ -390,16 +335,19 @@ class OrchestratorBuilder:
             )
 
             available_agents = []
+            # Only include agents that are actually configured
+            configured_agent_names = [self._get_agent_name(agent_config) for agent_config in self.config.agents]
             for agent_name, agent_class in self._agents_map.items():
-                taxonomy = get_all_agents_with_taxonomy().get(agent_class.__name__)
-                if taxonomy:
-                    available_agents.append(
-                        {
-                            "name": agent_class.__name__,
-                            "description": agent_class.get_info(),
-                            "taxonomy": taxonomy,
-                        }
-                    )
+                if agent_name in configured_agent_names:  # Only configured agents
+                    taxonomy = get_all_agents_with_taxonomy().get(agent_class.__name__)
+                    if taxonomy:
+                        available_agents.append(
+                            {
+                                "name": agent_name,  # Use config name instead of class name
+                                "description": agent_class.get_info(),
+                                "taxonomy": taxonomy,
+                            }
+                        )
             all_agents["planner"] = PlannerAgent(agent_client, available_agents)
 
         # Create plan-driven orchestrator
@@ -415,7 +363,6 @@ class OrchestratorBuilder:
         sql_sources,
         rag_sources,
         mcp_tools,
-        agents_sources_tools_list,
     ):
         """Helper method to create an agent with appropriate dependencies."""
         if agent_name == "sql" and sql_sources:
@@ -428,30 +375,39 @@ class OrchestratorBuilder:
             )
         elif agent_name == "tool" and mcp_tools:
             return self._agents_map[agent_name](client=agent_client, tools=mcp_tools)
-        elif agent_name == "todo" and agents_sources_tools_list:
-            return self._agents_map[agent_name](
-                client=agent_client,
-                agents_and_sources_and_tools_list=agents_sources_tools_list,
-            )
         elif agent_name == "planner":
             from yaaaf.components.agents.agent_taxonomies import (
                 get_all_agents_with_taxonomy,
             )
 
             available_agents = []
+            # Only include agents that are actually configured 
+            configured_agent_names = [self._get_agent_name(agent_config) for agent_config in self.config.agents]
             for agent_key, agent_class in self._agents_map.items():
-                taxonomy = get_all_agents_with_taxonomy().get(agent_class.__name__)
-                if taxonomy:
-                    available_agents.append(
-                        {
-                            "name": agent_class.__name__,
-                            "description": agent_class.get_info(),
-                            "taxonomy": taxonomy,
-                        }
-                    )
+                if agent_key in configured_agent_names:  # Only configured agents
+                    taxonomy = get_all_agents_with_taxonomy().get(agent_class.__name__)
+                    if taxonomy:
+                        available_agents.append(
+                            {
+                                "name": agent_key,  # Use config name instead of class name
+                                "description": agent_class.get_info(),
+                                "taxonomy": taxonomy,
+                            }
+                        )
+            
+            # Debug: Log available agents for planner
+            _logger.info(f"Available agents for planner: {[agent['name'] for agent in available_agents]}")
             return self._agents_map[agent_name](
                 client=agent_client, available_agents=available_agents
             )
         elif agent_name in self._agents_map:
-            return self._agents_map[agent_name](client=agent_client)
+            # Skip agents that require dependencies but don't have them
+            if agent_name == "sql" and not sql_sources:
+                return None  # SqlAgent requires sources
+            elif agent_name == "document_retriever" and not rag_sources:
+                return None  # DocumentRetrieverAgent requires sources
+            elif agent_name == "tool" and not mcp_tools:
+                return None  # ToolAgent requires tools
+            else:
+                return self._agents_map[agent_name](client=agent_client)
         return None

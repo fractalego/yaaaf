@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from "react"
 import { useChat, type UseChatOptions } from "@ai-sdk/react"
-import { CheckSquare, Database } from "lucide-react"
+import { Database } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { InfoButton } from "@/components/ui/info-button"
 import { SourcesModal } from "@/components/ui/sources-modal"
 import { useStreamStatus } from "@/hooks/use-stream-status"
-import { TodoListModal } from "@/components/ui/todo-list-modal"
 import { ArtefactPanel } from "@/registry/custom/artefact-panel"
 import { Button } from "@/registry/default/ui/button"
 import { Chat } from "@/registry/default/ui/chat"
@@ -61,7 +60,6 @@ export default function ChatDemo() {
   const [hasDocumentRetrieverAgent, setHasDocumentRetrieverAgent] =
     useState<boolean>(false)
   const [hasSqlAgent, setHasSqlAgent] = useState<boolean>(false)
-  const [isTodoModalOpen, setIsTodoModalOpen] = useState<boolean>(false)
   const [isSourcesModalOpen, setIsSourcesModalOpen] = useState<boolean>(false)
 
   const [currentSessionId, setCurrentSessionId] = useState<string>(
@@ -200,15 +198,6 @@ export default function ChatDemo() {
                   <Database className="mr-2 h-4 w-4" />
                   Sources
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsTodoModalOpen(true)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <CheckSquare className="mr-2 h-4 w-4" />
-                  Todo List
-                </Button>
                 <InfoButton
                   title={info_button_title}
                   message={info_button_message}
@@ -257,12 +246,6 @@ export default function ChatDemo() {
         onClose={() => setIsSourcesModalOpen(false)}
       />
 
-      {/* Todo List Modal */}
-      <TodoListModal
-        isOpen={isTodoModalOpen}
-        onClose={() => setIsTodoModalOpen(false)}
-        streamId={currentSessionId}
-      />
     </div>
   )
 }

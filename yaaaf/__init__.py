@@ -4,7 +4,7 @@ YAAAF - Yet Another Autonomous Agents Framework
 A modular framework for building intelligent agentic applications with Python backend
 and Next.js frontend components. The system features an orchestrator pattern with
 specialized agents for different tasks like SQL queries, web search, visualization,
-machine learning, and todo planning.
+machine learning, and plan execution.
 """
 
 __version__ = "0.0.3"
@@ -15,14 +15,13 @@ __license__ = "MIT"
 # Core components
 from yaaaf.components.data_types import Messages, Note, Utterance, PromptTemplate
 from yaaaf.components.agents.base_agent import BaseAgent
-from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
+from yaaaf.components.agents.plan_driven_orchestrator_agent import OrchestratorAgent
 from yaaaf.components.orchestrator_builder import OrchestratorBuilder
 
 # Common agents
 from yaaaf.components.agents.sql_agent import SqlAgent
 from yaaaf.components.agents.visualization_agent import VisualizationAgent
 from yaaaf.components.agents.websearch_agent import DuckDuckGoSearchAgent
-from yaaaf.components.agents.todo_agent import TodoAgent
 from yaaaf.components.agents.document_retriever_agent import DocumentRetrieverAgent
 from yaaaf.components.agents.answerer_agent import AnswererAgent
 
@@ -51,7 +50,6 @@ __all__ = [
     "SqlAgent",
     "VisualizationAgent",
     "DuckDuckGoSearchAgent",
-    "TodoAgent",
     "DocumentRetrieverAgent",
     "AnswererAgent",
     # Client implementations

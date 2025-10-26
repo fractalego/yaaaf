@@ -7,7 +7,6 @@
     "disable_thinking": true
   },
   "agents": [
-    "todo",
     {
       "name": "visualization",
       "model": "qwen2.5-coder:32b",

@@ -23,7 +23,6 @@ class ConfigGenerator:
 
         # Available agents with descriptions
         self.available_agents = {
-            "todo": "Manages todo lists and task tracking",
             "visualization": "Creates charts and visualizations from data",
             "sql": "Executes SQL queries against databases (requires SQLite sources)",
             "document_retriever": "Document search and retrieval from configured sources",
@@ -152,9 +151,9 @@ class ConfigGenerator:
 
         if not self.config["agents"]:
             print(
-                "\n⚠️  Warning: No agents selected. Adding 'todo' agent as minimum."
+                "\n⚠️  Warning: No agents selected. Adding 'visualization' agent as minimum."
             )
-            self.config["agents"].append("todo")
+            self.config["agents"].append("visualization")
 
     def add_sqlite_sources(self):
         """Add SQLite database sources."""

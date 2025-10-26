@@ -45,12 +45,26 @@ class OrchestratorAgent(CustomAgent):
         if not self.planner:
             raise ValueError("PlannerAgent not found in available agents")
 
-    async def _query_custom(self, messages: Messages, notes=None) -> str:
+    async def query(self, messages: Messages, notes=None, stream_id=None) -> str:
+        """Override query to accept stream_id parameter.
+        
+        Args:
+            messages: User messages
+            notes: Optional notes (not used)
+            stream_id: Stream ID for tracking and real-time updates
+            
+        Returns:
+            String representation of final result
+        """
+        return await self._query_custom(messages, notes, stream_id)
+
+    async def _query_custom(self, messages: Messages, notes=None, stream_id=None) -> str:
         """Process messages using plan-driven approach.
 
         Args:
             messages: User messages
             notes: Optional notes (not used)
+            stream_id: Stream ID for tracking and real-time updates
 
         Returns:
             String representation of final result
@@ -194,13 +208,16 @@ User Context: {messages.utterances[-1].content}
             utterances=[Utterance(role="user", content=planning_request)]
         )
 
-        response = await self.planner.aprocess(planner_messages)
+        response = await self.planner.query(planner_messages)
+        
+        # Debug: Log the raw planner response
+        _logger.info(f"Planner raw response: {response}")
 
-        # Extract YAML plan from response
-        yaml_plan = self._extract_yaml_from_response(response)
+        # Extract YAML plan from artifact
+        yaml_plan = self._extract_yaml_from_artifact(response)
 
         if not yaml_plan:
-            raise ValueError("Failed to extract valid YAML plan from planner response")
+            raise ValueError("Failed to extract valid YAML plan from planner artifact")
 
         return yaml_plan
 
@@ -230,6 +247,58 @@ User Context: {messages.utterances[-1].content}
             return content[assets_start:assets_end].strip()
 
         return None
+
+    def _extract_yaml_from_artifact(self, response: str) -> Optional[str]:
+        """Extract YAML plan from artifact response."""
+        import re
+        
+        # Parse artifact ID from response like: <artefact type='text'>1120040561809014270</artefact>
+        artifact_match = re.search(r"<artefact type='[^']*'>([^<]+)</artefact>", response)
+        if not artifact_match:
+            _logger.warning("No artifact ID found in planner response")
+            return None
+            
+        artifact_id = artifact_match.group(1).strip()
+        _logger.info(f"Extracting plan from artifact: {artifact_id}")
+        
+        try:
+            # Retrieve artifact from storage
+            artifact = self.artefact_storage.retrieve_from_id(artifact_id)
+            if not artifact:
+                _logger.warning(f"Artifact {artifact_id} not found in storage")
+                return None
+                
+            # Get content from artifact
+            if hasattr(artifact, 'code') and artifact.code:
+                content = artifact.code
+            elif hasattr(artifact, 'data') and artifact.data:
+                content = str(artifact.data)
+            elif hasattr(artifact, 'content') and artifact.content:
+                content = artifact.content
+            else:
+                content = str(artifact)
+                
+            _logger.info(f"Artifact content: {content}")
+            
+            # Extract YAML from content
+            yaml_match = re.search(r"```yaml\s*(.*?)```", content, re.DOTALL)
+            if yaml_match:
+                return yaml_match.group(1).strip()
+                
+            # Try to find assets: block directly
+            if "assets:" in content:
+                # Extract from assets: to end or next ```
+                assets_start = content.find("assets:")
+                assets_end = content.find("```", assets_start)
+                if assets_end == -1:
+                    assets_end = len(content)
+                return content[assets_start:assets_end].strip()
+                
+            return None
+            
+        except Exception as e:
+            _logger.error(f"Failed to retrieve artifact {artifact_id}: {e}")
+            return None
 
     def _format_partial_results(self, partial_results: Dict[str, Any]) -> str:
         """Format partial results for replanning context."""

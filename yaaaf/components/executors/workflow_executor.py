@@ -45,21 +45,23 @@ class WorkflowExecutor:
         dependencies = {}
         for asset_name, asset_config in assets.items():
             dependencies[asset_name] = asset_config.get("inputs", [])
+            
+        # Debug: Log the dependency graph
+        _logger.info(f"Dependency graph: {dependencies}")
 
         # Topological sort
         self._execution_order = self._topological_sort(dependencies)
+        
+        # Debug: Log the execution order
+        _logger.info(f"Execution order: {self._execution_order}")
 
         if not self._execution_order:
             raise ValueError("Invalid workflow: circular dependencies detected")
 
     def _topological_sort(self, dependencies: Dict[str, List[str]]) -> List[str]:
         """Perform topological sort on dependencies."""
-        # Calculate in-degrees
-        in_degree = {node: 0 for node in dependencies}
-        for deps in dependencies.values():
-            for dep in deps:
-                if dep in in_degree:
-                    in_degree[dep] += 1
+        # Calculate in-degrees (how many dependencies each node has)
+        in_degree = {node: len(deps) for node, deps in dependencies.items()}
 
         # Find nodes with no dependencies
         queue = [node for node, degree in in_degree.items() if degree == 0]
@@ -114,7 +116,7 @@ class WorkflowExecutor:
                 )
 
                 # Execute agent
-                result = await agent.aprocess(agent_messages)
+                result = await agent.query(agent_messages)
 
                 # Extract artifact from result
                 artifact = self._extract_artifact(result, asset_config)
@@ -244,14 +246,14 @@ class WorkflowExecutor:
         elif hasattr(agent_result, "content"):
             # Text response
             return Artefact(
-                type=asset_config.get("type", Artefact.Types.TEXT).lower(),
+                type=asset_config.get("type", Artefact.Types.TEXT),
                 code=agent_result.content,
                 description=asset_config.get("description", ""),
             )
         else:
             # Unknown format
             return Artefact(
-                type=asset_config.get("type", Artefact.Types.TEXT).lower(),
+                type=asset_config.get("type", Artefact.Types.TEXT),
                 code=str(agent_result),
                 description=asset_config.get("description", ""),
             )

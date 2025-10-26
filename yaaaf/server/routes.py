@@ -34,9 +34,6 @@ class ArtefactArguments(BaseModel):
     artefact_id: str
 
 
-class LatestTodoArguments(BaseModel):
-    stream_id: str
-
 
 class StreamStatusArguments(BaseModel):
     stream_id: str
@@ -110,75 +107,6 @@ def get_artifact(arguments: ArtefactArguments) -> ArtefactOutput:
         raise
 
 
-def get_latest_todo_artifact(arguments: LatestTodoArguments) -> ArtefactOutput:
-    """Get the most recent todo list artifact for a given conversation stream."""
-    try:
-        from yaaaf.server.accessories import _stream_id_to_messages
-
-        stream_id = arguments.stream_id
-        _logger.info(f"Looking for todo artifacts in stream: {stream_id}")
-        _logger.info(f"Available streams: {list(_stream_id_to_messages.keys())}")
-
-        if stream_id not in _stream_id_to_messages:
-            raise HTTPException(status_code=404, detail=f"Stream {stream_id} not found")
-
-        notes = _stream_id_to_messages[stream_id]
-        _logger.info(f"Found {len(notes)} notes in stream {stream_id}")
-        artefact_storage = ArtefactStorage()
-
-        # Find all todo list artifacts in the conversation, ordered by appearance
-        todo_artifacts = []
-        for i, note in enumerate(notes):
-            if note.artefact_id:
-                _logger.info(
-                    f"Note {i}: artefact_id={note.artefact_id}, agent={note.agent_name}"
-                )
-                try:
-                    artifact = artefact_storage.retrieve_from_id(note.artefact_id)
-                    if artifact and artifact.type == Artefact.Types.TODO_LIST:
-                        todo_artifacts.append(artifact)
-                        _logger.info(f"Found TODO_LIST artifact: {artifact.id}")
-                except Exception as e:
-                    _logger.warning(
-                        f"Failed to retrieve artifact {note.artefact_id}: {e}"
-                    )
-                    continue  # Skip invalid artifacts
-
-        # Debug: let's also check all artifacts regardless of type
-        all_artifacts = []
-        for i, note in enumerate(notes):
-            if note.artefact_id:
-                try:
-                    artifact = artefact_storage.retrieve_from_id(note.artefact_id)
-                    if artifact:
-                        all_artifacts.append(artifact)
-                        _logger.info(f"Found artifact {artifact.id} with type: {artifact.type}")
-                except Exception as e:
-                    _logger.warning(f"Failed to retrieve artifact {note.artefact_id}: {e}")
-        
-        _logger.info(f"Found {len(all_artifacts)} total artifacts and {len(todo_artifacts)} todo artifacts")
-        if not todo_artifacts:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No todo list artifacts found for stream {stream_id}",
-            )
-
-        # Return the most recent todo list artifact
-        latest_artifact = todo_artifacts[-1]
-        _logger.info(
-            f"Returning latest todo artifact {latest_artifact.id} for stream {stream_id}"
-        )
-        return ArtefactOutput.create_from_artefact(latest_artifact)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        _logger.error(
-            f"Routes: Failed to get latest todo artifact for {arguments.stream_id}: {e}"
-        )
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get latest todo artifact: {str(e)}"
-        )
 
 
 def get_image(arguments: ImageArguments) -> str:

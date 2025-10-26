@@ -13,21 +13,21 @@ class TestStatusExtractor(unittest.TestCase):
         self.extractor = StatusExtractor(self.mock_client)
         self.storage = ArtefactStorage()
 
-        # Create a sample todo list DataFrame
+        # Create a sample task status DataFrame  
         self.sample_df = pd.DataFrame(
             {
                 "ID": ["1", "2", "3"],
                 "Task": ["Parse query", "Execute SQL", "Generate visualization"],
                 "Status": ["completed", "pending", "pending"],
-                "Agent/Tool": ["TodoAgent", "SQLAgent", "VisualizationAgent"],
+                "Agent/Tool": ["PlannerAgent", "SQLAgent", "VisualizationAgent"],
             }
         )
 
         # Store as artifact
         self.todo_artifact = Artefact(
-            type=Artefact.Types.TODO_LIST,
+            type=Artefact.Types.TABLE,
             data=self.sample_df,
-            description="Test todo list",
+            description="Test task status table",
             id="test_todo_123",
         )
         self.storage.store_artefact("test_todo_123", self.todo_artifact)

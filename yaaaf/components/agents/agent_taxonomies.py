@@ -75,13 +75,6 @@ AGENT_TAXONOMIES = {
         description="Pulls data from databases via SQL queries"
     ),
     
-    "TodoAgent": AgentTaxonomy(
-        data_flow=DataFlow.GENERATOR,
-        interaction_mode=InteractionMode.COLLABORATIVE,
-        output_permanence=OutputPermanence.STATEFUL,
-        description="Creates structured task lists and tracks progress"
-    ),
-    
     "ToolAgent": AgentTaxonomy(
         data_flow=DataFlow.TRANSFORMER,
         interaction_mode=InteractionMode.AUTONOMOUS,
@@ -141,3 +134,12 @@ def get_agent_taxonomy(agent_class_name: str) -> AgentTaxonomy:
     if agent_class_name not in AGENT_TAXONOMIES:
         raise KeyError(f"No taxonomy defined for agent: {agent_class_name}")
     return AGENT_TAXONOMIES[agent_class_name]
+
+
+def get_all_agents_with_taxonomy():
+    """Get all available agents with their taxonomy information.
+    
+    Returns:
+        Dict[str, AgentTaxonomy]: Dictionary mapping agent class names to their taxonomies
+    """
+    return AGENT_TAXONOMIES.copy()

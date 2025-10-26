@@ -9,7 +9,6 @@ class ArtifactType(Enum):
     TEXT = "TEXT"  # Text content, documents, strings
     IMAGE = "IMAGE"  # Visual outputs (PNG, JPG, etc.)
     MODEL = "MODEL"  # Trained ML models
-    TODO_LIST = "TODO_LIST"  # Task tracking tables
     JSON = "JSON"  # Structured JSON data
     PLAN = "PLAN"  # Execution plans in YAML format
     ANY = "ANY"  # Can handle any artifact type
@@ -101,9 +100,6 @@ AGENT_ARTIFACT_SPECS = {
     ),
     "ToolAgent": AgentArtifactSpec.transformer_agent(
         ArtifactType.TEXT, [ArtifactType.JSON, ArtifactType.TEXT]
-    ),
-    "TodoAgent": AgentArtifactSpec.transformer_agent(
-        ArtifactType.TEXT, ArtifactType.TODO_LIST
     ),
     
     # Synthesizer agents

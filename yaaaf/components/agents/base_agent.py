@@ -129,7 +129,7 @@ class BaseAgent(ABC):
             notes,
             "Warning"
         )
-        return "Could not complete task within allowed steps. Please try rephrasing."
+        return "Could not complete task within allowed steps. Please try rephrasing. <taskcompleted/>"
     
     @abstractmethod
     async def _query_custom(

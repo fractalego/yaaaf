@@ -118,7 +118,7 @@ class BaseAgent(ABC):
                     "Artifact"
                 )
                 
-                return f"Operation completed. Result: <artefact type='{artifact.type}'>{artifact_id}</artefact>"
+                return f"Operation completed. Result: <artefact type='{artifact.type}'>{artifact_id}</artefact> <taskcompleted/>"
             else:
                 feedback = "Invalid result. Please try again."
                 messages = messages.add_assistant_utterance(clean_message)

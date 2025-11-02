@@ -553,6 +553,8 @@ You are a planning expert who understands:
 Available agents and their artifact handling:
 {agent_descriptions}
 
+CRITICAL: You MUST ONLY use the agent names listed above. DO NOT invent or hallucinate agent names like "formatter", "processor", etc. If you need a specific function, find the appropriate agent from the list above.
+
 Instructions for creating the workflow:
 1. Analyze the user's goal to identify the required FINAL ARTIFACT type
 2. Work backwards from the sink to determine what artifacts it needs
@@ -571,7 +573,7 @@ Example format:
 ```yaml
 assets:
   sales_data:
-    agent: SqlAgent
+    agent: sql
     description: "Extract sales data from database"
     type: TABLE
     validation:
@@ -579,7 +581,7 @@ assets:
       - columns: [date, sales, region]
     
   validated_data:
-    agent: ReviewerAgent
+    agent: reviewer
     description: "Validate data quality and clean"
     type: TABLE
     inputs: [sales_data]
@@ -588,13 +590,13 @@ assets:
         params: {{strict_validation: false}}
     
   trend_analysis:
-    agent: NumericalSequencesAgent
+    agent: numerical_sequences
     description: "Extract numerical trends and patterns"
     type: TABLE
     inputs: [validated_data]
     
   sales_visualization:
-    agent: VisualizationAgent
+    agent: visualization
     description: "Create sales charts and graphs"
     type: IMAGE
     inputs: [trend_analysis]

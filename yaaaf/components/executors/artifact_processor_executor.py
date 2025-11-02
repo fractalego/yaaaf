@@ -76,11 +76,6 @@ class ArtifactProcessorExecutor(ToolExecutor):
     async def execute_operation(self, instruction: str, context: Dict[str, Any]) -> Tuple[Any, Optional[str]]:
         """Process artifacts and create table output."""
         try:
-            artifacts = context.get("artifacts", [])
-            
-            if not artifacts:
-                return None, "No artifacts found to process"
-            
             # Create a simple DataFrame with the table in the instructions
             df = self._parse_markdown_table(instruction)
 

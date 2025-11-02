@@ -101,10 +101,20 @@ class OrchestratorAgent(CustomAgent):
                         plan_artifact.id, plan_artifact
                     )
                     _logger.info(f"Generated plan artifact: {plan_artifact.id}")
+                    
+                    # Add note showing the plan to the user
+                    if notes is not None:
+                        from yaaaf.components.data_types import Note
+                        plan_note = Note(
+                            message=f"📋 **Execution Plan Generated**\n\nI'll execute the following steps to {goal_info['goal']}:\n\n```yaml\n{self.current_plan}\n```\n",
+                            artefact_id=plan_artifact.id,
+                            agent_name="planner",
+                        )
+                        notes.append(plan_note)
 
-                    # Create new executor
+                    # Create new executor with notes for streaming
                     self.plan_executor = WorkflowExecutor(
-                        self.current_plan, self.agents
+                        self.current_plan, self.agents, notes
                     )
 
                 # Execute plan

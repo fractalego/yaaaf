@@ -23,18 +23,20 @@ class ConditionError(Exception):
 class WorkflowExecutor:
     """Executes a YAML workflow plan by coordinating agents."""
 
-    def __init__(self, yaml_plan: str, agents: Dict[str, Any]):
+    def __init__(self, yaml_plan: str, agents: Dict[str, Any], notes: List[Any] = None):
         """Initialize workflow executor.
 
         Args:
             yaml_plan: YAML workflow definition
             agents: Dictionary mapping agent names to agent instances
+            notes: Optional list to append execution progress notes
         """
         self.plan = yaml.safe_load(yaml_plan)
         self.agents = agents
         self.asset_artifacts = {}  # Store artifacts by asset name
         self.artefact_storage = ArtefactStorage()
         self._execution_order = []
+        self._notes = notes if notes is not None else []
         self._build_execution_graph()
 
     def _build_execution_graph(self):
@@ -109,6 +111,17 @@ class WorkflowExecutor:
                     raise ValueError(f"Agent {agent_name} not found")
 
                 agent = self.agents[agent_name]
+                
+                # Add progress note
+                if self._notes is not None:
+                    from yaaaf.components.data_types import Note
+                    progress_note = Note(
+                        message=f"🔄 Executing step '{asset_name}' using {agent_name} agent...",
+                        artefact_id=None,
+                        agent_name="workflow",
+                    )
+                    self._notes.append(progress_note)
+                    _logger.info(f"Added progress note for asset {asset_name}")
 
                 # Prepare messages with context
                 agent_messages = self._prepare_agent_messages(
@@ -127,6 +140,18 @@ class WorkflowExecutor:
 
                 # Store artifact
                 self.asset_artifacts[asset_name] = artifact
+                
+                # Add completion note with artifact info
+                if self._notes is not None:
+                    from yaaaf.components.data_types import Note
+                    artifact_summary = artifact.summary or artifact.description or f"{artifact.type} artifact"
+                    completion_note = Note(
+                        message=f"✅ Completed '{asset_name}': {artifact_summary}",
+                        artefact_id=artifact.id if artifact.id else None,
+                        agent_name="workflow",
+                    )
+                    self._notes.append(completion_note)
+                    _logger.info(f"Added completion note for asset {asset_name}")
 
             except Exception as e:
                 _logger.error(f"Failed to execute asset {asset_name}: {e}")
@@ -210,7 +235,15 @@ class WorkflowExecutor:
         # Add input artifacts as context
         if inputs:
             context_parts = []
+            artifact_refs = []
             for input_name, artifact in inputs.items():
+                # Store artifact in storage so it can be retrieved by ID
+                self.artefact_storage.store_artefact(artifact.id, artifact)
+                
+                # Create artifact reference
+                artifact_refs.append(f"<artefact type='{artifact.type}'>{artifact.id}</artefact>")
+                
+                # Also add human-readable context
                 if artifact.type == Artefact.Types.TABLE and artifact.data is not None:
                     context_parts.append(
                         f"Input {input_name} (table):\n{artifact.data.to_string()}"
@@ -221,7 +254,12 @@ class WorkflowExecutor:
                     context_parts.append(f"Input {input_name}: {artifact.summary}")
 
             if context_parts:
+                # Add both artifact references and human-readable context
                 context_message = "\n\n".join(context_parts)
+                if artifact_refs:
+                    artifact_refs_str = " ".join(artifact_refs)
+                    context_message = f"Artifacts: {artifact_refs_str}\n\n{context_message}"
+                
                 agent_messages.utterances.append(
                     Utterance(
                         role="system",

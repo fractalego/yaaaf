@@ -51,17 +51,28 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
 
         result = await orchestrator.query(messages=messages, notes=notes, stream_id=stream_id)
         
-        # Check if the result is an error message (contains <taskcompleted/>)
-        if result and "<taskcompleted/>" in result:
-            # This is an error from the @handle_exceptions decorator
-            error_note = Note(
-                message=result,
-                artefact_id=None,
-                agent_name="system",
-                model_name=None,
-            )
-            notes.append(error_note)
-            _logger.info(f"Added error message to notes for stream {stream_id}")
+        if result:
+            # Check if the result is an error message (contains <taskcompleted/>)
+            if "<taskcompleted/>" in result:
+                # This is an error from the @handle_exceptions decorator
+                error_note = Note(
+                    message=result,
+                    artefact_id=None,
+                    agent_name="system",
+                    model_name=None,
+                )
+                notes.append(error_note)
+                _logger.info(f"Added error message to notes for stream {stream_id}")
+            else:
+                # This is a successful result - add it to notes for frontend display
+                result_note = Note(
+                    message=result,
+                    artefact_id=None,
+                    agent_name="orchestrator",
+                    model_name=None,
+                )
+                notes.append(result_note)
+                _logger.info(f"Added successful result to notes for stream {stream_id}")
 
         # Mark stream as completed
         if stream_id in _stream_id_to_status:

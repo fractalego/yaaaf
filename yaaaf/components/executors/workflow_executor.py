@@ -23,13 +23,14 @@ class ConditionError(Exception):
 class WorkflowExecutor:
     """Executes a YAML workflow plan by coordinating agents."""
 
-    def __init__(self, yaml_plan: str, agents: Dict[str, Any], notes: List[Any] = None):
+    def __init__(self, yaml_plan: str, agents: Dict[str, Any], notes: List[Any] = None, stream_id: str = None):
         """Initialize workflow executor.
 
         Args:
             yaml_plan: YAML workflow definition
             agents: Dictionary mapping agent names to agent instances
             notes: Optional list to append execution progress notes
+            stream_id: Optional stream ID for status updates
         """
         self.plan = yaml.safe_load(yaml_plan)
         self.agents = agents
@@ -37,6 +38,7 @@ class WorkflowExecutor:
         self.artefact_storage = ArtefactStorage()
         self._execution_order = []
         self._notes = notes if notes is not None else []
+        self._stream_id = stream_id
         self._build_execution_graph()
 
     def _build_execution_graph(self):
@@ -111,6 +113,13 @@ class WorkflowExecutor:
                     raise ValueError(f"Agent {agent_name} not found")
 
                 agent = self.agents[agent_name]
+                
+                # Update stream status
+                if self._stream_id:
+                    from yaaaf.server.accessories import _stream_id_to_status
+                    if self._stream_id in _stream_id_to_status:
+                        _stream_id_to_status[self._stream_id].current_agent = asset_config.get("description", f"Executing {asset_name}")
+                        _logger.info(f"Updated stream status to: {asset_config.get('description')}")
                 
                 # Add progress note
                 if self._notes is not None:

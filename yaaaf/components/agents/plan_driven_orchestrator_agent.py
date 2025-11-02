@@ -74,6 +74,13 @@ class OrchestratorAgent(CustomAgent):
         _logger.info(
             f"Extracted goal: {goal_info['goal']}, target type: {goal_info['artifact_type']}"
         )
+        
+        # Update stream status
+        if stream_id:
+            from yaaaf.server.accessories import _stream_id_to_status
+            if stream_id in _stream_id_to_status:
+                _stream_id_to_status[stream_id].current_agent = "Planning execution workflow"
+                _stream_id_to_status[stream_id].goal = goal_info['goal']
 
         # Step 2: Execute with replanning on failure
         last_error = None
@@ -112,9 +119,9 @@ class OrchestratorAgent(CustomAgent):
                         )
                         notes.append(plan_note)
 
-                    # Create new executor with notes for streaming
+                    # Create new executor with notes for streaming and status updates
                     self.plan_executor = WorkflowExecutor(
-                        self.current_plan, self.agents, notes
+                        self.current_plan, self.agents, notes, stream_id
                     )
 
                 # Execute plan

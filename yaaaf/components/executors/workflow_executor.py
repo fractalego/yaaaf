@@ -236,20 +236,13 @@ class WorkflowExecutor:
         # Start with original messages
         agent_messages = Messages(utterances=messages.utterances.copy())
 
-        # Add input context if available
+        # Add input results as assistant utterances so agents can extract artifacts naturally
         if inputs:
-            context_parts = []
-            
             for input_name, result_string in inputs.items():
-                # Simply include the result string as context
-                context_parts.append(f"Input {input_name}:\n{result_string}")
-
-            if context_parts:
-                context_message = "\n\n".join(context_parts)
                 agent_messages.utterances.append(
                     Utterance(
-                        role="system",
-                        content=f"Context from previous steps:\n{context_message}",
+                        role="assistant", 
+                        content=result_string
                     )
                 )
 

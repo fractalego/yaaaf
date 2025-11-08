@@ -47,7 +47,17 @@ class ArtifactProcessorExecutor(ToolExecutor):
         if last_utterance:
             artefact_list = get_artefacts_from_utterance_content(last_utterance.content)
         
-        # If no artifacts found, look through notes in reverse order
+        # If no artifacts found, look through ALL messages in reverse order
+        if not artefact_list and messages.utterances:
+            for i in range(len(messages.utterances) - 2, -1, -1):  # Start from second-to-last
+                utterance = messages.utterances[i]
+                artefacts = get_artefacts_from_utterance_content(utterance.content)
+                if artefacts:
+                    artefact_list = artefacts
+                    _logger.info(f"Found {len(artefacts)} artifacts in previous {utterance.role} message")
+                    break
+        
+        # If still no artifacts found, look through notes in reverse order
         if not artefact_list and notes:
             for i in range(len(notes) - 1, -1, -1):
                 note = notes[i]

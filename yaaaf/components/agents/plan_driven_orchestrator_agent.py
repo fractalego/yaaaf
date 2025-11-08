@@ -129,8 +129,9 @@ class OrchestratorAgent(CustomAgent):
 
                 # Verify result matches expected type
                 if not self._verify_artifact_type(result, goal_info["artifact_type"]):
+                    result_type = getattr(result, 'type', 'UNKNOWN')
                     raise ValidationError(
-                        f"Expected {goal_info['artifact_type']} but got {result.type}"
+                        f"Expected {goal_info['artifact_type']} but got {result_type}"
                     )
 
                 _logger.info("Plan executed successfully")
@@ -324,8 +325,10 @@ User Context: {messages.utterances[-1].content}
 
         parts = []
         for asset_name, artifact in partial_results.items():
+            artifact_type = getattr(artifact, 'type', 'UNKNOWN')
+            artifact_summary = getattr(artifact, 'summary', None) or getattr(artifact, 'description', None) or 'completed'
             parts.append(
-                f"- {asset_name}: {artifact.type} ({artifact.summary or artifact.description or 'completed'})"
+                f"- {asset_name}: {artifact_type} ({artifact_summary})"
             )
 
         return "\n".join(parts)
@@ -343,7 +346,7 @@ User Context: {messages.utterances[-1].content}
             type_mappings = {
                 "TABLE": ["table", "TABLE", "dataframe"],
                 "IMAGE": ["image", "IMAGE", "chart", "plot"],
-                "TEXT": ["text", "TEXT", "string"],
+                "TEXT": ["text", "TEXT", "string", "table", "TABLE"],  # Allow TABLE as valid for TEXT
                 "MODEL": ["model", "MODEL", "sklearn"],
                 "TODO_LIST": ["todo-list", "TODO_LIST", "todo_list"],
                 "PLAN": ["plan", "PLAN"],

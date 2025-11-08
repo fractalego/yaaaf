@@ -1,7 +1,7 @@
 import logging
 import yaml
 import re
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List
 from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 
@@ -34,7 +34,7 @@ class WorkflowExecutor:
         """
         self.plan = yaml.safe_load(yaml_plan)
         self.agents = agents
-        self.asset_artifacts = {}  # Store artifacts by asset name
+        self.asset_results = {}  # Store result strings by asset name
         self.artefact_storage = ArtefactStorage()
         self._execution_order = []
         self._notes = notes if notes is not None else []
@@ -61,6 +61,9 @@ class WorkflowExecutor:
 
         if not self._execution_order:
             raise ValueError("Invalid workflow: circular dependencies detected")
+            
+        # Validate type compatibility across the workflow
+        self._validate_workflow_type_compatibility()
 
     def _topological_sort(self, dependencies: Dict[str, List[str]]) -> List[str]:
         """Perform topological sort on dependencies."""
@@ -139,24 +142,23 @@ class WorkflowExecutor:
 
                 # Execute agent
                 result = await agent.query(agent_messages)
+                result_string = str(result)
 
-                # Extract artifact from result
-                artifact = self._extract_artifact(result, asset_config)
-
-                # Validate result
-                if not self._validate_result(artifact, asset_config):
-                    raise ValidationError(f"Asset {asset_name} failed validation")
-
-                # Store artifact
-                self.asset_artifacts[asset_name] = artifact
+                # Extract artifact types from result
+                actual_types = self.extract_artifact_types(result_string)
                 
-                # Add completion note with artifact info
+                # Validate type compatibility with planning
+                self._validate_type_compatibility(asset_name, actual_types, asset_config)
+                
+                # Store result string for access by dependent assets
+                self.asset_results[asset_name] = result_string
+                
+                # Add completion note
                 if self._notes is not None:
                     from yaaaf.components.data_types import Note
-                    artifact_summary = artifact.summary or artifact.description or f"{artifact.type} artifact"
                     completion_note = Note(
-                        message=f"✅ Completed '{asset_name}': {artifact_summary}",
-                        artefact_id=artifact.id if artifact.id else None,
+                        message=f"✅ Completed '{asset_name}': produced {actual_types}",
+                        artefact_id=None,
                         agent_name="workflow",
                     )
                     self._notes.append(completion_note)
@@ -166,8 +168,15 @@ class WorkflowExecutor:
                 _logger.error(f"Failed to execute asset {asset_name}: {e}")
                 raise
 
-        # Return final artifact
-        return self._get_final_artifact()
+        # Return final result as a simple artifact for compatibility
+        final_result = self.get_final_result()
+        final_types = self.extract_artifact_types(final_result)
+        
+        return Artefact(
+            type=final_types[0] if final_types else Artefact.Types.TEXT,
+            code=final_result,
+            description="Final workflow result",
+        )
 
     def _evaluate_conditions(self, asset_name: str, asset_config: Dict) -> bool:
         """Evaluate conditions for an asset."""
@@ -195,80 +204,45 @@ class WorkflowExecutor:
         asset_name, property_name, operator, value = match.groups()
         value = int(value)
 
-        # Check if we have the asset
-        if asset_name not in self.asset_artifacts:
+        # Check if we have the asset result
+        if asset_name not in self.asset_results:
             return True  # Asset not available yet
 
-        artifact = self.asset_artifacts[asset_name]
-
-        # Get property value (simplified for now)
-        if property_name == "row_count" and hasattr(artifact, "data"):
-            if artifact.data is not None:
-                actual_value = len(artifact.data)
-            else:
-                return True
-        else:
-            return True  # Unknown property
-
-        # Evaluate operator
-        if operator == ">":
-            return actual_value > value
-        elif operator == "<":
-            return actual_value < value
-        elif operator == ">=":
-            return actual_value >= value
-        elif operator == "<=":
-            return actual_value <= value
-        elif operator == "==":
-            return actual_value == value
-
+        # For now, skip property validation since we only have result strings
+        # TODO: Implement property validation on result strings if needed
         return True
 
-    def _gather_inputs(self, input_names: List[str]) -> Dict[str, Artefact]:
-        """Gather input artifacts for an agent."""
+        # For now, skip detailed property validation since we only have result strings
+        # TODO: Implement property validation on result strings if needed
+        return True
+
+    def _gather_inputs(self, input_names: List[str]) -> Dict[str, str]:
+        """Gather input result strings for an agent."""
         inputs = {}
         for input_name in input_names:
-            if input_name in self.asset_artifacts:
-                inputs[input_name] = self.asset_artifacts[input_name]
+            if input_name in self.asset_results:
+                inputs[input_name] = self.asset_results[input_name]
             else:
                 _logger.warning(f"Input {input_name} not found")
         return inputs
 
     def _prepare_agent_messages(
-        self, messages: Messages, inputs: Dict[str, Artefact], asset_config: Dict
+        self, messages: Messages, inputs: Dict[str, str], asset_config: Dict
     ) -> Messages:
         """Prepare messages for agent execution."""
         # Start with original messages
         agent_messages = Messages(utterances=messages.utterances.copy())
 
-        # Add input artifacts as context
+        # Add input context if available
         if inputs:
             context_parts = []
-            artifact_refs = []
-            for input_name, artifact in inputs.items():
-                # Store artifact in storage so it can be retrieved by ID
-                self.artefact_storage.store_artefact(artifact.id, artifact)
-                
-                # Create artifact reference
-                artifact_refs.append(f"<artefact type='{artifact.type}'>{artifact.id}</artefact>")
-                
-                # Also add human-readable context
-                if artifact.type == Artefact.Types.TABLE and artifact.data is not None:
-                    context_parts.append(
-                        f"Input {input_name} (table):\n{artifact.data.to_string()}"
-                    )
-                elif artifact.type == Artefact.Types.TEXT and artifact.code:
-                    context_parts.append(f"Input {input_name} (text):\n{artifact.code}")
-                elif artifact.summary:
-                    context_parts.append(f"Input {input_name}: {artifact.summary}")
+            
+            for input_name, result_string in inputs.items():
+                # Simply include the result string as context
+                context_parts.append(f"Input {input_name}:\n{result_string}")
 
             if context_parts:
-                # Add both artifact references and human-readable context
                 context_message = "\n\n".join(context_parts)
-                if artifact_refs:
-                    artifact_refs_str = " ".join(artifact_refs)
-                    context_message = f"Artifacts: {artifact_refs_str}\n\n{context_message}"
-                
                 agent_messages.utterances.append(
                     Utterance(
                         role="system",
@@ -284,26 +258,20 @@ class WorkflowExecutor:
 
         return agent_messages
 
-    def _extract_artifact(self, agent_result: Any, asset_config: Dict) -> Artefact:
-        """Extract artifact from agent result."""
-        # Handle different result types
-        if hasattr(agent_result, "artefacts") and agent_result.artefacts:
-            # Agent returned artifacts
-            return agent_result.artefacts[-1]  # Use last artifact
-        elif hasattr(agent_result, "content"):
-            # Text response
-            return Artefact(
-                type=asset_config.get("type", Artefact.Types.TEXT),
-                code=agent_result.content,
-                description=asset_config.get("description", ""),
-            )
-        else:
-            # Unknown format
-            return Artefact(
-                type=asset_config.get("type", Artefact.Types.TEXT),
-                code=str(agent_result),
-                description=asset_config.get("description", ""),
-            )
+    def extract_artifact_types(self, result_string: str) -> List[str]:
+        """Extract artifact types from agent result string.
+        
+        Agents return strings like: 'Operation completed. Result: <artefact type='table'>123456</artefact> <taskcompleted/>'
+        This method extracts all artifact types found in the result.
+        
+        Returns:
+            List of artifact types (e.g., ['TABLE', 'TEXT'])
+        """
+        import re
+        matches = re.findall(r"<artefact type='([^']+)'>", str(result_string))
+        if matches:
+            return [match.upper() for match in matches]  # Convert to uppercase to match Artefact.Types
+        return [Artefact.Types.TEXT]  # Default fallback
 
     def _validate_result(self, artifact: Artefact, asset_config: Dict) -> bool:
         """Validate artifact against asset configuration."""
@@ -324,23 +292,95 @@ class WorkflowExecutor:
 
         return True
 
-    def _get_final_artifact(self) -> Artefact:
-        """Get the final artifact from the workflow."""
+    def _validate_type_compatibility(self, asset_name: str, actual_types: List[str], asset_config: Dict) -> None:
+        """Validate that the actual artifact types match what the next steps expect."""
+        expected_type = asset_config.get("type", "TEXT").upper()
+        
+        # Check if any of the actual types match the expected type
+        type_match = expected_type in actual_types
+        
+        if not type_match:
+            _logger.warning(
+                f"Type mismatch for asset '{asset_name}': "
+                f"planned for {expected_type}, but agent produced {actual_types}"
+            )
+            
+            # Check if any dependent assets expect the planned type
+            dependent_assets = self._find_dependent_assets(asset_name)
+            if dependent_assets:
+                _logger.warning(
+                    f"Asset '{asset_name}' type mismatch may affect dependent assets: {dependent_assets}"
+                )
+        else:
+            _logger.info(
+                f"Type validation passed for asset '{asset_name}': "
+                f"expected {expected_type}, found in {actual_types}"
+            )
+    
+    def _find_dependent_assets(self, asset_name: str) -> List[str]:
+        """Find assets that depend on the given asset."""
+        dependents = []
+        for name, config in self.plan.get("assets", {}).items():
+            inputs = config.get("inputs", [])
+            if asset_name in inputs:
+                dependents.append(name)
+        return dependents
+    
+    def _validate_workflow_type_compatibility(self) -> None:
+        """Validate type compatibility across the entire workflow during planning."""
+        from yaaaf.components.data_types import AGENT_ARTIFACT_SPECS
+        
+        for asset_name in self._execution_order:
+            asset_config = self.plan["assets"][asset_name]
+            agent_name = asset_config.get("agent")
+            planned_type = asset_config.get("type", "TEXT").upper()
+            inputs = asset_config.get("inputs", [])
+            
+            # Check if agent can actually produce the planned type
+            if agent_name in AGENT_ARTIFACT_SPECS:
+                agent_spec = AGENT_ARTIFACT_SPECS[agent_name]
+                agent_produces = [t.value.upper() for t in agent_spec.produces]
+                
+                if planned_type not in agent_produces:
+                    _logger.warning(
+                        f"Planning mismatch for asset '{asset_name}': "
+                        f"agent '{agent_name}' produces {agent_produces} but plan expects {planned_type}"
+                    )
+            
+            # Check input type compatibility
+            if inputs:
+                for input_asset in inputs:
+                    if input_asset in self.plan["assets"]:
+                        input_type = self.plan["assets"][input_asset].get("type", "TEXT").upper()
+                        
+                        # Check if current agent can accept the input type
+                        if agent_name in AGENT_ARTIFACT_SPECS:
+                            agent_spec = AGENT_ARTIFACT_SPECS[agent_name]
+                            if agent_spec.accepts:  # None means source agent
+                                agent_accepts = [t.value.upper() for t in agent_spec.accepts]
+                                if input_type not in agent_accepts:
+                                    _logger.warning(
+                                        f"Input type mismatch for asset '{asset_name}': "
+                                        f"agent '{agent_name}' accepts {agent_accepts} but input '{input_asset}' produces {input_type}"
+                                    )
+
+    def get_final_result(self) -> str:
+        """Get the final result string from the workflow."""
         if not self._execution_order:
             raise ValueError("No assets executed")
 
-        # Return the last executed asset's artifact
+        # Return the last executed asset's result
         last_asset = self._execution_order[-1]
-        if last_asset in self.asset_artifacts:
-            return self.asset_artifacts[last_asset]
+        if last_asset in self.asset_results:
+            return self.asset_results[last_asset]
 
-        # Find the last available artifact
+        # Find the last available result
         for asset_name in reversed(self._execution_order):
-            if asset_name in self.asset_artifacts:
-                return self.asset_artifacts[asset_name]
+            if asset_name in self.asset_results:
+                return self.asset_results[asset_name]
 
-        raise ValueError("No artifacts produced")
+        raise ValueError("No results produced")
 
-    def get_completed_assets(self) -> Dict[str, Artefact]:
-        """Get all completed asset artifacts."""
-        return self.asset_artifacts.copy()
+    def get_completed_assets(self) -> Dict[str, str]:
+        """Get all completed asset results."""
+        return self.asset_results.copy()

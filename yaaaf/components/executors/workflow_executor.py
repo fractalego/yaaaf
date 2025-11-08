@@ -64,6 +64,9 @@ class WorkflowExecutor:
             
         # Validate type compatibility across the workflow
         self._validate_workflow_type_compatibility()
+        
+        # Validate plan uses correct agent output types
+        self._validate_plan_agent_types()
 
     def _topological_sort(self, dependencies: Dict[str, List[str]]) -> List[str]:
         """Perform topological sort on dependencies."""
@@ -363,6 +366,32 @@ class WorkflowExecutor:
                                         f"Input type mismatch for asset '{asset_name}': "
                                         f"agent '{agent_name}' accepts {agent_accepts} but input '{input_asset}' produces {input_type}"
                                     )
+    
+    def _validate_plan_agent_types(self) -> None:
+        """Validate that the plan uses the correct types for each agent."""
+        from yaaaf.components.data_types import AGENT_ARTIFACT_SPECS
+        
+        errors = []
+        
+        for asset_name in self._execution_order:
+            asset_config = self.plan["assets"][asset_name]
+            agent_name = asset_config.get("agent")
+            planned_type = asset_config.get("type", "TEXT").lower()
+            
+            # Check if agent spec exists
+            if agent_name in AGENT_ARTIFACT_SPECS:
+                agent_spec = AGENT_ARTIFACT_SPECS[agent_name]
+                agent_produces = [t.value.lower() for t in agent_spec.produces]
+                
+                if planned_type not in agent_produces:
+                    errors.append(
+                        f"Asset '{asset_name}' uses agent '{agent_name}' with type '{planned_type}', "
+                        f"but agent only produces: {agent_produces}"
+                    )
+        
+        if errors:
+            error_msg = "Plan validation failed:\n" + "\n".join(f"- {err}" for err in errors)
+            raise ValueError(error_msg)
 
     def get_final_result(self) -> str:
         """Get the final result string from the workflow."""

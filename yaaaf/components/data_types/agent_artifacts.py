@@ -83,8 +83,8 @@ AGENT_ARTIFACT_SPECS = {
     # Source agents (extractors)
     "SqlAgent": AgentArtifactSpec.source_agent(ArtifactType.TABLE),
     "DocumentRetrieverAgent": AgentArtifactSpec.source_agent(ArtifactType.TEXT),
-    "BraveSearchAgent": AgentArtifactSpec.source_agent(ArtifactType.TEXT),
-    "DuckDuckGoSearchAgent": AgentArtifactSpec.source_agent(ArtifactType.TEXT),
+    "BraveSearchAgent": AgentArtifactSpec.source_agent(ArtifactType.TABLE),  # Actually returns TABLE
+    "DuckDuckGoSearchAgent": AgentArtifactSpec.source_agent(ArtifactType.TABLE),  # Actually returns TABLE
     "UrlAgent": AgentArtifactSpec.source_agent(ArtifactType.TEXT),
     "UserInputAgent": AgentArtifactSpec.source_agent(ArtifactType.TEXT),
     

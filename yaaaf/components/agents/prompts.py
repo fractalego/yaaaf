@@ -553,7 +553,12 @@ You are a planning expert who understands:
 Available agents and their artifact handling:
 {agent_descriptions}
 
-CRITICAL: You MUST ONLY use the agent names listed above. DO NOT invent or hallucinate agent names like "formatter", "processor", etc. If you need a specific function, find the appropriate agent from the list above.
+CRITICAL RULES:
+1. You MUST ONLY use the agent names listed above. DO NOT invent agent names.
+2. You MUST use the EXACT artifact types from each agent's "Produces" field. DO NOT guess types.
+3. If an agent "Produces: table" then you MUST use "type: table" in your plan.
+4. If an agent "Produces: image" then you MUST use "type: image" in your plan.
+5. NEVER use a type that is not in the agent's "Produces" list.
 
 Instructions for creating the workflow:
 1. Analyze the user's goal to identify the required FINAL ARTIFACT type
@@ -567,44 +572,59 @@ Workflow Format Rules:
 - Each asset has: name, agent, description, type, inputs (optional), conditions (optional)
 - Assets without inputs are source nodes
 - Dependencies are explicit through inputs field
+- CRITICAL: The "type" field MUST be copied EXACTLY from the agent's "Produces" field
+- Example: If agent shows "Produces: table" then use "type: table" (lowercase)
+- Example: If agent shows "Produces: image" then use "type: image" (lowercase)
+- FORBIDDEN: Never use types not listed in the agent's "Produces" field
 - Include validation and error handling where appropriate
 
-Example format:
+EXAMPLES showing correct type usage from agent specifications:
+
+Example 1 - Web Search Query:
 ```yaml
 assets:
-  sales_data:
-    agent: sql
-    description: "Extract sales data from database"
-    type: TABLE
-    validation:
-      - row_count > 0
-      - columns: [date, sales, region]
+  search_results:
+    agent: BraveSearchAgent  # Check spec: "Produces: table"
+    description: "Search for information"
+    type: table  # MUST use 'table' because agent produces 'table'
+    params:
+      query: "search query"
+      
+  processed_answer:
+    agent: AnswererAgent  # Check spec: "Produces: table" 
+    description: "Process search results"
+    type: table  # MUST use 'table' because agent produces 'table'
+    inputs: [search_results]
+```
+
+Example 2 - Data Analysis:
+```yaml
+assets:
+  database_data:
+    agent: SqlAgent  # Check spec: "Produces: table"
+    description: "Extract data from database"
+    type: table  # MUST use 'table' because agent produces 'table'
     
-  validated_data:
-    agent: reviewer
-    description: "Validate data quality and clean"
-    type: TABLE
-    inputs: [sales_data]
-    conditions:
-      - if: sales_data.row_count < 100
-        params: {{strict_validation: false}}
+  chart:
+    agent: VisualizationAgent  # Check spec: "Produces: image"
+    description: "Create visualization"
+    type: image  # MUST use 'image' because agent produces 'image'
+    inputs: [database_data]
+```
+
+Example 3 - Document Processing:
+```yaml
+assets:
+  document:
+    agent: DocumentRetrieverAgent  # Check spec: "Produces: text"
+    description: "Retrieve document content"
+    type: text  # MUST use 'text' because agent produces 'text'
     
-  trend_analysis:
-    agent: numerical_sequences
-    description: "Extract numerical trends and patterns"
-    type: TABLE
-    inputs: [validated_data]
-    
-  sales_visualization:
-    agent: visualization
-    description: "Create sales charts and graphs"
-    type: IMAGE
-    inputs: [trend_analysis]
-    conditions:
-      - if: trend_analysis.row_count > 1000
-        params: {{chart_type: "heatmap"}}
-      - else:
-        params: {{chart_type: "bar"}}
+  summary:
+    agent: AnswererAgent  # Check spec: "Produces: table"
+    description: "Summarize document"
+    type: table  # MUST use 'table' because agent produces 'table'
+    inputs: [document]
 ```
 
 Optional features you can include:
@@ -615,9 +635,11 @@ Optional features you can include:
 - params: Agent-specific parameters based on conditions
 
 Important considerations:
-- Each agent has INPUT and OUTPUT artifact requirements
-- Some agents can handle multiple artifact types
-- Ensure artifact type compatibility along the entire path
+- Each agent has INPUT and OUTPUT artifact requirements listed in their description
+- NEVER guess artifact types - use EXACTLY what each agent "Produces" according to its specification
+- If an agent "Produces: table" then use "type: table" in your plan
+- If an agent "Produces: image" then use "type: image" in your plan
+- Ensure artifact type compatibility: what one agent produces must match what the next agent accepts
 - The final artifact must match what the sink agent expects
 - Use meaningful asset names that describe the data transformation
 

@@ -150,7 +150,7 @@ class WorkflowExecutor:
                 # Extract artifact types from result
                 actual_types = self.extract_artifact_types(result_string)
                 
-                # Validate type compatibility with planning
+                # Validate type compatibility with planning  
                 self._validate_type_compatibility(asset_name, actual_types, asset_config)
                 
                 # Store result string for access by dependent assets
@@ -159,11 +159,26 @@ class WorkflowExecutor:
                 # Add completion note
                 if self._notes is not None:
                     from yaaaf.components.data_types import Note
-                    completion_note = Note(
-                        message=f"✅ Completed '{asset_name}': produced {actual_types}",
-                        artefact_id=None,
-                        agent_name="workflow",
-                    )
+                    
+                    # Extract artifact references from the result string
+                    import re
+                    artifact_refs = re.findall(r'<artefact[^>]*>[^<]+</artefact>', result_string)
+                    
+                    if artifact_refs:
+                        artifacts_display = " ".join(artifact_refs)
+                        completion_note = Note(
+                            message=f"✅ Completed '{asset_name}': produced {artifacts_display}",
+                            artefact_id=None,
+                            agent_name="workflow",
+                        )
+                    else:
+                        # Fallback to types if no artifact references found
+                        completion_note = Note(
+                            message=f"✅ Completed '{asset_name}': produced {actual_types}",
+                            artefact_id=None,
+                            agent_name="workflow",
+                        )
+                    
                     self._notes.append(completion_note)
                     _logger.info(f"Added completion note for asset {asset_name}")
 

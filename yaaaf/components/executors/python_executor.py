@@ -40,9 +40,9 @@ class PythonExecutor(ToolExecutor):
         Returns:
             Dictionary with artifacts and global variables
         """
-        # Extract artifacts from the last user message
-        last_utterance = messages.utterances[-1]
-        artefact_list = get_artefacts_from_utterance_content(last_utterance)
+        # Use the common artifact extraction method from base class
+        artefact_list = self.extract_artifacts_from_messages(messages)
+        last_utterance = messages.utterances[-1] if messages.utterances else None
 
         # Set up global variables for execution
         global_variables = self._setup_globals(artefact_list)

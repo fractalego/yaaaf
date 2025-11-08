@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Any, Tuple, Optional, Dict, List
+import logging
 
 from yaaaf.components.agents.artefacts import Artefact
 from yaaaf.components.data_types import Messages, Note
+
+_logger = logging.getLogger(__name__)
 
 
 class ToolExecutor(ABC):
@@ -79,6 +82,56 @@ class ToolExecutor(ABC):
             True if the result is valid, False otherwise
         """
         pass
+
+    def extract_artifacts_from_messages(self, messages: Messages, notes: Optional[List[Note]] = None) -> List[Artefact]:
+        """Extract artifacts from messages, searching in reverse order.
+        
+        This is a common pattern needed by multiple executors. It searches:
+        1. Last utterance first
+        2. All previous messages in reverse order
+        3. Notes in reverse order (if provided)
+        
+        Args:
+            messages: The conversation messages
+            notes: Optional notes to search if no artifacts found in messages
+            
+        Returns:
+            List of extracted artifacts
+        """
+        from yaaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
+        
+        artefact_list = []
+        
+        # First check the last utterance for artifacts
+        if messages.utterances:
+            last_utterance = messages.utterances[-1]
+            artefact_list = get_artefacts_from_utterance_content(last_utterance.content)
+        
+        # If no artifacts found, look through ALL messages in reverse order
+        if not artefact_list and messages.utterances:
+            for i in range(len(messages.utterances) - 2, -1, -1):  # Start from second-to-last
+                utterance = messages.utterances[i]
+                artefacts = get_artefacts_from_utterance_content(utterance.content)
+                if artefacts:
+                    artefact_list = artefacts
+                    _logger.info(f"Found {len(artefacts)} artifacts in previous {utterance.role} message")
+                    break
+        
+        # If still no artifacts found, look through notes in reverse order
+        if not artefact_list and notes:
+            for i in range(len(notes) - 1, -1, -1):
+                note = notes[i]
+                if note.message:
+                    artefacts = get_artefacts_from_utterance_content(note.message)
+                    if artefacts:
+                        artefact_list = artefacts
+                        _logger.info(f"Found {len(artefacts)} artifacts in note from {note.agent_name}")
+                        break
+        
+        if not artefact_list:
+            _logger.info("No artifacts found in messages or notes")
+            
+        return artefact_list
 
     @abstractmethod
     def transform_to_artifact(

@@ -15,7 +15,12 @@ from yaaaf.components.data_types import Utterance, Messages, Note
 from yaaaf.components.orchestrator_builder import OrchestratorBuilder
 from yaaaf.components.sources.rag_source import RAGSource
 from yaaaf.components.sources.persistent_rag_source import PersistentRAGSource
-from yaaaf.server.accessories import do_compute, get_utterances
+from yaaaf.server.accessories import (
+    do_compute,
+    get_utterances,
+    get_paused_state,
+    resume_paused_execution,
+)
 from yaaaf.server.config import get_config
 
 _logger = logging.getLogger(__name__)
@@ -43,6 +48,11 @@ class StreamStatusResponse(BaseModel):
     goal: str
     current_agent: str
     is_active: bool
+
+
+class SubmitUserResponseArguments(BaseModel):
+    stream_id: str
+    user_response: str
 
 
 
@@ -777,4 +787,49 @@ def get_stream_status(arguments: StreamStatusArguments) -> StreamStatusResponse:
         )
         raise HTTPException(
             status_code=500, detail=f"Failed to get stream status: {str(e)}"
+        )
+
+
+def submit_user_response(arguments: SubmitUserResponseArguments):
+    """Submit user's response to a paused execution and resume.
+
+    Args:
+        arguments: Contains stream_id and user_response
+
+    Returns:
+        Success response
+    """
+    try:
+        stream_id = arguments.stream_id
+        user_response = arguments.user_response
+
+        _logger.info(f"Received user response for stream {stream_id}: {user_response[:100]}")
+
+        # Check if there's a paused state for this stream
+        paused_state = get_paused_state(stream_id)
+        if not paused_state:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No paused execution found for stream {stream_id}"
+            )
+
+        # Build orchestrator and resume execution in a new thread
+        async def build_and_resume():
+            orchestrator = await OrchestratorBuilder(get_config()).build()
+            await resume_paused_execution(stream_id, user_response, orchestrator)
+
+        t = threading.Thread(target=asyncio.run, args=(build_and_resume(),))
+        t.start()
+
+        _logger.info(f"Started resumption thread for stream {stream_id}")
+
+        return {"success": True, "message": "User response received, resuming execution"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Routes: Failed to submit user response for {arguments.stream_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to submit user response: {str(e)}"
         )

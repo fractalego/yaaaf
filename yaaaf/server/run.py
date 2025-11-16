@@ -19,6 +19,7 @@ from yaaaf.server.routes import (
     get_all_sources,
     get_persistent_documents,
     get_stream_status,
+    submit_user_response,
 )
 from yaaaf.server.feedback import save_feedback
 from yaaaf.server.server_settings import server_settings
@@ -47,6 +48,7 @@ app.add_api_route(
     "/get_persistent_documents", endpoint=get_persistent_documents, methods=["GET"]
 )
 app.add_api_route("/get_stream_status", endpoint=get_stream_status, methods=["POST"])
+app.add_api_route("/submit_user_response", endpoint=submit_user_response, methods=["POST"])
 app.add_api_route("/save_feedback", endpoint=save_feedback, methods=["POST"])
 
 

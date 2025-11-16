@@ -15,6 +15,7 @@ import {
   info_button_message,
   info_button_title,
   query_suggestions,
+  submit_user_response_url,
 } from "@/app/settings"
 
 import {
@@ -61,6 +62,7 @@ export default function ChatDemo() {
     useState<boolean>(false)
   const [hasSqlAgent, setHasSqlAgent] = useState<boolean>(false)
   const [isSourcesModalOpen, setIsSourcesModalOpen] = useState<boolean>(false)
+  const [isPaused, setIsPaused] = useState<boolean>(false)
 
   const [currentSessionId, setCurrentSessionId] = useState<string>(
     getSessionIdForNewMessage()
@@ -102,29 +104,36 @@ export default function ChatDemo() {
   // Also auto-open last artifact when task is finished
   useEffect(() => {
     const lastMessage = messages[messages.length - 1]
-    if (
-      lastMessage?.role === "assistant" &&
-      (lastMessage?.content?.includes("<taskpaused/>") ||
-        lastMessage?.content?.includes("<taskcompleted/>"))
-    ) {
-      markSessionAsPaused()
-      
-      // Auto-open the last artifact when task is completed/paused
-      if (lastMessage?.content) {
-        // Extract artifact references from the last assistant message
-        const artifactMatches = lastMessage.content.match(/<artefact[^>]*>([^<]+)<\/artefact>/g)
-        
-        if (artifactMatches && artifactMatches.length > 0) {
-          // Get the last artifact ID from the matches
-          const lastArtifactMatch = artifactMatches[artifactMatches.length - 1]
-          const artifactIdMatch = lastArtifactMatch.match(/<artefact[^>]*>([^<]+)<\/artefact>/)
-          
-          if (artifactIdMatch) {
-            const artifactId = artifactIdMatch[1]
-            console.log('Auto-opening final artifact:', artifactId)
-            setSelectedArtifactId(artifactId)
+    if (lastMessage?.role === "assistant") {
+      const isPausedMessage = lastMessage?.content?.includes("<taskpaused/>")
+      const isCompletedMessage = lastMessage?.content?.includes("<taskcompleted/>")
+
+      if (isPausedMessage || isCompletedMessage) {
+        markSessionAsPaused()
+
+        // Set paused state for UI
+        setIsPaused(isPausedMessage)
+
+        // Auto-open the last artifact when task is completed/paused
+        if (lastMessage?.content) {
+          // Extract artifact references from the last assistant message
+          const artifactMatches = lastMessage.content.match(/<artefact[^>]*>([^<]+)<\/artefact>/g)
+
+          if (artifactMatches && artifactMatches.length > 0) {
+            // Get the last artifact ID from the matches
+            const lastArtifactMatch = artifactMatches[artifactMatches.length - 1]
+            const artifactIdMatch = lastArtifactMatch.match(/<artefact[^>]*>([^<]+)<\/artefact>/)
+
+            if (artifactIdMatch) {
+              const artifactId = artifactIdMatch[1]
+              console.log('Auto-opening final artifact:', artifactId)
+              setSelectedArtifactId(artifactId)
+            }
           }
         }
+      } else {
+        // Clear paused state if not paused
+        setIsPaused(false)
       }
     }
   }, [messages])
@@ -187,6 +196,148 @@ export default function ChatDemo() {
     // You could add a toast notification here or update UI to show upload success
   }
 
+  // Handle user response submission when execution is paused
+  const handleUserResponseSubmit = async (userResponse: string) => {
+    console.log(`Submitting user response for stream ${currentSessionId}: ${userResponse}`)
+
+    try {
+      // First, add the user's response as a message in the UI
+      const userMessage = {
+        id: `user-response-${Date.now()}`,
+        role: "user" as const,
+        content: userResponse,
+      }
+      setMessages([...messages, userMessage])
+
+      const response = await fetch(submit_user_response_url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stream_id: currentSessionId,
+          user_response: userResponse,
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log("User response submitted successfully:", result)
+
+        // Clear paused state - execution will resume
+        setIsPaused(false)
+
+        // Start polling for new messages from the resumed execution
+        await pollForResumedMessages(currentSessionId)
+      } else {
+        console.error("Failed to submit user response:", response.statusText)
+        // You could show an error toast here
+      }
+    } catch (error) {
+      console.error("Error submitting user response:", error)
+      // You could show an error toast here
+    }
+  }
+
+  // Poll for new messages after resuming from pause
+  const pollForResumedMessages = async (streamId: string) => {
+    console.log(`Starting to poll for resumed messages on stream ${streamId}`)
+
+    // First, get the current note count to know where we're starting from
+    let lastNoteCount = 0
+    try {
+      const initialResponse = await fetch("http://localhost:4000/get_utterances", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stream_id: streamId,
+        }),
+      })
+      if (initialResponse.ok) {
+        const initialNotes = await initialResponse.json()
+        lastNoteCount = initialNotes.length
+        console.log(`Starting poll from note count: ${lastNoteCount}`)
+      }
+    } catch (error) {
+      console.error("Error getting initial note count:", error)
+    }
+
+    let consecutiveEmptyPolls = 0
+    const maxEmptyPolls = 10 // Stop after 10 seconds of no new messages
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch("http://localhost:4000/get_utterances", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            stream_id: streamId,
+          }),
+        })
+
+        if (response.ok) {
+          const notes = await response.json()
+
+          // Check if there are new notes since last poll
+          if (notes.length > lastNoteCount) {
+            const newNotes = notes.slice(lastNoteCount)
+            console.log(`Found ${newNotes.length} new messages`)
+
+            // Convert notes to messages and append
+            const newMessages = newNotes.map((note: any, index: number) => {
+              // Format the note message for display
+              let content = note.message
+              if (note.agent_name) {
+                content = `<${note.agent_name}${note.model_name ? ` data-model="${note.model_name}"` : ""}>${note.message}</${note.agent_name}>`
+              }
+
+              return {
+                id: `resumed-${Date.now()}-${index}`,
+                role: "assistant" as const,
+                content: content,
+              }
+            })
+
+            setMessages((prevMessages) => [...prevMessages, ...newMessages])
+
+            lastNoteCount = notes.length
+            consecutiveEmptyPolls = 0
+
+            // Check if execution completed or paused again
+            const lastNote = notes[notes.length - 1]
+            if (
+              lastNote.message.includes("<taskcompleted/>") ||
+              lastNote.message.includes("<taskpaused/>")
+            ) {
+              console.log("Execution completed or paused again, stopping poll")
+              clearInterval(pollInterval)
+            }
+          } else {
+            // No new notes, increment counter
+            consecutiveEmptyPolls++
+            if (consecutiveEmptyPolls >= maxEmptyPolls) {
+              console.log("No new messages for 10 seconds, stopping poll")
+              clearInterval(pollInterval)
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error polling for messages:", error)
+        clearInterval(pollInterval)
+      }
+    }, 1000) // Poll every second
+
+    // Stop polling after 5 minutes max
+    setTimeout(() => {
+      console.log("Polling timeout reached")
+      clearInterval(pollInterval)
+    }, 300000)
+  }
+
   return (
     <div className="h-[90vh] w-full bg-background">
       <div className="flex h-full">
@@ -244,6 +395,8 @@ export default function ChatDemo() {
               onFileUpload={handleFileUpload}
               onSqlUpload={handleSqlUpload}
               streamStatus={streamStatus}
+              isPaused={isPaused}
+              onUserResponseSubmit={handleUserResponseSubmit}
             />
           </div>
         </div>

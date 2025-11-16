@@ -39,6 +39,8 @@ interface ChatPropsBase {
     current_agent: string
     is_active: boolean
   }
+  isPaused?: boolean
+  onUserResponseSubmit?: (userResponse: string) => void
 }
 
 interface ChatPropsWithoutSuggestions extends ChatPropsBase {
@@ -71,6 +73,8 @@ export function Chat({
   onFileUpload,
   onSqlUpload,
   streamStatus,
+  isPaused,
+  onUserResponseSubmit,
 }: ChatProps) {
   const lastMessage = messages.at(-1)
   const isEmpty = messages.length === 0
@@ -211,6 +215,8 @@ export function Chat({
           hasSqlAgent={hasSqlAgent}
           onFileUpload={onFileUpload}
           onSqlUpload={onSqlUpload}
+          isPaused={isPaused}
+          onUserResponseSubmit={onUserResponseSubmit}
         />
       </ChatForm>
       {isEmpty && append && suggestions ? (

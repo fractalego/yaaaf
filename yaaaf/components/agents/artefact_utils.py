@@ -115,7 +115,17 @@ def create_prompt_from_artefacts(
     
     # Generate artifact list for prompts that need it
     artifact_list = _generate_artifact_list(artefact_list)
-    
+
+    # Convert table to markdown for prompts that expect {table} placeholder
+    table_markdown = ""
+    if hasattr(table_artefacts[0].data, 'to_markdown'):
+        try:
+            table_markdown = table_artefacts[0].data.to_markdown(index=False)
+        except Exception:
+            table_markdown = str(table_artefacts[0].data)
+    else:
+        table_markdown = str(table_artefacts[0].data)
+
     if not models_artefacts or not prompt_with_model:
         return prompt_without_model.complete(
             data_source_name=data_source_name,
@@ -123,6 +133,7 @@ def create_prompt_from_artefacts(
             schema=schema,
             filename=filename,
             artifact_list=artifact_list,
+            table=table_markdown,
         )
 
     return prompt_with_model.complete(
@@ -134,6 +145,7 @@ def create_prompt_from_artefacts(
         training_code=models_artefacts[0].code,
         filename=filename,
         artifact_list=artifact_list,
+        table=table_markdown,
     )
 
 

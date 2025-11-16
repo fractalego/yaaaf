@@ -8,6 +8,7 @@ export const get_image_url = `http://localhost:${port}/get_image`
 export const get_artefact_url = `http://localhost:${port}/get_artefact`
 export const get_latest_todo_url = `http://localhost:${port}/get_latest_todo`
 export const save_feedback_url = `http://localhost:${port}/save_feedback`
+export const submit_user_response_url = `http://localhost:${port}/submit_user_response`
 
 export const complete_tag = "<taskcompleted/>"
 export const paused_tag = "<taskpaused/>"

@@ -1,9 +1,13 @@
 import logging
 import yaml
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
+from yaaaf.components.executors.paused_execution import (
+    PausedExecutionException,
+    PausedExecutionState,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -23,7 +27,14 @@ class ConditionError(Exception):
 class WorkflowExecutor:
     """Executes a YAML workflow plan by coordinating agents."""
 
-    def __init__(self, yaml_plan: str, agents: Dict[str, Any], notes: List[Any] = None, stream_id: str = None):
+    def __init__(
+        self,
+        yaml_plan: str,
+        agents: Dict[str, Any],
+        notes: List[Any] = None,
+        stream_id: str = None,
+        original_messages: Optional[Messages] = None,
+    ):
         """Initialize workflow executor.
 
         Args:
@@ -31,7 +42,9 @@ class WorkflowExecutor:
             agents: Dictionary mapping agent names to agent instances
             notes: Optional list to append execution progress notes
             stream_id: Optional stream ID for status updates
+            original_messages: Optional original user messages (needed for pause/resume)
         """
+        self.yaml_plan = yaml_plan  # Store raw YAML for state persistence
         self.plan = yaml.safe_load(yaml_plan)
         self.agents = agents
         self.asset_results = {}  # Store result strings by asset name
@@ -39,6 +52,7 @@ class WorkflowExecutor:
         self._execution_order = []
         self._notes = notes if notes is not None else []
         self._stream_id = stream_id
+        self._original_messages = original_messages
         self._build_execution_graph()
 
     def _build_execution_graph(self):
@@ -147,12 +161,41 @@ class WorkflowExecutor:
                 result = await agent.query(agent_messages)
                 result_string = str(result)
 
+                # Check if execution paused for user input
+                if "<taskpaused/>" in result_string:
+                    _logger.info(f"Execution paused at asset '{asset_name}' for user input")
+
+                    # Extract the question from the result
+                    question = self._extract_question_from_result(result_string)
+
+                    # Create paused execution state
+                    if not self._stream_id:
+                        raise ValueError("Cannot pause execution without stream_id")
+
+                    if not self._original_messages:
+                        raise ValueError("Cannot pause execution without original_messages")
+
+                    state = PausedExecutionState(
+                        stream_id=self._stream_id,
+                        original_messages=self._original_messages,
+                        yaml_plan=self.yaml_plan,
+                        completed_assets=self.asset_results.copy(),
+                        current_asset=asset_name,
+                        next_asset_index=self._execution_order.index(asset_name),
+                        question_asked=question,
+                        user_input_messages=agent_messages,
+                        notes=self._notes,
+                    )
+
+                    # Raise exception to pause execution
+                    raise PausedExecutionException(state)
+
                 # Extract artifact types from result
                 actual_types = self.extract_artifact_types(result_string)
-                
-                # Validate type compatibility with planning  
+
+                # Validate type compatibility with planning
                 self._validate_type_compatibility(asset_name, actual_types, asset_config)
-                
+
                 # Store result string for access by dependent assets
                 self.asset_results[asset_name] = result_string
                 
@@ -421,3 +464,210 @@ class WorkflowExecutor:
     def get_completed_assets(self) -> Dict[str, str]:
         """Get all completed asset results."""
         return self.asset_results.copy()
+
+    def _extract_question_from_result(self, result_string: str) -> str:
+        """Extract the user question from a paused result.
+
+        Looks for text between ```question and ``` markers, or
+        returns the full result if no question markers found.
+
+        Args:
+            result_string: The result string containing the question
+
+        Returns:
+            The extracted question text
+        """
+        # Try to extract from ```question block
+        question_match = re.search(
+            r"```question\s*(.*?)```", result_string, re.DOTALL
+        )
+        if question_match:
+            return question_match.group(1).strip()
+
+        # Fallback: extract everything before <taskpaused/>
+        paused_index = result_string.find("<taskpaused/>")
+        if paused_index > 0:
+            # Get everything before the pause tag
+            question = result_string[:paused_index].strip()
+            # Remove any "Question for user:" prefix
+            question = re.sub(r"^Question for user:\s*", "", question, flags=re.IGNORECASE)
+            return question
+
+        # Last resort: return full result
+        return result_string.strip()
+
+    async def resume_from_paused_state(
+        self, state: PausedExecutionState, user_response: str
+    ) -> Artefact:
+        """Resume execution from a paused state with user's response.
+
+        Args:
+            state: The paused execution state
+            user_response: The user's response to the question
+
+        Returns:
+            Final artifact produced by the workflow
+        """
+        _logger.info(
+            f"Resuming execution for stream {state.stream_id} "
+            f"from asset '{state.current_asset}' with user response"
+        )
+
+        # Step 1: Complete the UserInputAgent call with user's response
+        user_input_agent_name = self.plan["assets"][state.current_asset]["agent"]
+        if user_input_agent_name not in self.agents:
+            raise ValueError(f"User input agent '{user_input_agent_name}' not found")
+
+        user_input_agent = self.agents[user_input_agent_name]
+
+        # Add user's response to the messages
+        resumed_messages = Messages(utterances=state.user_input_messages.utterances.copy())
+        resumed_messages = resumed_messages.add_user_utterance(user_response)
+
+        _logger.info(f"Calling user input agent with user response: {user_response[:100]}")
+
+        # Get final result from user input agent
+        final_user_input_result = await user_input_agent.query(resumed_messages)
+        final_result_string = str(final_user_input_result)
+
+        _logger.info(f"User input agent completed with result: {final_result_string[:100]}")
+
+        # Step 2: Restore completed assets and add the user input result
+        self.asset_results = state.completed_assets.copy()
+        self.asset_results[state.current_asset] = final_result_string
+
+        # Add completion note for user input step
+        if self._notes is not None:
+            from yaaaf.components.data_types import Note
+
+            completion_note = Note(
+                message=f"✅ User provided input: {user_response}",
+                artefact_id=None,
+                agent_name="workflow",
+            )
+            self._notes.append(completion_note)
+
+        # Step 3: Continue execution from the next asset
+        _logger.info(
+            f"Continuing execution from asset index {state.next_asset_index + 1}"
+        )
+
+        for i in range(state.next_asset_index + 1, len(self._execution_order)):
+            asset_name = self._execution_order[i]
+            asset_config = self.plan["assets"][asset_name]
+
+            # Check conditions
+            if not self._evaluate_conditions(asset_name, asset_config):
+                _logger.info(f"Skipping {asset_name} due to conditions")
+                continue
+
+            # Gather input artifacts
+            inputs = self._gather_inputs(asset_config.get("inputs", []))
+
+            # Execute agent
+            try:
+                agent_name = asset_config["agent"]
+                if agent_name not in self.agents:
+                    raise ValueError(f"Agent {agent_name} not found")
+
+                agent = self.agents[agent_name]
+
+                # Update stream status
+                if self._stream_id:
+                    from yaaaf.server.accessories import _stream_id_to_status
+
+                    if self._stream_id in _stream_id_to_status:
+                        _stream_id_to_status[self._stream_id].current_agent = (
+                            asset_config.get("description", f"Executing {asset_name}")
+                        )
+
+                # Add progress note
+                if self._notes is not None:
+                    from yaaaf.components.data_types import Note
+
+                    progress_note = Note(
+                        message=f"🔄 Executing step '{asset_name}' using {agent_name} agent...",
+                        artefact_id=None,
+                        agent_name="workflow",
+                    )
+                    self._notes.append(progress_note)
+
+                # Prepare messages with context
+                agent_messages = self._prepare_agent_messages(
+                    state.original_messages, inputs, asset_config
+                )
+
+                # Execute agent
+                result = await agent.query(agent_messages)
+                result_string = str(result)
+
+                # Check for another pause (nested user input)
+                if "<taskpaused/>" in result_string:
+                    _logger.warning("Nested user input detected - raising pause again")
+                    question = self._extract_question_from_result(result_string)
+
+                    nested_state = PausedExecutionState(
+                        stream_id=state.stream_id,
+                        original_messages=state.original_messages,
+                        yaml_plan=self.yaml_plan,
+                        completed_assets=self.asset_results.copy(),
+                        current_asset=asset_name,
+                        next_asset_index=i,
+                        question_asked=question,
+                        user_input_messages=agent_messages,
+                        notes=self._notes,
+                    )
+                    raise PausedExecutionException(nested_state)
+
+                # Extract artifact types from result
+                actual_types = self.extract_artifact_types(result_string)
+
+                # Validate type compatibility with planning
+                self._validate_type_compatibility(
+                    asset_name, actual_types, asset_config
+                )
+
+                # Store result string for access by dependent assets
+                self.asset_results[asset_name] = result_string
+
+                # Add completion note
+                if self._notes is not None:
+                    from yaaaf.components.data_types import Note
+
+                    # Extract artifact references from the result string
+                    artifact_refs = re.findall(
+                        r"<artefact[^>]*>[^<]+</artefact>", result_string
+                    )
+
+                    if artifact_refs:
+                        artifacts_display = " ".join(artifact_refs)
+                        completion_note = Note(
+                            message=f"✅ Completed '{asset_name}': produced {artifacts_display}",
+                            artefact_id=None,
+                            agent_name="workflow",
+                        )
+                    else:
+                        completion_note = Note(
+                            message=f"✅ Completed '{asset_name}': produced {actual_types}",
+                            artefact_id=None,
+                            agent_name="workflow",
+                        )
+
+                    self._notes.append(completion_note)
+
+            except PausedExecutionException:
+                # Re-raise pause exceptions
+                raise
+            except Exception as e:
+                _logger.error(f"Failed to execute asset {asset_name}: {e}")
+                raise
+
+        # Return final result
+        final_result = self.get_final_result()
+        final_types = self.extract_artifact_types(final_result)
+
+        return Artefact(
+            type=final_types[0] if final_types else Artefact.Types.TEXT,
+            code=final_result,
+            description="Final workflow result",
+        )

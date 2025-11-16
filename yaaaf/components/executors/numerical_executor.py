@@ -2,7 +2,10 @@ import logging
 import pandas as pd
 from typing import Dict, Any, Optional, Tuple
 
-from yaaaf.components.agents.artefact_utils import get_table_and_model_from_artefacts
+from yaaaf.components.agents.artefact_utils import (
+    get_table_and_model_from_artefacts,
+    get_artefacts_from_utterance_content,
+)
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.executors.base import ToolExecutor
 from yaaaf.components.agents.hash_utils import create_hash
@@ -18,11 +21,31 @@ class NumericalExecutor(ToolExecutor):
     def __init__(self):
         """Initialize numerical executor."""
         self._storage = ArtefactStorage()
-        
+
     async def prepare_context(self, messages: Messages, notes: Optional[list[Note]] = None) -> Dict[str, Any]:
         """Prepare context for numerical analysis."""
-        # Extract table artifacts from messages
-        table_data, model_info = get_table_and_model_from_artefacts(messages)
+        # Extract artifacts from messages using the base executor's method
+        artefact_list = []
+
+        # Check messages for artifacts
+        if messages.utterances:
+            for utterance in reversed(messages.utterances):
+                artefacts = get_artefacts_from_utterance_content(utterance.content)
+                if artefacts:
+                    artefact_list = artefacts
+                    break
+
+        # Also check notes if provided
+        if not artefact_list and notes:
+            for note in reversed(notes):
+                if note.message:
+                    artefacts = get_artefacts_from_utterance_content(note.message)
+                    if artefacts:
+                        artefact_list = artefacts
+                        break
+
+        # Extract table data and model from artifacts
+        table_data, model_info = get_table_and_model_from_artefacts(artefact_list)
         
         return {
             "messages": messages,

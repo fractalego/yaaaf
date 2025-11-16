@@ -11,6 +11,7 @@ from yaaaf.components.executors.workflow_executor import (
     ValidationError,
     ConditionError,
 )
+from yaaaf.components.executors.paused_execution import PausedExecutionException
 from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.client import BaseClient
 
@@ -121,7 +122,7 @@ class OrchestratorAgent(CustomAgent):
 
                     # Create new executor with notes for streaming and status updates
                     self.plan_executor = WorkflowExecutor(
-                        self.current_plan, self.agents, notes, stream_id
+                        self.current_plan, self.agents, notes, stream_id, messages
                     )
 
                 # Execute plan
@@ -142,6 +143,28 @@ class OrchestratorAgent(CustomAgent):
                     return result.code or str(result)
                 else:
                     return str(result)
+
+            except PausedExecutionException as e:
+                # Execution paused for user input - save state and re-raise
+                _logger.info(f"Execution paused for user input: {e.state.question_asked}")
+
+                # Store paused state for later resumption
+                from yaaaf.server.accessories import save_paused_state
+                save_paused_state(stream_id, e.state)
+
+                # Add a note to inform user that input is needed
+                if notes is not None:
+                    from yaaaf.components.data_types import Note
+                    waiting_note = Note(
+                        message=f"⏸️ **Waiting for your input:**\n\n{e.state.question_asked}\n\n<taskpaused/>",
+                        artefact_id=None,
+                        agent_name="userinputagent",  # Match frontend renderer tag name
+                    )
+                    notes.append(waiting_note)
+                    _logger.info(f"Added waiting note for stream {stream_id}")
+
+                # Re-raise to signal to server that execution is paused
+                raise
 
             except (ValidationError, ConditionError) as e:
                 _logger.warning(f"Plan execution failed (attempt {attempt + 1}): {e}")

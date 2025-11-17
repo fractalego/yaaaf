@@ -63,7 +63,7 @@ class NumericalExecutor(ToolExecutor):
         try:
             table_data = context.get("table_data")
             
-            if not table_data:
+            if table_data is None:
                 # Create a simple numerical sequence table based on instruction
                 # This is a simplified implementation - real logic would be more complex
                 return self._create_sequence_table(instruction), None

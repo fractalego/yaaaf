@@ -225,6 +225,9 @@ class WorkflowExecutor:
                     self._notes.append(completion_note)
                     _logger.info(f"Added completion note for asset {asset_name}")
 
+            except PausedExecutionException:
+                # This is expected behavior - just re-raise without logging as error
+                raise
             except Exception as e:
                 _logger.error(f"Failed to execute asset {asset_name}: {e}")
                 raise
@@ -513,24 +516,16 @@ class WorkflowExecutor:
             f"from asset '{state.current_asset}' with user response"
         )
 
-        # Step 1: Complete the UserInputAgent call with user's response
-        user_input_agent_name = self.plan["assets"][state.current_asset]["agent"]
-        if user_input_agent_name not in self.agents:
-            raise ValueError(f"User input agent '{user_input_agent_name}' not found")
+        # Step 1: Use the user's response directly as the result
+        # Don't call the UserInputAgent again - it's designed to ask questions, not extract answers
+        # The user has provided their answer, so we just use it directly
+        _logger.info(f"Using user response directly: {user_response[:100]}")
 
-        user_input_agent = self.agents[user_input_agent_name]
+        # Format the user's response as the completed result with task completed tag
+        from yaaaf.components.agents.settings import task_completed_tag
+        final_result_string = f"User response: {user_response}\n\n{task_completed_tag}"
 
-        # Add user's response to the messages
-        resumed_messages = Messages(utterances=state.user_input_messages.utterances.copy())
-        resumed_messages = resumed_messages.add_user_utterance(user_response)
-
-        _logger.info(f"Calling user input agent with user response: {user_response[:100]}")
-
-        # Get final result from user input agent
-        final_user_input_result = await user_input_agent.query(resumed_messages)
-        final_result_string = str(final_user_input_result)
-
-        _logger.info(f"User input agent completed with result: {final_result_string[:100]}")
+        _logger.info(f"User input completed with: {user_response}")
 
         # Step 2: Restore completed assets and add the user input result
         self.asset_results = state.completed_assets.copy()
@@ -656,7 +651,7 @@ class WorkflowExecutor:
                     self._notes.append(completion_note)
 
             except PausedExecutionException:
-                # Re-raise pause exceptions
+                # This is expected behavior (nested pause) - just re-raise without logging as error
                 raise
             except Exception as e:
                 _logger.error(f"Failed to execute asset {asset_name}: {e}")

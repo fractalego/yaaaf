@@ -228,7 +228,7 @@ export default function ChatDemo() {
         setIsPaused(false)
 
         // Start polling for new messages from the resumed execution
-        await pollForResumedMessages(currentSessionId)
+        await pollForResumedMessages(currentSessionId, stop)
       } else {
         console.error("Failed to submit user response:", response.statusText)
         // You could show an error toast here
@@ -240,7 +240,7 @@ export default function ChatDemo() {
   }
 
   // Poll for new messages after resuming from pause
-  const pollForResumedMessages = async (streamId: string) => {
+  const pollForResumedMessages = async (streamId: string, stopFn?: () => void) => {
     console.log(`Starting to poll for resumed messages on stream ${streamId}`)
 
     // First, get the current note count to know where we're starting from
@@ -265,7 +265,8 @@ export default function ChatDemo() {
     }
 
     let consecutiveEmptyPolls = 0
-    const maxEmptyPolls = 10 // Stop after 10 seconds of no new messages
+    const maxEmptyPolls = 60 // Stop after 60 seconds of no new messages (LLMs can be slow)
+    let hasSeenCompletion = false
 
     const pollInterval = setInterval(async () => {
       try {
@@ -285,7 +286,7 @@ export default function ChatDemo() {
           // Check if there are new notes since last poll
           if (notes.length > lastNoteCount) {
             const newNotes = notes.slice(lastNoteCount)
-            console.log(`Found ${newNotes.length} new messages`)
+            console.log(`Found ${newNotes.length} new messages (total notes: ${notes.length})`)
 
             // Convert notes to messages and append
             const newMessages = newNotes.map((note: any, index: number) => {
@@ -314,14 +315,26 @@ export default function ChatDemo() {
               lastNote.message.includes("<taskpaused/>")
             ) {
               console.log("Execution completed or paused again, stopping poll")
+              hasSeenCompletion = true
               clearInterval(pollInterval)
+
+              // Stop the loading indicator
+              if (stopFn) {
+                stopFn()
+              }
             }
           } else {
             // No new notes, increment counter
             consecutiveEmptyPolls++
+            console.log(`No new messages (${consecutiveEmptyPolls}/${maxEmptyPolls})`)
             if (consecutiveEmptyPolls >= maxEmptyPolls) {
-              console.log("No new messages for 10 seconds, stopping poll")
+              console.log("No new messages for 60 seconds, stopping poll")
               clearInterval(pollInterval)
+
+              // Stop the loading indicator
+              if (stopFn) {
+                stopFn()
+              }
             }
           }
         }
@@ -335,6 +348,11 @@ export default function ChatDemo() {
     setTimeout(() => {
       console.log("Polling timeout reached")
       clearInterval(pollInterval)
+
+      // Stop the loading indicator
+      if (stopFn) {
+        stopFn()
+      }
     }, 300000)
   }
 

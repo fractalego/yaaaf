@@ -144,8 +144,9 @@ class WorkflowExecutor:
                 # Add progress note
                 if self._notes is not None:
                     from yaaaf.components.data_types import Note
+                    from yaaaf.components.agents.settings import task_completed_tag
                     progress_note = Note(
-                        message=f"🔄 Executing step '{asset_name}' using {agent_name} agent...",
+                        message=f"📂 Executing step '{asset_name}' using {agent_name} agent... {task_completed_tag}",
                         artefact_id=None,
                         agent_name="workflow",
                     )
@@ -202,26 +203,27 @@ class WorkflowExecutor:
                 # Add completion note
                 if self._notes is not None:
                     from yaaaf.components.data_types import Note
-                    
+                    from yaaaf.components.agents.settings import task_completed_tag
+
                     # Extract artifact references from the result string
                     import re
                     artifact_refs = re.findall(r'<artefact[^>]*>[^<]+</artefact>', result_string)
-                    
+
                     if artifact_refs:
                         artifacts_display = " ".join(artifact_refs)
                         completion_note = Note(
-                            message=f"✅ Completed '{asset_name}': produced {artifacts_display}",
+                            message=f"✅ Completed '{asset_name}': produced {artifacts_display} {task_completed_tag}",
                             artefact_id=None,
                             agent_name="workflow",
                         )
                     else:
                         # Fallback to types if no artifact references found
                         completion_note = Note(
-                            message=f"✅ Completed '{asset_name}': produced {actual_types}",
+                            message=f"✅ Completed '{asset_name}': produced {actual_types} {task_completed_tag}",
                             artefact_id=None,
                             agent_name="workflow",
                         )
-                    
+
                     self._notes.append(completion_note)
                     _logger.info(f"Added completion note for asset {asset_name}")
 
@@ -534,9 +536,10 @@ class WorkflowExecutor:
         # Add completion note for user input step
         if self._notes is not None:
             from yaaaf.components.data_types import Note
+            from yaaaf.components.agents.settings import task_completed_tag
 
             completion_note = Note(
-                message=f"✅ User provided input: {user_response}",
+                message=f"✅ User provided input: {user_response} {task_completed_tag}",
                 artefact_id=None,
                 agent_name="workflow",
             )
@@ -579,9 +582,10 @@ class WorkflowExecutor:
                 # Add progress note
                 if self._notes is not None:
                     from yaaaf.components.data_types import Note
+                    from yaaaf.components.agents.settings import task_completed_tag
 
                     progress_note = Note(
-                        message=f"🔄 Executing step '{asset_name}' using {agent_name} agent...",
+                        message=f"📂 Executing step '{asset_name}' using {agent_name} agent... {task_completed_tag}",
                         artefact_id=None,
                         agent_name="workflow",
                     )
@@ -628,6 +632,7 @@ class WorkflowExecutor:
                 # Add completion note
                 if self._notes is not None:
                     from yaaaf.components.data_types import Note
+                    from yaaaf.components.agents.settings import task_completed_tag
 
                     # Extract artifact references from the result string
                     artifact_refs = re.findall(
@@ -637,13 +642,13 @@ class WorkflowExecutor:
                     if artifact_refs:
                         artifacts_display = " ".join(artifact_refs)
                         completion_note = Note(
-                            message=f"✅ Completed '{asset_name}': produced {artifacts_display}",
+                            message=f"✅ Completed '{asset_name}': produced {artifacts_display} {task_completed_tag}",
                             artefact_id=None,
                             agent_name="workflow",
                         )
                     else:
                         completion_note = Note(
-                            message=f"✅ Completed '{asset_name}': produced {actual_types}",
+                            message=f"✅ Completed '{asset_name}': produced {actual_types} {task_completed_tag}",
                             artefact_id=None,
                             agent_name="workflow",
                         )

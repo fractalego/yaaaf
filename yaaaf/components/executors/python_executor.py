@@ -163,7 +163,7 @@ class PythonExecutor(ToolExecutor):
                 type=Artefact.Types.IMAGE,
                 description="Generated visualization",
                 code=instruction,
-                data=result,  # base64 encoded image
+                image=result,  # base64 encoded image
                 id=artifact_id,
             )
         else:

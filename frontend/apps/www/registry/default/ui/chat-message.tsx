@@ -143,8 +143,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   onArtifactClick,
   streamStatus,
 }) => {
+  // Don't show spinner if message contains completion/pause tags, or if it's a workflow progress/completion note
+  const isWorkflowNote = content.includes("Executing step") || content.includes("Completed '") || content.includes("Operation completed")
   const addSpinner: boolean =
-    content.indexOf(complete_tag) == -1 && content.indexOf(paused_tag) == -1
+    content.indexOf(complete_tag) == -1 && content.indexOf(paused_tag) == -1 && !isWorkflowNote
 
   const files = useMemo(() => {
     return experimental_attachments?.map((attachment) => {

@@ -144,9 +144,8 @@ class WorkflowExecutor:
                 # Add progress note
                 if self._notes is not None:
                     from yaaaf.components.data_types import Note
-                    from yaaaf.components.agents.settings import task_completed_tag
                     progress_note = Note(
-                        message=f"📂 Executing step '{asset_name}' using {agent_name} agent... {task_completed_tag}",
+                        message=f"📂 Executing step '{asset_name}' using {agent_name} agent...",
                         artefact_id=None,
                         agent_name="workflow",
                     )
@@ -582,10 +581,9 @@ class WorkflowExecutor:
                 # Add progress note
                 if self._notes is not None:
                     from yaaaf.components.data_types import Note
-                    from yaaaf.components.agents.settings import task_completed_tag
 
                     progress_note = Note(
-                        message=f"📂 Executing step '{asset_name}' using {agent_name} agent... {task_completed_tag}",
+                        message=f"📂 Executing step '{asset_name}' using {agent_name} agent...",
                         artefact_id=None,
                         agent_name="workflow",
                     )

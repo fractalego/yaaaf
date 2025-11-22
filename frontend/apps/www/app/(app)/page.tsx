@@ -101,7 +101,6 @@ export default function ChatDemo() {
   }
 
   // Check for paused or completed messages and mark session accordingly
-  // Also auto-open last artifact when task is finished
   useEffect(() => {
     const lastMessage = messages[messages.length - 1]
     if (lastMessage?.role === "assistant") {
@@ -113,24 +112,6 @@ export default function ChatDemo() {
 
         // Set paused state for UI
         setIsPaused(isPausedMessage)
-
-        // Auto-open the last artifact when task is completed/paused
-        if (lastMessage?.content) {
-          // Extract artifact references from the last assistant message
-          const artifactMatches = lastMessage.content.match(/<artefact[^>]*>([^<]+)<\/artefact>/g)
-
-          if (artifactMatches && artifactMatches.length > 0) {
-            // Get the last artifact ID from the matches
-            const lastArtifactMatch = artifactMatches[artifactMatches.length - 1]
-            const artifactIdMatch = lastArtifactMatch.match(/<artefact[^>]*>([^<]+)<\/artefact>/)
-
-            if (artifactIdMatch) {
-              const artifactId = artifactIdMatch[1]
-              console.log('Auto-opening final artifact:', artifactId)
-              setSelectedArtifactId(artifactId)
-            }
-          }
-        }
       } else {
         // Clear paused state if not paused
         setIsPaused(false)

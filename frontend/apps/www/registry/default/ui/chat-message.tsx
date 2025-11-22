@@ -128,6 +128,7 @@ export interface ChatMessageProps extends Message {
     current_agent: string
     is_active: boolean
   }
+  isLastMessage?: boolean
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -142,11 +143,18 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   parts,
   onArtifactClick,
   streamStatus,
+  isLastMessage = false,
 }) => {
   // Don't show spinner for workflow status messages or if message has completion/pause tags
   const isStatusMessage = content.includes("<!-- workflow-status -->")
-  const addSpinner: boolean =
-    content.indexOf(complete_tag) == -1 && content.indexOf(paused_tag) == -1 && !isStatusMessage
+  const hasCompletionTag = content.indexOf(complete_tag) !== -1 || content.indexOf(paused_tag) !== -1
+
+  // Only show spinner on the last message if it doesn't have completion/pause tags
+  const shouldShowSpinner: boolean =
+    role === "assistant" &&
+    isLastMessage &&
+    !hasCompletionTag &&
+    !isStatusMessage
 
   const files = useMemo(() => {
     return experimental_attachments?.map((attachment) => {
@@ -218,26 +226,23 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                   {actions}
                 </div>
               ) : null}
-              {role == "assistant" && addSpinner && streamStatus?.is_active ? (
+              {shouldShowSpinner ? (
                 <div className="mt-4 flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="text-xs">
-                    {streamStatus.current_agent === "orchestrator"
-                      ? "Planning..."
-                      : `Running ${streamStatus.current_agent}...`}
+                    {streamStatus?.current_agent
+                      ? streamStatus.current_agent === "orchestrator"
+                        ? "Planning..."
+                        : `Running ${streamStatus.current_agent}...`
+                      : "Planning..."}
                   </span>
-                  {streamStatus.goal && (
+                  {streamStatus?.goal && (
                     <span className="text-xs opacity-70">
-                      • {streamStatus.goal.length > 50 
-                        ? streamStatus.goal.substring(0, 50) + "..." 
+                      • {streamStatus.goal.length > 50
+                        ? streamStatus.goal.substring(0, 50) + "..."
                         : streamStatus.goal}
                     </span>
                   )}
-                </div>
-              ) : role == "assistant" && addSpinner ? (
-                <div className="mt-4 flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-xs">Thinking...</span>
                 </div>
               ) : null}
             </div>

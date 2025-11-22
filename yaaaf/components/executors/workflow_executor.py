@@ -139,7 +139,8 @@ class WorkflowExecutor:
                     from yaaaf.server.accessories import _stream_id_to_status
                     if self._stream_id in _stream_id_to_status:
                         _stream_id_to_status[self._stream_id].current_agent = asset_config.get("description", f"Executing {asset_name}")
-                        _logger.info(f"Updated stream status to: {asset_config.get('description')}")
+                        _stream_id_to_status[self._stream_id].goal = f"Step: {asset_name}"
+                        _logger.info(f"Updated stream status to: {asset_config.get('description')} - goal: {asset_name}")
                 
                 # Add progress note
                 if self._notes is not None:
@@ -579,6 +580,7 @@ class WorkflowExecutor:
                         _stream_id_to_status[self._stream_id].current_agent = (
                             asset_config.get("description", f"Executing {asset_name}")
                         )
+                        _stream_id_to_status[self._stream_id].goal = f"Step: {asset_name}"
 
                 # Add progress note
                 if self._notes is not None:

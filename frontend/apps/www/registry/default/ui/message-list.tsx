@@ -38,11 +38,11 @@ export function MessageList({
             ? messageOptions(message)
             : messageOptions
 
+        // Check if this is the last assistant message
+        const isLastMessage = message.role === "assistant" && index === messages.length - 1
+
         // Pass streamStatus only to the last assistant message (the one being generated)
-        const isLastAssistantMessage = 
-          message.role === "assistant" && 
-          index === messages.length - 1 &&
-          streamStatus?.is_active
+        const shouldPassStatus = isLastMessage && streamStatus?.is_active
 
         return (
           <ChatMessage
@@ -51,7 +51,8 @@ export function MessageList({
             {...message}
             {...additionalOptions}
             onArtifactClick={onArtifactClick}
-            streamStatus={isLastAssistantMessage ? streamStatus : undefined}
+            streamStatus={shouldPassStatus ? streamStatus : undefined}
+            isLastMessage={isLastMessage}
           />
         )
       })}

@@ -15,7 +15,9 @@ import { DuckDuckGoSearchAgent } from "@/registry/custom/duck-duck-go-search-age
 import { ImageOutput } from "@/registry/custom/image-output"
 import { MleAgent } from "@/registry/custom/mle-agent"
 import { NumericalSequencesAgent } from "@/registry/custom/numerical-sequences-agent"
+import { OrchestratorAgent } from "@/registry/custom/orchestrator-agent"
 import { Paused } from "@/registry/custom/paused"
+import { PlannerAgent } from "@/registry/custom/planner-agent"
 import { ReviewerAgent } from "@/registry/custom/reviewer-agent"
 import { SqlAgent } from "@/registry/custom/sql-agent"
 import { UrlAgent } from "@/registry/custom/url-agent"
@@ -23,6 +25,7 @@ import { UrlRetrieverAgent } from "@/registry/custom/url-retriever-agent"
 import { UrlReviewerAgent } from "@/registry/custom/url-reviewer-agent"
 import { UserInputAgent } from "@/registry/custom/user-input-agent"
 import { VisualizationAgent } from "@/registry/custom/visualization-agent"
+import { WorkflowAgent } from "@/registry/custom/workflow-agent"
 import { CopyButton } from "@/registry/default/ui/copy-button"
 
 interface MarkdownRendererProps {
@@ -168,6 +171,21 @@ function childrenTakeAllStringContents(element: any): string {
 
 function getComponents(onArtifactClick?: (artifactId: string) => void) {
   return {
+    planner: ({ children, ...props }: any) => {
+      return (
+        <PlannerAgent text={children} modelName={props["data-model"]}></PlannerAgent>
+      )
+    },
+    workflow: ({ children, ...props }: any) => {
+      return (
+        <WorkflowAgent text={children} modelName={props["data-model"]}></WorkflowAgent>
+      )
+    },
+    orchestrator: ({ children, ...props }: any) => {
+      return (
+        <OrchestratorAgent text={children} modelName={props["data-model"]}></OrchestratorAgent>
+      )
+    },
     sqlagent: ({ children, ...props }: any) => {
       return (
         <SqlAgent text={children} modelName={props["data-model"]}></SqlAgent>

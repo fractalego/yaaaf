@@ -149,7 +149,6 @@ class WorkflowExecutor:
                         message=f"📂 Executing step '{asset_name}' using {agent_name} agent...",
                         artefact_id=None,
                         agent_name="workflow",
-                        is_status=True,  # Workflow notes are status messages, no spinner needed
                     )
                     self._notes.append(progress_note)
                     _logger.info(f"Added progress note for asset {asset_name}")
@@ -215,7 +214,6 @@ class WorkflowExecutor:
                             message=f"✅ Completed '{asset_name}': produced {artifacts_display}",
                             artefact_id=None,
                             agent_name="workflow",
-                            is_status=True,  # Workflow notes are status messages, no spinner needed
                         )
                     else:
                         # Fallback to types if no artifact references found
@@ -223,7 +221,6 @@ class WorkflowExecutor:
                             message=f"✅ Completed '{asset_name}': produced {actual_types}",
                             artefact_id=None,
                             agent_name="workflow",
-                            is_status=True,  # Workflow notes are status messages, no spinner needed
                         )
 
                     self._notes.append(completion_note)
@@ -543,7 +540,6 @@ class WorkflowExecutor:
                 message=f"✅ User provided input: {user_response}",
                 artefact_id=None,
                 agent_name="workflow",
-                is_status=True,  # Workflow notes are status messages, no spinner needed
             )
             self._notes.append(completion_note)
 
@@ -590,7 +586,6 @@ class WorkflowExecutor:
                         message=f"📂 Executing step '{asset_name}' using {agent_name} agent...",
                         artefact_id=None,
                         agent_name="workflow",
-                        is_status=True,  # Workflow notes are status messages, no spinner needed
                     )
                     self._notes.append(progress_note)
 
@@ -647,14 +642,12 @@ class WorkflowExecutor:
                             message=f"✅ Completed '{asset_name}': produced {artifacts_display}",
                             artefact_id=None,
                             agent_name="workflow",
-                            is_status=True,  # Workflow notes are status messages, no spinner needed
                         )
                     else:
                         completion_note = Note(
                             message=f"✅ Completed '{asset_name}': produced {actual_types}",
                             artefact_id=None,
                             agent_name="workflow",
-                            is_status=True,  # Workflow notes are status messages, no spinner needed
                         )
 
                     self._notes.append(completion_note)

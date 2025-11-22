@@ -55,10 +55,15 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
             return
 
         result = await orchestrator.query(messages=messages, notes=notes, stream_id=stream_id)
-        
+
         if result:
-            # Check if the result is an error message (contains <taskcompleted/>)
-            if "<taskcompleted/>" in result:
+            import re
+
+            # Check if the result is an ERROR message (contains error indicators)
+            # Error messages start with emoji like ❌, 🔌, ⚠️ or contain "Error:"
+            is_error = bool(re.search(r'(❌|🔌|⚠️|\*\*.*Error.*\*\*)', result))
+
+            if is_error:
                 # This is an error from the @handle_exceptions decorator
                 error_note = Note(
                     message=result,
@@ -70,9 +75,62 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
                 _logger.info(f"Added error message to notes for stream {stream_id}")
             else:
                 # This is a successful result - add it to notes for frontend display
+                # Check if result contains artifact reference and include content
+                final_message = result
+                final_artifact_id = None
+
+                # Extract artifact ID if present
+                artifact_match = re.search(r"<artefact[^>]*>([^<]+)</artefact>", result)
+                if artifact_match:
+                    final_artifact_id = artifact_match.group(1).strip()
+                    _logger.info(f"Detected final artifact: {final_artifact_id}")
+
+                    # Load artifact and include its content in the message
+                    try:
+                        from yaaaf.components.agents.artefacts import ArtefactStorage
+                        artefact_storage = ArtefactStorage()
+                        artifact = artefact_storage.retrieve_from_id(final_artifact_id)
+
+                        if artifact:
+                            # Build content section based on artifact type
+                            content_section = "\n\n---\n\n"
+
+                            # Include data as table if available
+                            if hasattr(artifact, 'data') and artifact.data is not None:
+                                try:
+                                    import pandas as pd
+                                    if isinstance(artifact.data, pd.DataFrame):
+                                        content_section += "**Result Data:**\n\n"
+                                        content_section += artifact.data.to_markdown(index=False)
+                                        content_section += "\n\n"
+                                except Exception as e:
+                                    _logger.warning(f"Failed to convert data to markdown: {e}")
+
+                            # Include code if available
+                            if hasattr(artifact, 'code') and artifact.code:
+                                content_section += "**Code:**\n\n```\n"
+                                content_section += str(artifact.code)
+                                content_section += "\n```\n\n"
+
+                            # Include summary if available
+                            if hasattr(artifact, 'summary') and artifact.summary:
+                                content_section += "**Summary:**\n\n"
+                                content_section += artifact.summary
+                                content_section += "\n\n"
+
+                            # Add content to final message
+                            final_message = result + content_section
+                            _logger.info(f"Added artifact content to final message for {final_artifact_id}")
+                    except Exception as e:
+                        _logger.warning(f"Failed to load artifact content for {final_artifact_id}: {e}")
+
+                # Ensure completion tag is present
+                if "<taskcompleted/>" not in final_message:
+                    final_message += " <taskcompleted/>"
+
                 result_note = Note(
-                    message=result,
-                    artefact_id=None,
+                    message=final_message,
+                    artefact_id=final_artifact_id,
                     agent_name="orchestrator",
                     model_name=None,
                 )
@@ -289,9 +347,62 @@ async def resume_paused_execution(stream_id: str, user_response: str, orchestrat
             from yaaaf.components.data_types import Note
 
             result_string = str(result.code) if hasattr(result, "code") else str(result)
+            final_message = result_string
+            final_artifact_id = None
+
+            # Extract artifact ID if present
+            import re
+            artifact_match = re.search(r"<artefact[^>]*>([^<]+)</artefact>", result_string)
+            if artifact_match:
+                final_artifact_id = artifact_match.group(1).strip()
+                _logger.info(f"Detected final artifact in resumed execution: {final_artifact_id}")
+
+                # Load artifact and include its content in the message
+                try:
+                    from yaaaf.components.agents.artefacts import ArtefactStorage
+                    artefact_storage = ArtefactStorage()
+                    artifact = artefact_storage.retrieve_from_id(final_artifact_id)
+
+                    if artifact:
+                        # Build content section based on artifact type
+                        content_section = "\n\n---\n\n"
+
+                        # Include data as table if available
+                        if hasattr(artifact, 'data') and artifact.data is not None:
+                            try:
+                                import pandas as pd
+                                if isinstance(artifact.data, pd.DataFrame):
+                                    content_section += "**Result Data:**\n\n"
+                                    content_section += artifact.data.to_markdown(index=False)
+                                    content_section += "\n\n"
+                            except Exception as e:
+                                _logger.warning(f"Failed to convert data to markdown: {e}")
+
+                        # Include code if available
+                        if hasattr(artifact, 'code') and artifact.code:
+                            content_section += "**Code:**\n\n```\n"
+                            content_section += str(artifact.code)
+                            content_section += "\n```\n\n"
+
+                        # Include summary if available
+                        if hasattr(artifact, 'summary') and artifact.summary:
+                            content_section += "**Summary:**\n\n"
+                            content_section += artifact.summary
+                            content_section += "\n\n"
+
+                        # Add content to final message
+                        final_message = result_string + content_section
+                        _logger.info(f"Added artifact content to final message for {final_artifact_id}")
+                except Exception as e:
+                    _logger.warning(f"Failed to load artifact content for {final_artifact_id}: {e}")
+
+            # Ensure completion tag is present
+            if "<taskcompleted/>" not in final_message:
+                final_message += " <taskcompleted/>"
+
             result_note = Note(
-                message=result_string,
-                artefact_id=None,
+                message=final_message,
+                artefact_id=final_artifact_id,
                 agent_name="workflow",
                 model_name=None,
             )

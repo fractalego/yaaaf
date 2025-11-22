@@ -14,6 +14,7 @@ interface Note {
   artefact_id: string | null
   agent_name: string | null
   model_name: string | null
+  is_status?: boolean
 }
 
 // Increase the max duration for this API route
@@ -270,6 +271,9 @@ async function createStream(
 function formatNoteToString(note: Note): string {
   let result = ""
 
+  // Add status marker for workflow status messages
+  const statusMarker = note.is_status ? "<!-- workflow-status -->" : ""
+
   // Check if message contains <markdown> tags - if so, extract content without agent wrapping
   const markdownRegex = /<markdown>([\s\S]*?)<\/markdown>/g
   const markdownMatches = note.message.match(markdownRegex)
@@ -314,5 +318,5 @@ function formatNoteToString(note: Note): string {
     }
   }
 
-  return result
+  return statusMarker + result
 }

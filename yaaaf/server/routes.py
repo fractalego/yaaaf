@@ -724,6 +724,7 @@ async def stream_utterances(arguments: NewUtteranceArguments):
                             "artefact_id": note.artefact_id,
                             "agent_name": note.agent_name,
                             "model_name": note.model_name,
+                            "is_status": getattr(note, "is_status", False),
                         }
                         yield f"data: {json.dumps(note_data)}\n\n"
 

@@ -76,7 +76,7 @@ yaaaf = "yaaaf.command_line:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["yaaaf*"]
+include = ["yaaaf*", "scripts*"]
 exclude = ["tests*", "frontend*", "documentation*"]
 
 [tool.setuptools.package-data]
@@ -92,4 +92,7 @@ yaaaf = [
     "server/*.py",
     "client/*.py",
     "client/standalone.zip",
+]
+scripts = [
+    "planner_dataset/planner_dataset.csv",
 ]

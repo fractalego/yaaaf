@@ -1,11 +1,13 @@
 """
 Generate a synthetic dataset of planning scenarios and workflows using GPT-4.
 
-This script creates 1000 diverse planning examples stratified by:
+This script creates diverse planning examples stratified by:
 - Number of agents used (2, 3-5, 6+)
 - Number of workflow steps
 - Agent types and combinations
 - Workflow complexity (simple chains vs complex trees)
+
+Configuration is loaded from config.json and can be overridden via CLI arguments.
 """
 
 import os
@@ -13,6 +15,7 @@ import json
 import logging
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, asdict
+from pathlib import Path
 import pandas as pd
 from openai import OpenAI
 from tqdm import tqdm
@@ -25,6 +28,41 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def load_config(config_path: str = "config.json") -> Dict[str, Any]:
+    """Load configuration from JSON file.
+
+    Args:
+        config_path: Path to config file
+
+    Returns:
+        Configuration dictionary
+    """
+    config_file = Path(__file__).parent / config_path
+
+    if not config_file.exists():
+        logger.warning(f"Config file not found at {config_file}, using defaults")
+        return {
+            "generation": {
+                "total_examples": 100,
+                "model": "gpt-4o-mini",
+                "output_path": "planner_dataset.csv",
+                "save_debug_info": False,
+                "scenario_temperature": 0.9,
+                "workflow_temperature": 0.7,
+                "max_workflow_retries": 2
+            },
+            "stratification": {
+                "buckets": []
+            }
+        }
+
+    with open(config_file, 'r') as f:
+        config = json.load(f)
+
+    logger.info(f"Loaded configuration from {config_file}")
+    return config
 
 
 # Agent taxonomy and artifact specifications (copied from repo)
@@ -168,15 +206,25 @@ class PlanningExample:
 class PlannerDatasetGenerator:
     """Generates synthetic planning datasets using GPT-4."""
 
-    def __init__(self, api_key: str, model: str = "gpt-4-turbo-preview"):
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gpt-4o-mini",
+        scenario_temperature: float = 0.9,
+        workflow_temperature: float = 0.7
+    ):
         """Initialize the generator.
 
         Args:
             api_key: OpenAI API key
-            model: GPT-4 model to use
+            model: GPT-4 model to use (default: gpt-4o-mini)
+            scenario_temperature: Temperature for scenario generation
+            workflow_temperature: Temperature for workflow generation
         """
         self.client = OpenAI(api_key=api_key)
         self.model = model
+        self.scenario_temperature = scenario_temperature
+        self.workflow_temperature = workflow_temperature
         self.agent_descriptions = self._create_agent_descriptions()
 
     def _create_agent_descriptions(self) -> str:
@@ -246,7 +294,7 @@ Your scenario:"""
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.9,
+            temperature=self.scenario_temperature,
             max_tokens=200
         )
 
@@ -289,6 +337,8 @@ CRITICAL RULES:
 5. NEVER use a type that is not in the agent's "Produces" list.
 6. For this workflow, use {bucket.min_agents}-{bucket.max_agents} agents with {bucket.min_steps}-{bucket.max_steps} steps.
 7. Create a {bucket.complexity} workflow structure.
+8. ALWAYS use descriptive, semantic asset names (e.g., "customer_sales_data", NOT "data1")
+9. ALWAYS include "checks" field with data quality acceptance conditions for each asset
 
 Instructions for creating the workflow:
 1. Analyze the user's goal to identify the required FINAL ARTIFACT type
@@ -298,39 +348,128 @@ Instructions for creating the workflow:
 5. Define dependencies through inputs field
 
 Workflow Format Rules:
-- Use YAML asset-based syntax
-- Each asset has: name, agent, description, type, inputs (optional), conditions (optional)
+- Use YAML asset-based syntax inspired by Prefect/Dagster
+- Each asset has: name, agent, description, type, inputs (optional), checks (optional)
 - Assets without inputs are source nodes
 - Dependencies are explicit through inputs field
 - CRITICAL: The "type" field MUST be copied EXACTLY from the agent's "Produces" field (lowercase)
-- Include validation and error handling where appropriate
+
+ASSET NAMING RULES:
+- Use descriptive, semantic names that indicate WHAT the asset contains or represents
+- GOOD: "customer_sales_data", "validated_transactions", "revenue_trend_chart", "churn_prediction_model"
+- BAD: "asset1", "output", "data", "result"
+- Format: lowercase_with_underscores
+- Be specific about the business/domain meaning
+
+ACCEPTANCE CONDITIONS (Data Quality Checks):
+- Add "checks" field with Prefect/Dagster-style acceptance conditions
+- Include data quality validations appropriate for the artifact type
+- For tables: row counts, column presence, value ranges, nullability
+- For models: accuracy thresholds, feature requirements
+- For images: file size, dimensions
+- Format as YAML list of condition strings
 
 User Scenario:
 {scenario}
 
-Generate the workflow plan in YAML format. Output ONLY the YAML workflow wrapped in ```yaml blocks.
-"""
+OUTPUT FORMAT:
+You must respond with ONLY valid YAML starting with "assets:". Do not include any explanation before or after.
+Do not use markdown code blocks. Output the raw YAML directly.
+
+Example format with descriptive names and checks:
+assets:
+  customer_sales_data:
+    agent: SqlAgent
+    description: "Extract customer purchase history from sales database"
+    type: table
+    checks:
+      - "row_count > 0"
+      - "columns: [customer_id, purchase_date, amount, product_id]"
+      - "amount >= 0"
+      - "no_null_values: [customer_id, purchase_date]"
+
+  validated_sales_data:
+    agent: ReviewerAgent
+    description: "Validate and clean sales data for outliers"
+    type: table
+    inputs: [customer_sales_data]
+    checks:
+      - "row_count >= customer_sales_data.row_count * 0.95"
+      - "amount between 0 and 1000000"
+
+  monthly_revenue_chart:
+    agent: VisualizationAgent
+    description: "Create monthly revenue trend visualization"
+    type: image
+    inputs: [validated_sales_data]
+    checks:
+      - "file_size < 5MB"
+      - "format: png"
+
+More check examples for different artifact types:
+
+For TEXT artifacts:
+  search_results_summary:
+    agent: BraveSearchAgent
+    type: table
+    checks:
+      - "row_count >= 5"
+      - "columns: [title, url, snippet]"
+      - "no_empty_values: [title, url]"
+
+For MODEL artifacts:
+  churn_prediction_model:
+    agent: MleAgent
+    type: model
+    inputs: [customer_features]
+    checks:
+      - "accuracy > 0.85"
+      - "required_features: [tenure, monthly_charges, total_charges]"
+      - "model_type: classification"
+
+For JSON artifacts:
+  api_response_data:
+    agent: ToolAgent
+    type: json
+    checks:
+      - "valid_json: true"
+      - "required_keys: [status, data, timestamp]"
+      - "status: success"
+
+Now generate the workflow with descriptive asset names and acceptance checks:"""
 
         response = self.client.chat.completions.create(
             model=self.model,
-            messages=[{"role": "user", "content": planner_prompt}],
-            temperature=0.7,
+            messages=[
+                {"role": "system", "content": "You are a workflow planning expert. You output ONLY valid YAML, with no explanations or markdown formatting."},
+                {"role": "user", "content": planner_prompt}
+            ],
+            temperature=self.workflow_temperature,
             max_tokens=1500
         )
 
         content = response.choices[0].message.content.strip()
 
-        # Extract YAML from code block
+        # Extract YAML from code block if present
         if "```yaml" in content:
             yaml_start = content.find("```yaml") + 7
             yaml_end = content.find("```", yaml_start)
-            return content[yaml_start:yaml_end].strip()
+            content = content[yaml_start:yaml_end].strip()
         elif "```" in content:
             yaml_start = content.find("```") + 3
             yaml_end = content.find("```", yaml_start)
-            return content[yaml_start:yaml_end].strip()
-        else:
-            return content
+            content = content[yaml_start:yaml_end].strip()
+
+        # If content doesn't start with "assets:", try to find it
+        if not content.startswith("assets:"):
+            if "assets:" in content:
+                # Extract from first occurrence of "assets:"
+                assets_start = content.find("assets:")
+                content = content[assets_start:]
+            else:
+                logger.warning(f"Generated content doesn't contain 'assets:'. Content preview: {content[:200]}")
+
+        return content
 
     def validate_workflow(self, workflow_yaml: str) -> tuple[bool, Optional[str], List[str], int]:
         """Validate the generated workflow.
@@ -380,11 +519,12 @@ Generate the workflow plan in YAML format. Output ONLY the YAML workflow wrapped
         except Exception as e:
             return False, f"Error validating workflow: {str(e)}", [], 0
 
-    def generate_example(self, bucket: StratificationBucket) -> PlanningExample:
+    def generate_example(self, bucket: StratificationBucket, max_workflow_retries: int = 2) -> PlanningExample:
         """Generate a complete planning example.
 
         Args:
             bucket: Stratification bucket defining constraints
+            max_workflow_retries: Maximum retries for generating valid workflow
 
         Returns:
             PlanningExample instance
@@ -392,11 +532,25 @@ Generate the workflow plan in YAML format. Output ONLY the YAML workflow wrapped
         # Generate scenario
         scenario = self.generate_scenario(bucket)
 
-        # Generate workflow
-        workflow_yaml = self.generate_workflow(scenario, bucket)
+        # Try to generate valid workflow with retries
+        workflow_yaml = None
+        is_valid = False
+        error_message = None
+        agents_used = []
+        num_steps = 0
 
-        # Validate workflow
-        is_valid, error_message, agents_used, num_steps = self.validate_workflow(workflow_yaml)
+        for retry in range(max_workflow_retries + 1):
+            # Generate workflow
+            workflow_yaml = self.generate_workflow(scenario, bucket)
+
+            # Validate workflow
+            is_valid, error_message, agents_used, num_steps = self.validate_workflow(workflow_yaml)
+
+            if is_valid:
+                break  # Success!
+
+            if retry < max_workflow_retries:
+                logger.debug(f"Workflow invalid (attempt {retry+1}/{max_workflow_retries+1}): {error_message}. Retrying...")
 
         return PlanningExample(
             scenario=scenario,
@@ -411,85 +565,108 @@ Generate the workflow plan in YAML format. Output ONLY the YAML workflow wrapped
 
     def generate_dataset(
         self,
-        total_examples: int = 1000,
-        output_path: str = "planner_dataset.parquet"
+        total_examples: int = 100,
+        output_path: str = "planner_dataset.csv",
+        save_debug_info: bool = False,
+        buckets: Optional[List[Dict[str, Any]]] = None,
+        max_workflow_retries: int = 2
     ) -> pd.DataFrame:
         """Generate complete stratified dataset.
 
         Args:
             total_examples: Total number of examples to generate
-            output_path: Path to save the Parquet file
+            output_path: Path to save the CSV file
+            save_debug_info: If True, save failed workflows to debug file
+            buckets: List of bucket configurations (if None, uses default)
+            max_workflow_retries: Max retries for workflow generation
 
         Returns:
             DataFrame with all examples
         """
-        # Define stratification buckets
-        buckets = [
-            # Simple 2-agent workflows
-            StratificationBucket(
-                name="simple_2agent_chain",
-                min_agents=2, max_agents=2,
-                min_steps=2, max_steps=2,
-                complexity="simple_chain",
-                target_count=150
-            ),
 
-            # Medium 3-5 agent linear workflows
-            StratificationBucket(
-                name="medium_chain",
-                min_agents=3, max_agents=5,
-                min_steps=3, max_steps=5,
-                complexity="simple_chain",
-                target_count=200
-            ),
+        failed_workflows = [] if save_debug_info else None
 
-            # Medium 3-5 agent branching workflows
-            StratificationBucket(
-                name="medium_branch",
-                min_agents=3, max_agents=5,
-                min_steps=3, max_steps=6,
-                complexity="multi_branch",
-                target_count=250
-            ),
+        # Use provided buckets or create default ones
+        if buckets is None:
+            # Default stratification buckets with proportions
+            buckets = [
+                {
+                    "name": "simple_2agent_chain",
+                    "min_agents": 2, "max_agents": 2,
+                    "min_steps": 2, "max_steps": 2,
+                    "complexity": "simple_chain",
+                    "proportion": 0.15
+                },
+                {
+                    "name": "medium_chain",
+                    "min_agents": 3, "max_agents": 5,
+                    "min_steps": 3, "max_steps": 5,
+                    "complexity": "simple_chain",
+                    "proportion": 0.20
+                },
+                {
+                    "name": "medium_branch",
+                    "min_agents": 3, "max_agents": 5,
+                    "min_steps": 3, "max_steps": 6,
+                    "complexity": "multi_branch",
+                    "proportion": 0.25
+                },
+                {
+                    "name": "complex_tree_small",
+                    "min_agents": 6, "max_agents": 8,
+                    "min_steps": 6, "max_steps": 10,
+                    "complexity": "complex_tree",
+                    "proportion": 0.20
+                },
+                {
+                    "name": "complex_tree_large",
+                    "min_agents": 9, "max_agents": 12,
+                    "min_steps": 9, "max_steps": 15,
+                    "complexity": "complex_tree",
+                    "proportion": 0.20
+                }
+            ]
 
-            # Complex 6+ agent tree workflows
-            StratificationBucket(
-                name="complex_tree_small",
-                min_agents=6, max_agents=8,
-                min_steps=6, max_steps=10,
-                complexity="complex_tree",
-                target_count=200
-            ),
-
-            # Very complex 9+ agent tree workflows
-            StratificationBucket(
-                name="complex_tree_large",
-                min_agents=9, max_agents=12,
-                min_steps=9, max_steps=15,
-                complexity="complex_tree",
-                target_count=200
-            ),
-        ]
+        # Convert bucket configs to StratificationBucket objects
+        stratification_buckets = []
+        for bucket_config in buckets:
+            target_count = max(1, int(total_examples * bucket_config.get("proportion", 0.2)))
+            stratification_buckets.append(StratificationBucket(
+                name=bucket_config["name"],
+                min_agents=bucket_config["min_agents"],
+                max_agents=bucket_config["max_agents"],
+                min_steps=bucket_config["min_steps"],
+                max_steps=bucket_config["max_steps"],
+                complexity=bucket_config["complexity"],
+                target_count=target_count
+            ))
 
         examples = []
 
         logger.info(f"Generating {total_examples} planning examples...")
 
-        for bucket in buckets:
+        for bucket in stratification_buckets:
             logger.info(f"\nGenerating {bucket.target_count} examples for bucket: {bucket.name}")
 
             for i in tqdm(range(bucket.target_count), desc=bucket.name):
                 max_retries = 3
                 for retry in range(max_retries):
                     try:
-                        example = self.generate_example(bucket)
+                        example = self.generate_example(bucket, max_workflow_retries=max_workflow_retries)
                         examples.append(example)
 
-                        # Log invalid examples
+                        # Log and save debug info for invalid examples
                         if not example.is_valid:
                             logger.warning(
                                 f"Invalid workflow generated: {example.error_message}"
                             )
+                            if save_debug_info:
+                                failed_workflows.append({
+                                    'scenario': example.scenario,
+                                    'workflow_yaml': example.workflow_yaml,
+                                    'error': example.error_message,
+                                    'bucket': bucket.name
+                                })
 
                         break  # Success, exit retry loop
 
@@ -521,9 +698,17 @@ Generate the workflow plan in YAML format. Output ONLY the YAML workflow wrapped
         logger.info(f"\nExamples by number of agents:")
         logger.info(df['num_agents'].value_counts().sort_index())
 
-        # Save to Parquet
-        df.to_parquet(output_path, index=False)
+        # Save to CSV
+        df.to_csv(output_path, index=False)
         logger.info(f"\nDataset saved to: {output_path}")
+
+        # Save debug info if requested
+        if save_debug_info and failed_workflows:
+            debug_file = output_path.replace('.csv', '_debug.json').replace('.parquet', '_debug.json')
+            import json
+            with open(debug_file, 'w') as f:
+                json.dump(failed_workflows, f, indent=2)
+            logger.info(f"Debug info for {len(failed_workflows)} failed workflows saved to: {debug_file}")
 
         return df
 
@@ -533,7 +718,14 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Generate synthetic planning dataset using GPT-4"
+        description="Generate synthetic planning dataset using GPT-4. "
+                    "Configuration loaded from config.json, can be overridden via CLI args."
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="config.json",
+        help="Path to config file (default: config.json)"
     )
     parser.add_argument(
         "--api-key",
@@ -544,23 +736,33 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-4-turbo-preview",
-        help="GPT-4 model to use"
+        default=None,
+        help="GPT-4 model to use (overrides config)"
     )
     parser.add_argument(
         "--total",
         type=int,
-        default=1000,
-        help="Total number of examples to generate"
+        default=None,
+        help="Total number of examples to generate (overrides config)"
     )
     parser.add_argument(
         "--output",
         type=str,
-        default="planner_dataset.parquet",
-        help="Output Parquet file path"
+        default=None,
+        help="Output CSV file path (overrides config)"
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Save debug info for failed workflows (overrides config)"
     )
 
     args = parser.parse_args()
+
+    # Load configuration
+    config = load_config(args.config)
+    gen_config = config.get("generation", {})
+    strat_config = config.get("stratification", {})
 
     # Get API key
     api_key = args.api_key or os.getenv("OPENAI_API_KEY")
@@ -569,11 +771,39 @@ def main():
             "OpenAI API key required. Set --api-key or OPENAI_API_KEY env var"
         )
 
+    # CLI args override config
+    model = args.model or gen_config.get("model", "gpt-4o-mini")
+    total_examples = args.total or gen_config.get("total_examples", 100)
+    output_path = args.output or gen_config.get("output_path", "planner_dataset.csv")
+    save_debug_info = args.debug or gen_config.get("save_debug_info", False)
+    scenario_temp = gen_config.get("scenario_temperature", 0.9)
+    workflow_temp = gen_config.get("workflow_temperature", 0.7)
+    max_retries = gen_config.get("max_workflow_retries", 2)
+    buckets = strat_config.get("buckets", None)
+
+    logger.info(f"Configuration:")
+    logger.info(f"  Model: {model}")
+    logger.info(f"  Total examples: {total_examples}")
+    logger.info(f"  Output: {output_path}")
+    logger.info(f"  Debug mode: {save_debug_info}")
+    logger.info(f"  Scenario temperature: {scenario_temp}")
+    logger.info(f"  Workflow temperature: {workflow_temp}")
+    logger.info(f"  Max workflow retries: {max_retries}")
+
     # Generate dataset
-    generator = PlannerDatasetGenerator(api_key=api_key, model=args.model)
+    generator = PlannerDatasetGenerator(
+        api_key=api_key,
+        model=model,
+        scenario_temperature=scenario_temp,
+        workflow_temperature=workflow_temp
+    )
+
     df = generator.generate_dataset(
-        total_examples=args.total,
-        output_path=args.output
+        total_examples=total_examples,
+        output_path=output_path,
+        save_debug_info=save_debug_info,
+        buckets=buckets,
+        max_workflow_retries=max_retries
     )
 
     logger.info("\nDataset generation complete!")

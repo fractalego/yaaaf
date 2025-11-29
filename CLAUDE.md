@@ -93,6 +93,18 @@ YAAAF (Yet Another Autonomous Agents Framework) is a modular framework for build
 ## Files to ignore
 - `yaaaf/client/standalone/`: Contains standalone client code that is built from the frontend when run in production mode. It is not used in development.
 
+## Auxiliary Scripts
+
+### Scripts Directory (`scripts/`)
+The `scripts/` directory contains auxiliary scripts for various tasks:
+
+- **`planner_dataset/`**: Scripts for generating synthetic planning datasets
+  - Uses OpenAI GPT-4o-mini to generate diverse realistic scenarios
+  - Creates execution plan workflows using the PlannerAgent prompt format
+  - Independent from the main repo with its own `requirements.txt`
+  - Outputs stratified datasets in CSV format with varying workflow complexity
+  - Default: 100 examples, scalable to 1000+
+
 ## Development Notes
 
 ### Agent Development

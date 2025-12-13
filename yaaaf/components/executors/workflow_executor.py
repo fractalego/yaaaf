@@ -1,13 +1,17 @@
 import logging
 import yaml
 import re
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.executors.paused_execution import (
     PausedExecutionException,
     PausedExecutionState,
 )
+from yaaaf.components.validators.validation_result import ValidationResult
+
+if TYPE_CHECKING:
+    from yaaaf.components.agents.validation_agent import ValidationAgent
 
 _logger = logging.getLogger(__name__)
 
@@ -24,6 +28,24 @@ class ConditionError(Exception):
     pass
 
 
+class ReplanRequiredException(Exception):
+    """Raised when validation fails and replanning is needed."""
+
+    def __init__(self, validation_result: ValidationResult, completed_assets: Dict[str, str]):
+        self.validation_result = validation_result
+        self.completed_assets = completed_assets
+        super().__init__(f"Replan required for {validation_result.asset_name}: {validation_result.reason}")
+
+
+class UserDecisionRequiredException(Exception):
+    """Raised when validation fails and user input is needed."""
+
+    def __init__(self, validation_result: ValidationResult, completed_assets: Dict[str, str]):
+        self.validation_result = validation_result
+        self.completed_assets = completed_assets
+        super().__init__(f"User decision required for {validation_result.asset_name}: {validation_result.reason}")
+
+
 class WorkflowExecutor:
     """Executes a YAML workflow plan by coordinating agents."""
 
@@ -34,6 +56,8 @@ class WorkflowExecutor:
         notes: List[Any] = None,
         stream_id: str = None,
         original_messages: Optional[Messages] = None,
+        validation_agent: Optional["ValidationAgent"] = None,
+        original_goal: Optional[str] = None,
     ):
         """Initialize workflow executor.
 
@@ -43,6 +67,8 @@ class WorkflowExecutor:
             notes: Optional list to append execution progress notes
             stream_id: Optional stream ID for status updates
             original_messages: Optional original user messages (needed for pause/resume)
+            validation_agent: Optional validation agent for artifact validation
+            original_goal: Original user goal for validation context
         """
         self.yaml_plan = yaml_plan  # Store raw YAML for state persistence
         self.plan = yaml.safe_load(yaml_plan)
@@ -53,6 +79,8 @@ class WorkflowExecutor:
         self._notes = notes if notes is not None else []
         self._stream_id = stream_id
         self._original_messages = original_messages
+        self._validation_agent = validation_agent
+        self._original_goal = original_goal
         self._build_execution_graph()
 
     def _build_execution_graph(self):
@@ -199,13 +227,43 @@ class WorkflowExecutor:
 
                 # Store result string for access by dependent assets
                 self.asset_results[asset_name] = result_string
-                
+
+                # Validate the artifact if validation is enabled
+                if self._validation_agent and self._original_goal:
+                    validation_result = await self._validate_artifact(
+                        asset_name=asset_name,
+                        result_string=result_string,
+                        asset_config=asset_config,
+                    )
+
+                    if not validation_result.is_valid:
+                        if validation_result.should_ask_user:
+                            # Need user decision
+                            _logger.warning(
+                                f"Validation failed for {asset_name}, asking user: {validation_result.reason}"
+                            )
+                            raise UserDecisionRequiredException(
+                                validation_result, self.asset_results.copy()
+                            )
+                        elif validation_result.should_replan:
+                            # Trigger replanning
+                            _logger.warning(
+                                f"Validation failed for {asset_name}, replanning: {validation_result.reason}"
+                            )
+                            raise ReplanRequiredException(
+                                validation_result, self.asset_results.copy()
+                            )
+                        else:
+                            # Low confidence but not low enough to ask user
+                            _logger.warning(
+                                f"Validation warning for {asset_name}: {validation_result.reason}"
+                            )
+
                 # Add completion note
                 if self._notes is not None:
                     from yaaaf.components.data_types import Note
 
                     # Extract artifact references from the result string
-                    import re
                     artifact_refs = re.findall(r'<artefact[^>]*>[^<]+</artefact>', result_string)
 
                     if artifact_refs:
@@ -228,6 +286,9 @@ class WorkflowExecutor:
 
             except PausedExecutionException:
                 # This is expected behavior - just re-raise without logging as error
+                raise
+            except (ReplanRequiredException, UserDecisionRequiredException):
+                # These are validation-triggered exceptions - re-raise
                 raise
             except Exception as e:
                 _logger.error(f"Failed to execute asset {asset_name}: {e}")
@@ -468,6 +529,53 @@ class WorkflowExecutor:
     def get_completed_assets(self) -> Dict[str, str]:
         """Get all completed asset results."""
         return self.asset_results.copy()
+
+    async def _validate_artifact(
+        self, asset_name: str, result_string: str, asset_config: Dict
+    ) -> ValidationResult:
+        """Validate an artifact produced by an agent.
+
+        Args:
+            asset_name: Name of the asset being validated
+            result_string: Agent result string containing artifact
+            asset_config: Asset configuration from the plan
+
+        Returns:
+            ValidationResult with validation status and recommendations
+        """
+        if not self._validation_agent or not self._original_goal:
+            # Validation not enabled - return valid
+            return ValidationResult.valid(asset_name=asset_name)
+
+        step_description = asset_config.get("description", f"Execute {asset_name}")
+        expected_type = asset_config.get("type", "TEXT")
+
+        _logger.info(f"Validating artifact for asset '{asset_name}'")
+
+        try:
+            result = await self._validation_agent.validate_from_result_string(
+                result_string=result_string,
+                user_goal=self._original_goal,
+                step_description=step_description,
+                expected_type=expected_type,
+                asset_name=asset_name,
+            )
+
+            _logger.info(
+                f"Validation result for '{asset_name}': "
+                f"valid={result.is_valid}, confidence={result.confidence}, "
+                f"reason={result.reason}"
+            )
+
+            return result
+
+        except Exception as e:
+            _logger.error(f"Validation failed for '{asset_name}': {e}")
+            # Return valid on error to not block execution
+            return ValidationResult.valid(
+                reason=f"Validation skipped due to error: {e}",
+                asset_name=asset_name,
+            )
 
     def _extract_question_from_result(self, result_string: str) -> str:
         """Extract the user question from a paused result.

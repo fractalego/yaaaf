@@ -116,6 +116,13 @@ AGENT_TAXONOMIES = {
         output_permanence=OutputPermanence.EPHEMERAL,
         description="Creates execution DAGs showing optimal data flow paths"
     ),
+
+    "ValidationAgent": AgentTaxonomy(
+        data_flow=DataFlow.TRANSFORMER,
+        interaction_mode=InteractionMode.AUTONOMOUS,
+        output_permanence=OutputPermanence.EPHEMERAL,
+        description="Validates artifacts against user goals and step descriptions"
+    ),
 }
 
 

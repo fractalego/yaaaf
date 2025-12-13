@@ -17,6 +17,7 @@ from yaaaf.components.agents.tool_agent import ToolAgent
 from yaaaf.components.agents.numerical_sequences_agent import NumericalSequencesAgent
 from yaaaf.components.agents.answerer_agent import AnswererAgent
 from yaaaf.components.agents.mle_agent import MleAgent
+from yaaaf.components.agents.validation_agent import ValidationAgent
 from yaaaf.components.client import OllamaClient
 from yaaaf.components.sources.sqlite_source import SqliteSource
 from yaaaf.components.sources.rag_source import RAGSource
@@ -350,9 +351,15 @@ class OrchestratorBuilder:
                         )
             all_agents["planner"] = PlannerAgent(agent_client, available_agents)
 
-        # Create plan-driven orchestrator
-        orchestrator = OrchestratorAgent(orchestrator_client, all_agents)
-        _logger.info("Created plan-driven orchestrator")
+        # Create validation agent for artifact validation
+        validation_agent = ValidationAgent(orchestrator_client)
+        _logger.info("Created validation agent")
+
+        # Create plan-driven orchestrator with validation
+        orchestrator = OrchestratorAgent(
+            orchestrator_client, all_agents, validation_agent=validation_agent
+        )
+        _logger.info("Created plan-driven orchestrator with validation")
 
         return orchestrator
 

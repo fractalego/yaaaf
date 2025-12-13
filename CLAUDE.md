@@ -134,6 +134,7 @@ The `scripts/` directory contains auxiliary scripts for various tasks:
 - Frontend uses Turbo monorepo with pnpm for package management
 - Backend uses FastAPI with CORS enabled for frontend integration
 - Tests use Python's unittest framework, not pytest
+- **NEVER USE MOCKS IN TESTS** - use real implementations or skip the test
 - Don't use pip to install dependencies, use `uv add` to add dependencies to the `pyproject.toml` file
 
 ### Creating New Agents

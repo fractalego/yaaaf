@@ -1,7 +1,10 @@
 import logging
 import re
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, TYPE_CHECKING
 from yaaaf.components.agents.base_agent import CustomAgent
+
+if TYPE_CHECKING:
+    from yaaaf.components.agents.validation_agent import ValidationAgent
 from yaaaf.components.agents.planner_agent import PlannerAgent
 from yaaaf.components.agents.plan_artifact import PlanArtifact
 from yaaaf.components.agents.artefacts import ArtefactStorage
@@ -10,6 +13,8 @@ from yaaaf.components.executors.workflow_executor import (
     WorkflowExecutor,
     ValidationError,
     ConditionError,
+    ReplanRequiredException,
+    UserDecisionRequiredException,
 )
 from yaaaf.components.executors.paused_execution import PausedExecutionException
 from yaaaf.components.data_types import Messages, Utterance
@@ -21,12 +26,18 @@ _logger = logging.getLogger(__name__)
 class OrchestratorAgent(CustomAgent):
     """Orchestrator that uses plan-driven execution with automatic replanning."""
 
-    def __init__(self, client: BaseClient, agents: Dict[str, Any]):
+    def __init__(
+        self,
+        client: BaseClient,
+        agents: Dict[str, Any],
+        validation_agent: Optional["ValidationAgent"] = None,
+    ):
         """Initialize plan-driven orchestrator.
 
         Args:
             client: LLM client
             agents: Dictionary of available agents
+            validation_agent: Optional validation agent for artifact validation
         """
         super().__init__(client)
         self.agents = agents
@@ -36,6 +47,8 @@ class OrchestratorAgent(CustomAgent):
         self.plan_executor = None
         self.artefact_storage = ArtefactStorage()
         self._max_replan_attempts = 3
+        self._validation_agent = validation_agent
+        self._original_goal = None  # Store for validation context
 
         # Extract planner from agents
         for agent_name, agent in agents.items():
@@ -75,6 +88,9 @@ class OrchestratorAgent(CustomAgent):
         _logger.info(
             f"Extracted goal: {goal_info['goal']}, target type: {goal_info['artifact_type']}"
         )
+
+        # Store original goal for validation context
+        self._original_goal = goal_info['goal']
         
         # Update stream status
         if stream_id:
@@ -122,7 +138,13 @@ class OrchestratorAgent(CustomAgent):
 
                     # Create new executor with notes for streaming and status updates
                     self.plan_executor = WorkflowExecutor(
-                        self.current_plan, self.agents, notes, stream_id, messages
+                        yaml_plan=self.current_plan,
+                        agents=self.agents,
+                        notes=notes,
+                        stream_id=stream_id,
+                        original_messages=messages,
+                        validation_agent=self._validation_agent,
+                        original_goal=self._original_goal,
                     )
 
                 # Execute plan
@@ -165,6 +187,70 @@ class OrchestratorAgent(CustomAgent):
 
                 # Re-raise to signal to server that execution is paused
                 raise
+
+            except ReplanRequiredException as e:
+                # Validation-triggered replanning
+                _logger.warning(
+                    f"Validation triggered replan (attempt {attempt + 1}): "
+                    f"asset={e.validation_result.asset_name}, "
+                    f"reason={e.validation_result.reason}"
+                )
+
+                # Include suggested fix in error context for better replanning
+                if e.validation_result.suggested_fix:
+                    last_error = (
+                        f"Validation failed for {e.validation_result.asset_name}: "
+                        f"{e.validation_result.reason}. "
+                        f"Suggested fix: {e.validation_result.suggested_fix}"
+                    )
+                else:
+                    last_error = (
+                        f"Validation failed for {e.validation_result.asset_name}: "
+                        f"{e.validation_result.reason}"
+                    )
+
+                partial_results = e.completed_assets
+                self.current_plan = None  # Force replanning
+
+                # Add note about validation-triggered replan
+                if notes is not None:
+                    from yaaaf.components.data_types import Note
+                    replan_note = Note(
+                        message=f"🔄 **Replanning required**\n\nValidation issue with '{e.validation_result.asset_name}': {e.validation_result.reason}",
+                        artefact_id=None,
+                        agent_name="validation",
+                    )
+                    notes.append(replan_note)
+
+            except UserDecisionRequiredException as e:
+                # Need user input to proceed
+                _logger.warning(
+                    f"User decision required for {e.validation_result.asset_name}: "
+                    f"{e.validation_result.reason}"
+                )
+
+                # Add note requesting user decision
+                if notes is not None:
+                    from yaaaf.components.data_types import Note
+                    decision_note = Note(
+                        message=(
+                            f"❓ **Decision needed**\n\n"
+                            f"Issue with '{e.validation_result.asset_name}': {e.validation_result.reason}\n\n"
+                            f"Please provide guidance on how to proceed."
+                        ),
+                        artefact_id=None,
+                        agent_name="validation",
+                    )
+                    notes.append(decision_note)
+
+                # For now, treat as error and trigger replan with user's implicit guidance
+                # In future, this could pause and wait for explicit user input
+                last_error = (
+                    f"User decision needed for {e.validation_result.asset_name}: "
+                    f"{e.validation_result.reason}"
+                )
+                partial_results = e.completed_assets
+                self.current_plan = None
 
             except (ValidationError, ConditionError) as e:
                 _logger.warning(f"Plan execution failed (attempt {attempt + 1}): {e}")

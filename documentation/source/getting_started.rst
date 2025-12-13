@@ -3,6 +3,8 @@ Getting Started
 
 This guide will get you running YAAAF in under 5 minutes.
 
+YAAAF is an **artifact-first** framework. When you send a query, the system plans a railway for artifacts to flow from sources (databases, documents, APIs) through transformation stations (agents) to their final destination (your answer). You will see this in action once you run your first query.
+
 Prerequisites
 -------------
 

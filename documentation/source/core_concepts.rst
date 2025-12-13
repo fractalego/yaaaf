@@ -3,6 +3,18 @@ Core Concepts
 
 YAAAF is built around a single core idea: **artifacts flow through a planned pipeline from sources to outputs**. This page explains how this works.
 
+Artifact-First, Not Agent-First
+-------------------------------
+
+YAAAF is an **artifact-first** framework. This is a fundamental design philosophy:
+
+- **Traditional systems**: Query -> Agent -> Response
+- **YAAAF**: Query -> Plan Railway -> Flow Artifacts -> Response
+
+In traditional agent systems, you ask "which agent should handle this?" In YAAAF, you ask "what artifacts need to be created, and how do they flow from source to destination?"
+
+The agents are not the stars of the show. They are the **stations** on a railway. The **artifacts** are the trains that move through them.
+
 Artifact-Driven Execution
 -------------------------
 

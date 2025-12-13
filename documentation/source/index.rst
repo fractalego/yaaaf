@@ -1,7 +1,22 @@
 YAAAF Documentation
 ===================
 
-**YAAAF** (Yet Another Autonomous Agents Framework) is an artifact-driven framework for building intelligent agentic applications. The system plans and executes workflows where artifacts flow from sources through transformers to final outputs, like trains moving along a railway network planned specifically for each query.
+**YAAAF** (Yet Another Autonomous Agents Framework) is an **artifact-first** framework for building intelligent agentic applications.
+
+The Core Philosophy
+-------------------
+
+YAAAF is not about agents. It is about **artifacts**.
+
+In YAAAF, you do not route queries to agents. Instead, the system builds a **railway** - a planned pipeline that moves artifacts from sources to their final destination. Agents are merely the stations along this railway, transforming artifacts as they pass through.
+
+When you ask "Show me a chart of sales by region", YAAAF:
+
+1. Plans a railway: Database -> Table -> Chart
+2. Builds the track: SqlAgent produces a table, VisualizationAgent consumes it
+3. Runs the train: The artifact (data) flows through each station until it reaches its destination (an image)
+
+This is artifact-first design: **the artifact is the primary citizen, not the agent**.
 
 .. toctree::
    :maxdepth: 2

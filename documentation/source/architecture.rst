@@ -1,7 +1,7 @@
 Architecture
 ============
 
-YAAAF is an artifact-driven framework where workflows are planned and executed as directed acyclic graphs (DAGs).
+YAAAF is an **artifact-first** framework. The architecture is designed around one principle: artifacts flow through planned railways from sources to destinations. Agents are stations, not destinations.
 
 System Overview
 ---------------

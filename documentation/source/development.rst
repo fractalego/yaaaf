@@ -7,13 +7,15 @@ Development Environment
 -----------------------
 
 Prerequisites
-~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 **System Requirements**:
-   * Python 3.11+
-   * Node.js 18+
-   * Git
-   * pnpm (for frontend)
+
+- Python 3.11+
+- Node.js 18+
+- Git
+- pnpm (for frontend)
+- Ollama (for LLM)
 
 **Recommended Tools**:
    * VSCode or PyCharm

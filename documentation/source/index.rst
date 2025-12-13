@@ -1,84 +1,42 @@
-Welcome to YAAAF Documentation
-=============================
+YAAAF Documentation
+===================
 
-**YAAAF** (Yet Another Autonomous Agents Framework) is a modular framework for building agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, and reflection.
+**YAAAF** (Yet Another Autonomous Agents Framework) is an artifact-driven framework for building intelligent agentic applications. The system plans and executes workflows where artifacts flow from sources through transformers to final outputs, like trains moving along a railway network planned specifically for each query.
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
    getting_started
+   core_concepts
+   agent_taxonomy
+   agents
+   planning_system
    configuration
    architecture
-   agents
-   brave_search_agent
-   mcp_integration
-   api_reference
-   frontend
-   gdpr_popup
    development
-   examples
 
-Key Features
-------------
+Core Idea
+---------
 
-* **Modular Agent System**: Specialized agents for SQL, visualization, web search, reflection, and more
-* **Orchestrator Pattern**: Central coordinator that routes queries to appropriate agents
-* **MCP Integration**: Full support for Model Context Protocol (MCP) with SSE and stdio transports
-* **Real-time Streaming**: Live updates through WebSocket-like streaming
-* **Artifact Management**: Structured handling of generated content (tables, images, etc.)
-* **Frontend Integration**: React-based UI with real-time chat interface
-* **Extensible**: Easy to add new agents and capabilities
+Unlike traditional agent systems that route queries to individual agents, YAAAF takes a fundamentally different approach:
 
-Quick Start
+1. **Goal Analysis**: The system extracts the user's goal and determines the required output type
+2. **Workflow Planning**: A planner creates a DAG (directed acyclic graph) defining how artifacts should flow
+3. **Artifact Flow**: Data moves through the planned pipeline - extracted, transformed, and finally output
+
+The planner uses RAG-based example retrieval from 50,000+ planning scenarios to generate high-quality workflows for any query.
+
+Quick Links
 -----------
 
-Install and run YAAAF in just a few commands:
-
-.. code-block:: bash
-
-   # Create a custom configuration (optional)
-   python -m yaaaf config
-
-   # Start the backend server (default port 4000)
-   python -m yaaaf backend
-
-   # Start the frontend server (default port 3000)
-   python -m yaaaf frontend
-
-   # Or specify custom ports
-   python -m yaaaf backend 8080
-   python -m yaaaf frontend 3001
-
-Architecture Overview
----------------------
-
-YAAAF follows a clean separation between backend and frontend:
-
-* **Backend**: Python-based server with FastAPI and specialized agents
-* **Frontend**: Next.js application with real-time chat interface
-* **Communication**: RESTful API with streaming support
-* **Storage**: Centralized artifact storage with ID-based references
-
-Agents
-------
-
-YAAAF includes several built-in agents:
-
-* **OrchestratorAgent**: Routes queries to appropriate specialized agents
-* **SqlAgent**: Executes SQL queries and returns structured data
-* **VisualizationAgent**: Creates charts and visualizations from data
-* **WebSearchAgent**: Performs web searches using DuckDuckGo
-* **BraveSearchAgent**: Privacy-focused web search using Brave's independent search API
-* **ReflectionAgent**: Provides step-by-step reasoning and planning
-* **DocumentRetrieverAgent**: Document search and retrieval from configured sources
-* **AnswererAgent**: Synthesizes multiple artifacts into comprehensive research answers
-* **TodoAgent**: Creates structured todo lists for planning complex multi-agent tasks
-* **ToolAgent**: Advanced integration with MCP (Model Context Protocol) tools and external services
+* :doc:`getting_started` - Run YAAAF in 5 minutes
+* :doc:`core_concepts` - Understand artifact-driven execution
+* :doc:`agents` - Detailed reference for all agents
+* :doc:`configuration` - Configure sources, agents, and tools
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`

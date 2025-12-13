@@ -1,7 +1,7 @@
 import logging
 import os
 from typing import Dict, List, Optional
-from yaaaf.components.agents.plan_driven_orchestrator_agent import OrchestratorAgent
+from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaaf.components.data_types import Note
 from yaaaf.components.safety_filter import SafetyFilter
 from yaaaf.components.client import OllamaConnectionError, OllamaResponseError

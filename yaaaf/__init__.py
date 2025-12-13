@@ -15,7 +15,7 @@ __license__ = "MIT"
 # Core components
 from yaaaf.components.data_types import Messages, Note, Utterance, PromptTemplate
 from yaaaf.components.agents.base_agent import BaseAgent
-from yaaaf.components.agents.plan_driven_orchestrator_agent import OrchestratorAgent
+from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaaf.components.orchestrator_builder import OrchestratorBuilder
 
 # Common agents

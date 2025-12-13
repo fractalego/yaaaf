@@ -1,7 +1,7 @@
 import os
 import logging
 from typing import List
-from yaaaf.components.agents.plan_driven_orchestrator_agent import OrchestratorAgent
+from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaaf.components.agents.planner_agent import PlannerAgent
 from yaaaf.components.agents.reviewer_agent import ReviewerAgent
 from yaaaf.components.agents.sql_agent import SqlAgent

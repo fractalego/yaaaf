@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
 
-from yaaaf.components.agents.plan_driven_orchestrator_agent import OrchestratorAgent
+from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaaf.components.agents.planner_agent import PlannerAgent
 from yaaaf.components.agents.sql_agent import SqlAgent
 from yaaaf.components.agents.visualization_agent import VisualizationAgent
@@ -48,7 +48,7 @@ class TestPlanDrivenOrchestrator(unittest.TestCase):
         self.assertIsNone(self.orchestrator.plan_executor)
 
     @patch(
-        "yaaaf.components.agents.plan_driven_orchestrator_agent.EnhancedGoalExtractor"
+        "yaaaf.components.agents.orchestrator_agent.EnhancedGoalExtractor"
     )
     async def test_goal_extraction(self, mock_goal_extractor_class):
         """Test goal extraction from user messages."""
@@ -111,9 +111,9 @@ assets:
         self.assertIn("SqlAgent", plan)
         self.assertIn("VisualizationAgent", plan)
 
-    @patch("yaaaf.components.agents.plan_driven_orchestrator_agent.WorkflowExecutor")
+    @patch("yaaaf.components.agents.orchestrator_agent.WorkflowExecutor")
     @patch(
-        "yaaaf.components.agents.plan_driven_orchestrator_agent.EnhancedGoalExtractor"
+        "yaaaf.components.agents.orchestrator_agent.EnhancedGoalExtractor"
     )
     async def test_successful_execution(
         self, mock_goal_extractor_class, mock_workflow_executor_class
@@ -165,9 +165,9 @@ assets:
         self.assertEqual(result.code, "chart.png")
         mock_executor.execute.assert_called_once()
 
-    @patch("yaaaf.components.agents.plan_driven_orchestrator_agent.WorkflowExecutor")
+    @patch("yaaaf.components.agents.orchestrator_agent.WorkflowExecutor")
     @patch(
-        "yaaaf.components.agents.plan_driven_orchestrator_agent.EnhancedGoalExtractor"
+        "yaaaf.components.agents.orchestrator_agent.EnhancedGoalExtractor"
     )
     async def test_replanning_on_failure(
         self, mock_goal_extractor_class, mock_workflow_executor_class

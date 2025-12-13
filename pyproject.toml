@@ -92,6 +92,7 @@ yaaaf = [
     "server/*.py",
     "client/*.py",
     "client/standalone.zip",
+    "data/*.csv",
 ]
 scripts = [
     "planner_dataset/planner_dataset.csv",

@@ -580,52 +580,7 @@ Workflow Format Rules:
 
 EXAMPLES showing correct type usage from agent specifications:
 
-Example 1 - Web Search Query:
-```yaml
-assets:
-  search_results:
-    agent: BraveSearchAgent  # Check spec: "Produces: table"
-    description: "Search for information"
-    type: table  # MUST use 'table' because agent produces 'table'
-    params:
-      query: "search query"
-      
-  processed_answer:
-    agent: AnswererAgent  # Check spec: "Produces: table" 
-    description: "Process search results"
-    type: table  # MUST use 'table' because agent produces 'table'
-    inputs: [search_results]
-```
-
-Example 2 - Data Analysis:
-```yaml
-assets:
-  database_data:
-    agent: SqlAgent  # Check spec: "Produces: table"
-    description: "Extract data from database"
-    type: table  # MUST use 'table' because agent produces 'table'
-    
-  chart:
-    agent: VisualizationAgent  # Check spec: "Produces: image"
-    description: "Create visualization"
-    type: image  # MUST use 'image' because agent produces 'image'
-    inputs: [database_data]
-```
-
-Example 3 - Document Processing:
-```yaml
-assets:
-  document:
-    agent: DocumentRetrieverAgent  # Check spec: "Produces: text"
-    description: "Retrieve document content"
-    type: text  # MUST use 'text' because agent produces 'text'
-    
-  summary:
-    agent: AnswererAgent  # Check spec: "Produces: table"
-    description: "Summarize document"
-    type: table  # MUST use 'table' because agent produces 'table'
-    inputs: [document]
-```
+{examples}
 
 Optional features you can include:
 - validation: Data quality checks (row_count, columns, constraints)

@@ -26,9 +26,10 @@ class PlannerAgent(ToolBasedAgent):
         # Create agent descriptions with taxonomy info
         agent_descriptions = self._create_agent_descriptions(available_agents)
 
-        # Complete the prompt template with available agents (examples placeholder remains)
-        self._system_prompt_template = planner_agent_prompt_template.complete(
-            agent_descriptions=agent_descriptions
+        # Partially complete the prompt template with agent_descriptions
+        # Use replace() instead of complete() to keep {examples} as a placeholder
+        self._system_prompt_template = planner_agent_prompt_template.prompt.replace(
+            "{agent_descriptions}", agent_descriptions
         )
         self._system_prompt = self._system_prompt_template  # Will be completed at query time
 

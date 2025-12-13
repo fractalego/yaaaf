@@ -4,7 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-YAAAF (Yet Another Autonomous Agents Framework) is a modular framework for building agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, and reflection.
+YAAAF (Yet Another Autonomous Agents Framework) is an **artifact-first** framework for building agentic applications.
+
+**Core Philosophy**: YAAAF is not about agents - it is about artifacts. The system builds a **railway** (a planned DAG) that moves artifacts from sources to their final destination. Agents are merely stations along this railway, transforming artifacts as they pass through.
+
+```
+Query -> Planner -> Railway (DAG) -> Artifacts flow through agents -> Response
+```
+
+- **Artifacts** are the trains (data flowing through the system)
+- **Agents** are the stations (they transform artifacts)
+- **Planner** builds the railway (creates YAML workflow with dependencies)
+- **Workflow Engine** runs the trains (executes the DAG)
 
 ## Development Commands
 
@@ -62,16 +73,16 @@ YAAAF (Yet Another Autonomous Agents Framework) is a modular framework for build
 - Default model: `qwen2.5:32b` with Ollama client
 - Supports multiple data sources (SQLite) and configurable agent selection
 
-### Data Flow
+### Data Flow (Artifact-First)
 1. User query → Frontend chat interface
 2. Frontend → Backend API (`/create_stream`)
-3. OrchestratorAgent routes to appropriate specialized agents
-4. Agent processes query through executor pattern:
-   - Executor prepares context (schemas, artifacts, environment)
-   - Agent enters multi-step loop with LLM interactions
-   - Executor handles tool-specific operations (SQL, search, code execution)
-   - Results transformed into artifacts and stored
-5. Results streamed back to frontend with real-time updates
+3. **Goal Extraction**: System determines what artifact type the user wants
+4. **Railway Planning**: PlannerAgent creates YAML workflow (DAG) using RAG-retrieved examples
+5. **Artifact Flow**: WorkflowExecutor runs the DAG:
+   - Each agent (station) receives input artifacts
+   - Agent transforms artifacts and produces output
+   - Output artifacts flow to next station(s)
+6. Final artifact returned to user
 
 ## Key Files to Understand
 
@@ -84,6 +95,10 @@ YAAAF (Yet Another Autonomous Agents Framework) is a modular framework for build
 - Refactored agents: `*_agent_refactored.py` files for simplified implementations
 
 ### Core System
+- `yaaaf/components/agents/orchestrator_agent.py`: Plan-driven orchestrator (goal extraction + workflow execution)
+- `yaaaf/components/agents/planner_agent.py`: Creates YAML workflows using RAG-retrieved examples
+- `yaaaf/components/retrievers/planner_example_retriever.py`: BM25-based retrieval from planner dataset
+- `yaaaf/data/planner_dataset.csv`: 50k+ examples for RAG-based planning
 - `yaaaf/components/orchestrator_builder.py`: Agent registration and orchestrator setup
 - `yaaaf/components/data_types.py`: Core message/conversation structures
 - `yaaaf/server/routes.py`: API endpoints for chat streaming and artifacts
@@ -125,4 +140,5 @@ The `scripts/` directory contains auxiliary scripts for various tasks:
 1. Implement a ToolExecutor for your specific tool/operation
 2. Create an agent class inheriting from BaseAgentEnhanced
 3. Set the executor and system prompt in the constructor
-4. The base class handles all common functionality automatically
+4. Register the agent in `orchestrator_builder.py`
+5. **Important**: Add 5-10 examples to `yaaaf/data/planner_dataset.csv` so the planner knows how to use your agent in workflows

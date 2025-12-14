@@ -13,7 +13,10 @@ interface UseStreamStatusProps {
   isGenerating?: boolean
 }
 
-export function useStreamStatus({ streamId, isGenerating }: UseStreamStatusProps) {
+export function useStreamStatus({
+  streamId,
+  isGenerating,
+}: UseStreamStatusProps) {
   // Default status when not actively streaming
   const defaultStatus: StreamStatus = {
     goal: "",
@@ -63,10 +66,10 @@ export function useStreamStatus({ streamId, isGenerating }: UseStreamStatusProps
         current_agent: "orchestrator",
         is_active: true,
       })
-      
+
       // Fetch immediately when generation starts
       fetchStatus()
-      
+
       // Poll for status updates every 2 seconds while generating
       const interval = setInterval(() => {
         fetchStatus()

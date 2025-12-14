@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   }
   const base64_image = await getImage(imageID)
   const image = Buffer.from(base64_image, "base64")
-  return new Response(image)
+  return new Response(new Uint8Array(image))
 }
 
 async function getImage(imageID: string): Promise<string> {

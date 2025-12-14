@@ -1,89 +1,89 @@
-import { PlanUpdate } from './plan-types';
+import { PlanUpdate } from "./plan-types"
 
 export interface StreamingOptions {
-  onMessage?: (content: string) => void;
-  onPlanUpdate?: (update: PlanUpdate) => void;
-  onError?: (error: Error) => void;
-  onComplete?: () => void;
+  onMessage?: (content: string) => void
+  onPlanUpdate?: (update: PlanUpdate) => void
+  onError?: (error: Error) => void
+  onComplete?: () => void
 }
 
 export class StreamingChatClient {
-  private baseUrl: string;
+  private baseUrl: string
 
-  constructor(baseUrl: string = '') {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl: string = "") {
+    this.baseUrl = baseUrl
   }
 
   async streamChat(message: string, options: StreamingOptions = {}) {
     try {
       const response = await fetch(`${this.baseUrl}/api/create_stream`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           message,
-          stream: true
-        })
-      });
+          stream: true,
+        }),
+      })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const reader = response.body?.getReader();
+      const reader = response.body?.getReader()
       if (!reader) {
-        throw new Error('No reader available');
+        throw new Error("No reader available")
       }
 
-      const decoder = new TextDecoder();
-      let buffer = '';
+      const decoder = new TextDecoder()
+      let buffer = ""
 
       try {
         while (true) {
-          const { done, value } = await reader.read();
-          
+          const { done, value } = await reader.read()
+
           if (done) {
-            options.onComplete?.();
-            break;
+            options.onComplete?.()
+            break
           }
 
-          buffer += decoder.decode(value, { stream: true });
-          
+          buffer += decoder.decode(value, { stream: true })
+
           // Process complete lines
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || ''; // Keep incomplete line in buffer
+          const lines = buffer.split("\n")
+          buffer = lines.pop() || "" // Keep incomplete line in buffer
 
           for (const line of lines) {
-            if (line.trim() === '') continue;
-            
+            if (line.trim() === "") continue
+
             try {
               // Check if it's a server-sent event
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6); // Remove 'data: ' prefix
-                
-                if (data === '[DONE]') {
-                  options.onComplete?.();
-                  return;
+              if (line.startsWith("data: ")) {
+                const data = line.slice(6) // Remove 'data: ' prefix
+
+                if (data === "[DONE]") {
+                  options.onComplete?.()
+                  return
                 }
 
-                const parsed = JSON.parse(data);
-                this.handleStreamedData(parsed, options);
+                const parsed = JSON.parse(data)
+                this.handleStreamedData(parsed, options)
               } else {
                 // Regular message content
-                options.onMessage?.(line);
+                options.onMessage?.(line)
               }
             } catch (parseError) {
               // If not JSON, treat as regular message content
-              options.onMessage?.(line);
+              options.onMessage?.(line)
             }
           }
         }
       } finally {
-        reader.releaseLock();
+        reader.releaseLock()
       }
     } catch (error) {
-      options.onError?.(error as Error);
+      options.onError?.(error as Error)
     }
   }
 
@@ -98,32 +98,32 @@ export class StreamingChatClient {
         error: data.error,
         reason: data.reason,
         attempt: data.attempt,
-        timestamp: data.timestamp || Date.now()
-      };
-      options.onPlanUpdate?.(planUpdate);
+        timestamp: data.timestamp || Date.now(),
+      }
+      options.onPlanUpdate?.(planUpdate)
     } else if (data.content) {
       // Regular message content
-      options.onMessage?.(data.content);
-    } else if (typeof data === 'string') {
+      options.onMessage?.(data.content)
+    } else if (typeof data === "string") {
       // String content
-      options.onMessage?.(data);
+      options.onMessage?.(data)
     }
   }
 
   private isPlanUpdateType(type: string): boolean {
     const planUpdateTypes = [
-      'plan_created',
-      'plan_updated', 
-      'asset_started',
-      'asset_completed',
-      'asset_failed',
-      'replanning',
-      'plan_completed',
-      'plan_failed'
-    ];
-    return planUpdateTypes.includes(type);
+      "plan_created",
+      "plan_updated",
+      "asset_started",
+      "asset_completed",
+      "asset_failed",
+      "replanning",
+      "plan_completed",
+      "plan_failed",
+    ]
+    return planUpdateTypes.includes(type)
   }
 }
 
 // Default client instance
-export const streamingClient = new StreamingChatClient();
+export const streamingClient = new StreamingChatClient()

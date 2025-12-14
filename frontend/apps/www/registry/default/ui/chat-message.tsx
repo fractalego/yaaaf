@@ -101,12 +101,28 @@ interface TextPart {
   text: string
 }
 
-// For compatibility with AI SDK types, not used
+// For compatibility with AI SDK types
 interface SourcePart {
   type: "source"
 }
 
-type MessagePart = TextPart | ReasoningPart | ToolInvocationPart | SourcePart
+interface FilePart {
+  type: "file"
+  data?: string
+  mimeType?: string
+}
+
+interface StepStartPart {
+  type: "step-start"
+}
+
+type MessagePart =
+  | TextPart
+  | ReasoningPart
+  | ToolInvocationPart
+  | SourcePart
+  | FilePart
+  | StepStartPart
 
 export interface Message {
   id: string
@@ -147,7 +163,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 }) => {
   // Don't show spinner for workflow status messages or if message has completion/pause tags
   const isStatusMessage = content.includes("<!-- workflow-status -->")
-  const hasCompletionTag = content.indexOf(complete_tag) !== -1 || content.indexOf(paused_tag) !== -1
+  const hasCompletionTag =
+    content.indexOf(complete_tag) !== -1 || content.indexOf(paused_tag) !== -1
 
   // Only show spinner on the last message if it doesn't have completion/pause tags
   const shouldShowSpinner: boolean =
@@ -238,7 +255,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                   </span>
                   {streamStatus?.goal && (
                     <span className="text-xs opacity-70">
-                      • {streamStatus.goal.length > 50
+                      •{" "}
+                      {streamStatus.goal.length > 50
                         ? streamStatus.goal.substring(0, 50) + "..."
                         : streamStatus.goal}
                     </span>

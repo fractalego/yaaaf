@@ -23,8 +23,9 @@ export function TypingIndicator({ streamStatus }: TypingIndicatorProps) {
           </span>
           {streamStatus?.is_active && streamStatus?.goal && (
             <span className="text-xs opacity-70">
-              • {streamStatus.goal.length > 50 
-                ? streamStatus.goal.substring(0, 50) + "..." 
+              •{" "}
+              {streamStatus.goal.length > 50
+                ? streamStatus.goal.substring(0, 50) + "..."
                 : streamStatus.goal}
             </span>
           )}

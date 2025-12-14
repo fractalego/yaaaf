@@ -5,9 +5,9 @@ import { useChat, type UseChatOptions } from "@ai-sdk/react"
 import { Database } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useStreamStatus } from "@/hooks/use-stream-status"
 import { InfoButton } from "@/components/ui/info-button"
 import { SourcesModal } from "@/components/ui/sources-modal"
-import { useStreamStatus } from "@/hooks/use-stream-status"
 import { ArtefactPanel } from "@/registry/custom/artefact-panel"
 import { Button } from "@/registry/default/ui/button"
 import { Chat } from "@/registry/default/ui/chat"
@@ -84,9 +84,9 @@ export default function ChatDemo() {
     },
   })
 
-  const { status: streamStatus } = useStreamStatus({ 
+  const { status: streamStatus } = useStreamStatus({
     streamId: currentSessionId,
-    isGenerating: isLoading 
+    isGenerating: isLoading,
   })
 
   // Custom handlers that update session ID before calling original handlers
@@ -105,7 +105,8 @@ export default function ChatDemo() {
     const lastMessage = messages[messages.length - 1]
     if (lastMessage?.role === "assistant") {
       const isPausedMessage = lastMessage?.content?.includes("<taskpaused/>")
-      const isCompletedMessage = lastMessage?.content?.includes("<taskcompleted/>")
+      const isCompletedMessage =
+        lastMessage?.content?.includes("<taskcompleted/>")
 
       if (isPausedMessage || isCompletedMessage) {
         markSessionAsPaused()
@@ -179,7 +180,9 @@ export default function ChatDemo() {
 
   // Handle user response submission when execution is paused
   const handleUserResponseSubmit = async (userResponse: string) => {
-    console.log(`Submitting user response for stream ${currentSessionId}: ${userResponse}`)
+    console.log(
+      `Submitting user response for stream ${currentSessionId}: ${userResponse}`
+    )
 
     try {
       // First, add the user's response as a message in the UI
@@ -221,21 +224,27 @@ export default function ChatDemo() {
   }
 
   // Poll for new messages after resuming from pause
-  const pollForResumedMessages = async (streamId: string, stopFn?: () => void) => {
+  const pollForResumedMessages = async (
+    streamId: string,
+    stopFn?: () => void
+  ) => {
     console.log(`Starting to poll for resumed messages on stream ${streamId}`)
 
     // First, get the current note count to know where we're starting from
     let lastNoteCount = 0
     try {
-      const initialResponse = await fetch("http://localhost:4000/get_utterances", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          stream_id: streamId,
-        }),
-      })
+      const initialResponse = await fetch(
+        "http://localhost:4000/get_utterances",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            stream_id: streamId,
+          }),
+        }
+      )
       if (initialResponse.ok) {
         const initialNotes = await initialResponse.json()
         lastNoteCount = initialNotes.length
@@ -267,14 +276,18 @@ export default function ChatDemo() {
           // Check if there are new notes since last poll
           if (notes.length > lastNoteCount) {
             const newNotes = notes.slice(lastNoteCount)
-            console.log(`Found ${newNotes.length} new messages (total notes: ${notes.length})`)
+            console.log(
+              `Found ${newNotes.length} new messages (total notes: ${notes.length})`
+            )
 
             // Convert notes to messages and append
             const newMessages = newNotes.map((note: any, index: number) => {
               // Format the note message for display
               let content = note.message
               if (note.agent_name) {
-                content = `<${note.agent_name}${note.model_name ? ` data-model="${note.model_name}"` : ""}>${note.message}</${note.agent_name}>`
+                content = `<${note.agent_name}${
+                  note.model_name ? ` data-model="${note.model_name}"` : ""
+                }>${note.message}</${note.agent_name}>`
               }
 
               return {
@@ -307,7 +320,9 @@ export default function ChatDemo() {
           } else {
             // No new notes, increment counter
             consecutiveEmptyPolls++
-            console.log(`No new messages (${consecutiveEmptyPolls}/${maxEmptyPolls})`)
+            console.log(
+              `No new messages (${consecutiveEmptyPolls}/${maxEmptyPolls})`
+            )
             if (consecutiveEmptyPolls >= maxEmptyPolls) {
               console.log("No new messages for 60 seconds, stopping poll")
               clearInterval(pollInterval)
@@ -375,7 +390,6 @@ export default function ChatDemo() {
               </div>
             </div>
 
-
             <Chat
               className="grow"
               messages={messages}
@@ -416,7 +430,6 @@ export default function ChatDemo() {
         isOpen={isSourcesModalOpen}
         onClose={() => setIsSourcesModalOpen(false)}
       />
-
     </div>
   )
 }

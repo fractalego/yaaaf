@@ -231,7 +231,9 @@ function ArtefactPage(element: {
               />
             </div>
             <div className="m-5 align-baseline flex-1">
-              <pre className="whitespace-pre-wrap break-words overflow-wrap-anywhere">{element.code}</pre>
+              <pre className="whitespace-pre-wrap break-words overflow-wrap-anywhere">
+                {element.code}
+              </pre>
             </div>
           </div>
           <div className="w-full">
@@ -245,7 +247,9 @@ function ArtefactPage(element: {
         <div>
           <div className="w-full">
             <div className="m-5 align-baseline">
-              <pre className="whitespace-pre-wrap break-words overflow-wrap-anywhere">{element.code}</pre>
+              <pre className="whitespace-pre-wrap break-words overflow-wrap-anywhere">
+                {element.code}
+              </pre>
             </div>
           </div>
           <div className="w-full">

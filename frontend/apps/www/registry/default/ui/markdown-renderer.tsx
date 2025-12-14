@@ -173,17 +173,26 @@ function getComponents(onArtifactClick?: (artifactId: string) => void) {
   return {
     planner: ({ children, ...props }: any) => {
       return (
-        <PlannerAgent text={children} modelName={props["data-model"]}></PlannerAgent>
+        <PlannerAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></PlannerAgent>
       )
     },
     workflow: ({ children, ...props }: any) => {
       return (
-        <WorkflowAgent text={children} modelName={props["data-model"]}></WorkflowAgent>
+        <WorkflowAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></WorkflowAgent>
       )
     },
     orchestrator: ({ children, ...props }: any) => {
       return (
-        <OrchestratorAgent text={children} modelName={props["data-model"]}></OrchestratorAgent>
+        <OrchestratorAgent
+          text={children}
+          modelName={props["data-model"]}
+        ></OrchestratorAgent>
       )
     },
     sqlagent: ({ children, ...props }: any) => {

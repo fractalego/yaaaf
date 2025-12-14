@@ -68,8 +68,8 @@ class ValidationAgent(CustomAgent):
         messages.utterances.append(Utterance(role="user", content=prompt))
 
         try:
-            response = await self._client.query(messages)
-            result = self._parse_response(response, asset_name)
+            response = await self._client.predict(messages)
+            result = self._parse_response(response.message, asset_name)
             return result
         except Exception as e:
             _logger.error(f"Validation failed: {e}")

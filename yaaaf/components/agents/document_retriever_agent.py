@@ -18,13 +18,28 @@ class DocumentRetrieverAgent(ToolBasedAgent):
         """Initialize document retriever agent."""
         chunk_extractor = ChunkExtractor(client)
         super().__init__(client, DocumentRetrieverExecutor(sources, chunk_extractor))
-        self._system_prompt = document_retriever_agent_prompt_template
         self._output_tag = "```retrieved"
         self._sources = sources
-        
+
+        # Build folders description for the prompt
+        folders_desc = self._build_folders_description(sources)
+        self._system_prompt = document_retriever_agent_prompt_template.complete(folders=folders_desc)
+
         _logger.info(f"DocumentRetrieverAgent initialized with {len(sources)} sources:")
         for i, source in enumerate(sources):
             _logger.info(f"  {i}: {source.get_description()}")
+
+    def _build_folders_description(self, sources: List[RAGSource]) -> str:
+        """Build a description of available document folders/sources."""
+        if not sources:
+            return "No document sources available"
+
+        descriptions = []
+        for i, source in enumerate(sources):
+            desc = source.get_description() if hasattr(source, 'get_description') else str(source)
+            descriptions.append(f"folder_index {i}: {desc}")
+
+        return "\n".join(descriptions)
 
     @staticmethod
     def get_info() -> str:

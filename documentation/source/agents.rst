@@ -1,616 +1,701 @@
-Agents
-======
+Agents Reference
+================
 
-YAAAF includes several specialized agents, each designed to handle specific types of tasks. All agents follow a common interface while providing unique capabilities.
+This page provides detailed documentation for every agent in YAAAF. Each agent is described with its role in the artifact flow, input/output types, configuration, and usage examples.
 
-Agent Overview
---------------
+EXTRACTORS
+----------
 
-Base Agent Interface
-~~~~~~~~~~~~~~~~~~~
-
-All agents inherit from the ``BaseAgent`` class and implement the core interface:
-
-.. code-block:: python
-
-   class BaseAgent:
-       async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
-           """Process a query and return a response"""
-           pass
-       
-       def get_name(self) -> str:
-           """Return the agent's name (lowercase class name)"""
-           return self.__class__.__name__.lower()
-       
-       def get_description(self) -> str:
-           """Return a description of the agent's capabilities"""
-           pass
-
-Available Agents
-----------------
-
-OrchestratorAgent
-~~~~~~~~~~~~~~~~
-
-**Purpose**: Central coordinator that routes queries to appropriate specialized agents.
-
-**Capabilities**:
-   * Analyzes user queries to determine intent
-   * Routes requests to appropriate specialized agents
-   * Manages conversation flow and context
-   * Combines responses from multiple agents
-
-**Usage Tags**: ``<orchestratoragent>...</orchestratoragent>``
-
-**Example**:
-
-.. code-block:: python
-
-   orchestrator = OrchestratorAgent(client)
-   orchestrator.subscribe_agent(SqlAgent(client, source))
-   response = await orchestrator.query(messages)
+Extractors are source agents that pull data from external systems into the artifact flow.
 
 SqlAgent
 ~~~~~~~~
 
-**Purpose**: Executes SQL queries against configured data sources and returns structured results.
+**Role**: EXTRACTOR
 
-**Capabilities**:
-   * Converts natural language to SQL queries
-   * Executes queries against SQLite databases
-   * Returns data as structured tables
-   * Handles query errors and provides feedback
+**Purpose**: Executes SQL queries against configured databases and returns tabular data.
 
-**Usage Tags**: ``<sqlagent>...</sqlagent>``
+**Accepts**: None (source agent)
+
+**Produces**: table
+
+**Description**:
+SqlAgent converts natural language questions into SQL queries, executes them against configured SQLite databases, and returns the results as table artifacts. It understands database schemas and can handle complex queries involving joins, aggregations, and filters.
 
 **Configuration**:
 
 .. code-block:: python
 
    from yaaaf.components.sources.sqlite_source import SqliteSource
-   
-   source = SqliteSource("path/to/database.db")
-   sql_agent = SqlAgent(client, source)
+   from yaaaf.components.agents.sql_agent import SqlAgent
 
-**Example Queries**:
-   * "How many users are in the database?"
-   * "Show me sales data from last month"
-   * "Get the top 10 products by revenue"
+   source = SqliteSource(name="sales_db", db_path="data/sales.db")
+   sql_agent = SqlAgent(client=client, sources=[source])
 
-VisualizationAgent
-~~~~~~~~~~~~~~~~~
+**Example workflow usage**:
 
-**Purpose**: Creates charts and visualizations from data artifacts.
+.. code-block:: yaml
 
-**Capabilities**:
-   * Generates matplotlib-based visualizations
-   * Processes tabular data from other agents
-   * Creates PNG images stored as artifacts
-   * Supports various chart types (bar, line, scatter, etc.)
-
-**Usage Tags**: ``<visualizationagent>...</visualizationagent>``
-
-**Requirements**: Requires data artifacts from previous agent responses
-
-**Example**:
-
-.. code-block:: text
-
-   <visualizationagent>
-   Create a bar chart showing sales by region using the data from the SQL query above.
-   <artefact>table_id_12345</artefact>
-   </visualizationagent>
-
-WebSearchAgent (DuckDuckGoSearchAgent)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-**Purpose**: Performs web searches and retrieves relevant information using DuckDuckGo.
+   assets:
+     sales_data:
+       agent: SqlAgent
+       description: "Get monthly sales totals"
+       type: table
 
 **Capabilities**:
-   * Searches the web using DuckDuckGo
-   * Extracts relevant information from search results
-   * Returns structured data with URLs and snippets
-   * Handles search result ranking and filtering
 
-**Usage Tags**: ``<websearchagent>...</websearchagent>``
-
-**Example Queries**:
-   * "Search for recent developments in AI"
-   * "Find information about Python best practices"
-   * "Look up current weather in San Francisco"
-
-BraveSearchAgent
-~~~~~~~~~~~~~~~~
-
-**Purpose**: Performs web searches using Brave's independent search API with privacy focus.
-
-**Capabilities**:
-   * Searches using Brave's independent search index
-   * Privacy-focused search results
-   * API key-based authentication
-   * Returns structured data with URLs and snippets
-   * Independent from Google/Bing search indexes
-
-**Usage Tags**: ``<bravesearchagent>...</bravesearchagent>``
-
-**Configuration Requirements**:
-   * Brave Search API key must be configured
-   * See :doc:`brave_search_agent` for detailed setup instructions
-
-**Example Queries**:
-   * "Search for renewable energy innovations"
-   * "Find privacy-focused alternatives to mainstream services"
-   * "Look up independent journalism about tech industry"
-
-**Example Configuration**:
-
-.. code-block:: json
-
-   {
-     "agents": ["brave_search"],
-     "api_keys": {
-       "brave_search_api_key": "YOUR_API_KEY_HERE"
-     }
-   }
-
-ReflectionAgent
-~~~~~~~~~~~~~~
-
-**Purpose**: Provides step-by-step reasoning and planning for complex tasks.
-
-**Capabilities**:
-   * Breaks down complex problems into steps
-   * Provides strategic thinking and planning
-   * Suggests approaches for multi-step tasks
-   * Helps with task decomposition
-
-**Usage Tags**: ``<reflectionagent>...</reflectionagent>``
-
-**Example**:
-
-.. code-block:: text
-
-   <reflectionagent>
-   How should I approach analyzing customer churn in our database?
-   </reflectionagent>
+- Schema introspection (automatically discovers tables and columns)
+- Natural language to SQL conversion
+- Query validation and error handling
+- Support for multiple database sources
+- Parameterized queries for safety
 
 DocumentRetrieverAgent
 ~~~~~~~~~~~~~~~~~~~~~~
 
-**Purpose**: Document search and retrieval from configured document collections with support for various file formats including PDFs with configurable chunking.
+**Role**: EXTRACTOR
 
-**Capabilities**:
-   * Searches through document collections using BM25 indexing
-   * Retrieves relevant text passages based on semantic similarity
-   * Generates responses based on retrieved content
-   * Supports multiple document sources and formats
-   * **PDF Support**: Process PDF files with configurable page-level chunking
-   * **File Upload**: Dynamic file upload through frontend interface
-   * **Flexible Chunking**: Configure how PDF content is split (whole document, page-by-page, or custom chunk sizes)
-   * **Status Reporting**: Reports available sources to the orchestrator for better decision-making
+**Purpose**: Retrieves relevant text chunks from document collections using BM25 search.
 
-**Usage Tags**: ``<documentretrieveragent>...</documentretrieveragent>``
+**Accepts**: None (source agent)
 
-**Supported File Formats**:
-   * Text files: ``.txt``, ``.md``, ``.html``, ``.htm``
-   * PDF files: ``.pdf`` (with configurable chunking)
+**Produces**: text
+
+**Description**:
+DocumentRetrieverAgent searches through configured document collections to find passages relevant to the query. It uses BM25 (Best Match 25) ranking to identify the most relevant chunks from text files, PDFs, and other document formats.
 
 **Configuration**:
 
 .. code-block:: python
 
    from yaaaf.components.sources.rag_source import RAGSource
-   
-   # Create RAG sources from different file types
-   sources = []
-   
-   # Text file source
-   text_source = RAGSource("Document collection", "documents/")
-   sources.append(text_source)
-   
-   # PDF file with configurable chunking
-   pdf_source = RAGSource("PDF manual", "manual.pdf")
-   with open("manual.pdf", "rb") as f:
-       pdf_content = f.read()
-       # pages_per_chunk: -1 = whole document, 1 = page-by-page, N = N pages per chunk
-       pdf_source.add_pdf(pdf_content, "manual.pdf", pages_per_chunk=-1)
-   sources.append(pdf_source)
-   
-   document_retriever_agent = DocumentRetrieverAgent(client, sources)
+   from yaaaf.components.agents.document_retriever_agent import DocumentRetrieverAgent
 
-**File Upload via Frontend**:
+   source = RAGSource(description="Technical manuals", source_path="docs/")
+   # Add text files
+   source.add_text(open("manual.txt").read())
+   # Add PDFs (with optional page chunking)
+   with open("guide.pdf", "rb") as f:
+       source.add_pdf(f.read(), "guide.pdf", pages_per_chunk=1)
 
-The Document Retriever agent supports dynamic file uploads through the frontend interface:
+   agent = DocumentRetrieverAgent(client=client, sources=[source])
 
-1. **Upload Interface**: Click the paperclip icon in the chat input area
-2. **File Selection**: Drag and drop or click to select supported files
-3. **PDF Options**: For PDF files, choose between:
-   
-   * **Whole document** (default): Process entire PDF as one searchable chunk
-   * **Page by page**: Split PDF into individual page chunks for more granular retrieval
+**Example workflow usage**:
 
-4. **Description**: Add a description after upload to help with retrieval
-5. **Automatic Indexing**: Files are automatically indexed and available for queries
+.. code-block:: yaml
 
-**PDF Chunking Strategies**:
+   assets:
+     relevant_docs:
+       agent: DocumentRetrieverAgent
+       description: "Find documentation about installation"
+       type: text
 
-* **Whole Document** (``pages_per_chunk=-1``): Best for shorter documents or when context across pages is important
-* **Page-by-Page** (``pages_per_chunk=1``): Better for longer documents, technical manuals, or when specific page references are needed
-* **Custom Chunks** (``pages_per_chunk=N``): Group multiple pages together for balanced context and granularity
+**Supported formats**:
 
-**Example Queries**:
-   * "What does the manual say about installation?"
-   * "Find information about troubleshooting network issues"
-   * "Search for pricing information in the uploaded documents"
-   * "What are the safety guidelines mentioned in the PDF?"
+- Plain text (.txt)
+- Markdown (.md)
+- HTML (.html, .htm)
+- PDF (.pdf) with configurable page chunking
 
-**API Integration**:
+BraveSearchAgent
+~~~~~~~~~~~~~~~~
 
-The Document Retriever agent integrates with the file upload API:
+**Role**: EXTRACTOR
 
-.. code-block:: bash
+**Purpose**: Searches the web using Brave Search API.
 
-   # Upload a file with default chunking (whole document for PDFs)
-   curl -X POST "http://localhost:4000/upload_file_to_rag" \
-        -F "file=@document.pdf" \
-        -F "pages_per_chunk=-1"
+**Accepts**: None (source agent)
 
-**Status Reporting**:
+**Produces**: table
 
-The Document Retriever agent reports its available sources to the orchestrator, helping it make better routing decisions:
+**Description**:
+BraveSearchAgent queries the Brave Search API to find relevant web pages. It returns structured results including titles, URLs, and snippets. Brave Search uses its own independent search index, providing results that may differ from Google or Bing.
 
-.. code-block:: text
+**Configuration**:
 
-   Available document sources (3 total):
-     1. Uploaded file: manual.pdf
-     2. File/Directory: Technical documentation
-     3. Uploaded file: company_policies.txt
+Requires ``BRAVE_SEARCH_API_KEY`` environment variable or configuration.
 
-AnswererAgent
-~~~~~~~~~~~~~
+.. code-block:: json
 
-**Purpose**: Synthesizes information from multiple artifacts to generate comprehensive, well-cited research answers.
+   {
+     "api_keys": {
+       "brave_search_api_key": "YOUR_API_KEY"
+     }
+   }
 
-**Capabilities**:
-   * Processes multiple artifacts from different agents simultaneously
-   * Analyzes data from Document Retriever, SQL Agent, Web Search, and other agents
-   * Generates structured research answers with proper citations
-   * Creates markdown tables with paragraph and source columns
-   * Provides comprehensive coverage of research queries
-   * Maintains logical flow and coherent narrative
+**Example workflow usage**:
 
-**Usage Tags**: ``<answereragent>...</answereragent>``
+.. code-block:: yaml
 
-**Key Features**:
-   * **Multi-Source Analysis**: Processes artifacts from document retrieval, SQL queries, web search, and other agents
-   * **Citation Management**: Automatically extracts and formats citations from artifact metadata
-   * **Structured Output**: Generates well-organized tables with paragraph and source columns
-   * **Comprehensive Synthesis**: Combines information from diverse sources into coherent answers
-   * **Quality Validation**: Ensures proper table format and citation accuracy
+   assets:
+     search_results:
+       agent: BraveSearchAgent
+       description: "Search for recent AI developments"
+       type: table
 
-**Input Requirements**:
-The AnswererAgent requires one or more artifacts to analyze. These can include:
-   * Document chunks from DocumentRetrieverAgent
-   * Query results from SqlAgent
-   * Search results from WebSearchAgent
-   * Analysis results from other agents
+DuckDuckGoSearchAgent
+~~~~~~~~~~~~~~~~~~~~~
 
-**Output Format**:
-The agent generates a markdown table with exactly these columns:
+**Role**: EXTRACTOR
 
-.. code-block:: text
+**Purpose**: Searches the web using DuckDuckGo.
 
-   | paragraph | source |
-   | --------- | ------ |
-   | Comprehensive paragraph answering part of the research query | Specific citation/source for the information |
-   | Additional insights from different sources | Database/Document/URL reference |
+**Accepts**: None (source agent)
 
-**Example Usage**:
+**Produces**: table
 
-.. code-block:: text
+**Description**:
+DuckDuckGoSearchAgent performs web searches using DuckDuckGo's search API. It does not require API keys and provides privacy-focused search results. Results are returned as a table with titles, URLs, and snippets.
 
-   <answereragent>
-   Please analyze the following artifacts and provide a comprehensive answer about AI market trends:
-   <artefact type='table'>document_search_results_123</artefact>
-   <artefact type='table'>market_data_sql_456</artefact>
-   <artefact type='table'>web_search_trends_789</artefact>
-   </answereragent>
+**Example workflow usage**:
 
-**Example Output Table**:
+.. code-block:: yaml
 
-.. code-block:: text
+   assets:
+     web_results:
+       agent: DuckDuckGoSearchAgent
+       description: "Find information about climate change"
+       type: table
 
-   | paragraph | source |
-   | --------- | ------ |
-   | The AI market is experiencing unprecedented growth, with revenues reaching $150 billion in 2023 according to recent industry data. | Market Analysis Database - Q3 2023 Report |
-   | Enterprise adoption of AI solutions has increased by 40% year-over-year, particularly in healthcare and finance sectors. | Industry Survey Document: "AI Adoption Trends 2023.pdf" |
-   | Recent web sources indicate that generative AI tools are driving much of this growth, with ChatGPT reaching 100 million users. | Web Search: TechCrunch article "AI Market Boom 2023" |
+**Note**: No API key required. Rate limits may apply.
 
-**Workflow Integration**:
-The AnswererAgent is typically used as a final synthesis step:
+UrlAgent
+~~~~~~~~
 
-1. **Data Collection**: Other agents gather information (documents, database queries, web search)
-2. **Artifact Generation**: Each agent creates artifacts with their findings
-3. **Synthesis Request**: AnswererAgent is called with multiple artifact references
-4. **Analysis & Integration**: Agent processes all artifacts and identifies key insights
-5. **Structured Output**: Generates comprehensive answer with proper citations
+**Role**: EXTRACTOR
 
-TodoAgent
-~~~~~~~~~
+**Purpose**: Fetches and extracts content from specific URLs.
 
-**Purpose**: Creates structured todo lists for planning complex query responses.
+**Accepts**: None (source agent)
 
-**Capabilities**:
-   * Analyzes complex queries and breaks them down into actionable todo items
-   * Creates prioritized task lists with specific agent assignments
-   * Generates structured markdown tables with ID, Task, Status, Priority, and Agent/Tool columns
-   * Helps orchestrate multi-step workflows
-   * Provides strategic planning for complex multi-agent tasks
-   * Single-use agent (budget of 1 call per query)
+**Produces**: text
 
-**Usage Tags**: ``<todoagent>...</todoagent>``
+**Description**:
+UrlAgent retrieves content from web pages given their URLs. It extracts the main text content, handling HTML parsing and content extraction. Useful when you need content from specific known URLs rather than search results.
 
-**Key Features**:
-   * **Strategic Planning**: Breaks complex queries into manageable steps
-   * **Agent Assignment**: Identifies which specific agents should handle each task
-   * **Priority Management**: Assigns priority levels (high, medium, low) to tasks
-   * **Status Tracking**: Maintains task status (pending, in_progress, completed)
-   * **Artifact Creation**: Generates structured todo-list artifacts for reference
+**Example workflow usage**:
 
-**Table Structure**:
+.. code-block:: yaml
 
-The TodoAgent creates markdown tables with the following columns:
+   assets:
+     page_content:
+       agent: UrlAgent
+       description: "Fetch content from the documentation page"
+       type: text
+       params:
+         url: "https://example.com/docs"
 
-.. code-block:: text
+UserInputAgent
+~~~~~~~~~~~~~~
 
-   | ID | Task | Status | Priority | Agent/Tool |
-   | --- | ---- | ------ | -------- | ----------- |
-   | 1 | Analyze sales data | pending | high | SqlAgent |
-   | 2 | Create visualization | pending | medium | VisualizationAgent |
-   | 3 | Research market trends | pending | low | WebSearchAgent |
+**Role**: EXTRACTOR
 
-**Example Queries**:
-   * "Plan how to analyze customer churn and create recommendations"
-   * "Break down the steps needed to create a comprehensive sales report"
-   * "Create a todo list for implementing a new feature analysis workflow"
+**Purpose**: Collects information from users interactively.
 
-**Usage Notes**:
-   * **Single Call**: TodoAgent has a budget of 1 call per query - use it strategically
-   * **First Step**: Best used as the first agent in complex workflows
-   * **Planning Focus**: Designed for planning, not execution
-   * **Agent Awareness**: Knows about all available agents and their capabilities
+**Accepts**: None (source agent)
 
-**Example**:
+**Produces**: text
 
-.. code-block:: text
+**Description**:
+UserInputAgent pauses workflow execution to request input from the user. This enables interactive workflows where user decisions or additional information is needed mid-execution. The workflow resumes once the user provides input.
 
-   <todoagent>
-   I need to analyze our customer database, create visualizations, and provide insights. 
-   Please create a structured plan for this analysis.
-   </todoagent>
+**Interaction Mode**: INTERACTIVE (pauses for user input)
 
-**Workflow Integration**:
+**Example workflow usage**:
 
-The TodoAgent is typically used in this pattern:
+.. code-block:: yaml
 
-1. **Initial Planning**: TodoAgent creates structured todo list
-2. **Task Execution**: Other agents execute individual tasks from the list
-3. **Progress Tracking**: Each task's status can be updated as work progresses
-4. **Reference**: Todo list artifact serves as a roadmap for the entire workflow
+   assets:
+     user_preference:
+       agent: UserInputAgent
+       description: "Ask user which format they prefer"
+       type: text
 
-ReviewerAgent
-~~~~~~~~~~~~
+TRANSFORMERS
+------------
 
-**Purpose**: Analyzes and extracts information from data artifacts.
-
-**Capabilities**:
-   * Reviews data from previous agents
-   * Extracts specific information patterns
-   * Performs data quality checks
-   * Generates summary reports
-
-**Usage Tags**: ``<revieweragent>...</revieweragent>``
-
-**Requirements**: Requires data artifacts to analyze
-
-UrlReviewerAgent
-~~~~~~~~~~~~~~~
-
-**Purpose**: Retrieves and analyzes content from web URLs.
-
-**Capabilities**:
-   * Fetches content from web pages
-   * Extracts relevant information from HTML
-   * Processes and summarizes web content
-   * Handles various content types
-
-**Usage Tags**: ``<urlrevieweragent>...</urlrevieweragent>``
-
-**Example**:
-
-.. code-block:: text
-
-   <urlrevieweragent>
-   Analyze the content of this article about machine learning trends.
-   <artefact>websearch_results_456</artefact>
-   </urlrevieweragent>
+Transformers convert artifacts from one form to another.
 
 MleAgent
 ~~~~~~~~
 
-**Purpose**: Machine learning model training and analysis.
+**Role**: TRANSFORMER
+
+**Purpose**: Trains machine learning models on tabular data.
+
+**Accepts**: table
+
+**Produces**: model
+
+**Description**:
+MleAgent analyzes tabular data and trains scikit-learn models. It can perform classification, regression, and clustering tasks. The agent automatically selects appropriate algorithms based on the data characteristics and creates model artifacts that can be used for predictions.
+
+**Output Permanence**: PERSISTENT (models are saved)
+
+**Example workflow usage**:
+
+.. code-block:: yaml
+
+   assets:
+     training_data:
+       agent: SqlAgent
+       description: "Get customer data with churn labels"
+       type: table
+
+     churn_model:
+       agent: MleAgent
+       description: "Train model to predict customer churn"
+       type: model
+       inputs: [training_data]
 
 **Capabilities**:
-   * Trains sklearn models on provided data
-   * Performs feature analysis and selection
-   * Generates model predictions and insights
-   * Saves trained models as artifacts
 
-**Usage Tags**: ``<mleagent>...</mleagent>``
+- Automatic feature selection
+- Model selection based on task type
+- Cross-validation for model evaluation
+- Feature importance analysis
 
-**Requirements**: Requires tabular data for training
+ReviewerAgent
+~~~~~~~~~~~~~
+
+**Role**: TRANSFORMER
+
+**Purpose**: Analyzes and validates artifacts.
+
+**Accepts**: table, text
+
+**Produces**: table
+
+**Description**:
+ReviewerAgent examines artifacts and provides analysis, validation, or summary. It can identify patterns, check data quality, extract key information, and generate structured reports about the input artifacts.
+
+**Example workflow usage**:
+
+.. code-block:: yaml
+
+   assets:
+     raw_data:
+       agent: SqlAgent
+       description: "Get raw sales data"
+       type: table
+
+     data_analysis:
+       agent: ReviewerAgent
+       description: "Analyze data quality and identify issues"
+       type: table
+       inputs: [raw_data]
 
 ToolAgent
 ~~~~~~~~~
 
-**Purpose**: Integration with MCP (Model Context Protocol) tools.
+**Role**: TRANSFORMER
 
-**Capabilities**:
-   * Interfaces with external tools and APIs
-   * Executes tool calls based on user requests
-   * Handles tool authentication and parameters
-   * Returns structured tool responses
+**Purpose**: Executes external tools via Model Context Protocol (MCP).
 
-**Usage Tags**: ``<toolagent>...</toolagent>``
+**Accepts**: table, text
 
-**Configuration**: Requires MCP tool setup and authentication
+**Produces**: table
 
-Agent Communication
--------------------
+**Description**:
+ToolAgent interfaces with external tools and services through the MCP protocol. It can call functions provided by MCP servers, enabling integration with calculators, APIs, file systems, and other external capabilities.
 
-Message Flow
-~~~~~~~~~~~
+**Configuration**:
 
-Agents communicate through a structured message system:
+.. code-block:: json
 
-1. **Input**: Agents receive ``Messages`` objects containing conversation history
-2. **Processing**: Agents process the request according to their specialization
-3. **Output**: Agents return string responses with optional artifacts
-4. **Notes**: Agents can append ``Note`` objects to track their contributions
+   {
+     "tools": [
+       {
+         "name": "calculator",
+         "type": "sse",
+         "url": "http://localhost:8080/sse"
+       },
+       {
+         "name": "file_tools",
+         "type": "stdio",
+         "command": "python",
+         "args": ["-m", "mcp_server"]
+       }
+     ]
+   }
 
-Artifact Handling
-~~~~~~~~~~~~~~~~~
+**Example workflow usage**:
 
-Agents can generate and consume artifacts:
+.. code-block:: yaml
 
-**Creating Artifacts**:
+   assets:
+     calculation_result:
+       agent: ToolAgent
+       description: "Calculate compound interest"
+       type: table
 
-.. code-block:: python
+NumericalSequencesAgent
+~~~~~~~~~~~~~~~~~~~~~~~
 
-   # Store an artifact
-   artifact = Artefact(
-       type=Artefact.Types.TABLE,
-       data=dataframe,
-       description="Query results",
-       id=unique_id
-   )
-   storage.store_artefact(unique_id, artifact)
+**Role**: TRANSFORMER
 
-**Referencing Artifacts**:
+**Purpose**: Structures unformatted numerical data into tables.
+
+**Accepts**: text
+
+**Produces**: table
+
+**Description**:
+NumericalSequencesAgent parses unstructured text containing numerical data and converts it into structured tabular format. It identifies patterns, extracts numbers, and organizes them into meaningful columns.
+
+**Example workflow usage**:
+
+.. code-block:: yaml
+
+   assets:
+     raw_text:
+       agent: DocumentRetrieverAgent
+       description: "Get financial report text"
+       type: text
+
+     structured_data:
+       agent: NumericalSequencesAgent
+       description: "Extract numerical data into table"
+       type: table
+       inputs: [raw_text]
+
+ValidationAgent
+~~~~~~~~~~~~~~~
+
+**Role**: TRANSFORMER
+
+**Purpose**: Validates artifacts against user goals and triggers replanning when needed.
+
+**Accepts**: table, text, image, model
+
+**Produces**: (validation result - used internally)
+
+**Description**:
+ValidationAgent inspects each artifact produced during workflow execution and validates it against both the user's original goal and the step description. It returns a confidence score from 0.0 to 1.0. Based on the confidence level, the system will:
+
+- **0.5 - 1.0**: Continue execution (artifact is acceptable)
+- **0.3 - 0.5**: Trigger automatic replanning (artifact has issues)
+- **0.0 - 0.3**: Ask user for guidance (too uncertain to auto-fix)
+
+**Note**: ValidationAgent is used internally by the workflow engine. It is not called directly in workflows.
+
+**Validation criteria**:
+
+1. Does the artifact help achieve the user's original goal?
+2. Does it match what the step description promised to produce?
+3. Is the data reasonable, complete, and useful?
+4. Are there any obvious errors or problems?
+
+**Artifact inspection limits**:
+
+- **Tables**: Schema + first 20 rows are inspected
+- **Text**: First ~1000 tokens are inspected
+- **Images**: Metadata and generation code are inspected
+- **Models**: Model type and parameters are inspected
+
+**Replanning behavior**:
+
+When validation fails with confidence 0.3-0.5, the system:
+
+1. Keeps all successfully validated artifacts
+2. Generates a new plan that works around the failed step
+3. Uses the suggested fix from the validation agent
+4. Retries up to 3 times before giving up
+
+SYNTHESIZERS
+------------
+
+Synthesizers combine multiple artifacts into unified outputs.
+
+AnswererAgent
+~~~~~~~~~~~~~
+
+**Role**: SYNTHESIZER
+
+**Purpose**: Combines multiple artifacts into comprehensive answers.
+
+**Accepts**: table, text
+
+**Produces**: table
+
+**Description**:
+AnswererAgent is the primary synthesis agent. It takes artifacts from multiple sources (documents, databases, web searches) and generates comprehensive, well-cited answers. Output is a structured table with paragraphs and their sources.
+
+**Example workflow usage**:
+
+.. code-block:: yaml
+
+   assets:
+     doc_results:
+       agent: DocumentRetrieverAgent
+       description: "Get relevant documentation"
+       type: text
+
+     db_results:
+       agent: SqlAgent
+       description: "Get supporting data"
+       type: table
+
+     comprehensive_answer:
+       agent: AnswererAgent
+       description: "Synthesize findings into complete answer"
+       type: table
+       inputs: [doc_results, db_results]
+
+**Output format**:
 
 .. code-block:: text
 
-   The results are in this artifact: <artefact type='table'>table_id_123</artefact>
+   | paragraph | source |
+   |-----------|--------|
+   | Finding from analysis... | Database: sales_2023 |
+   | Additional context... | Document: manual.pdf |
 
-**Consuming Artifacts**:
+UrlReviewerAgent
+~~~~~~~~~~~~~~~~
 
-.. code-block:: python
+**Role**: SYNTHESIZER
 
-   # Retrieve artifacts from previous responses
-   artifacts = get_artefacts_from_utterance_content(content)
+**Purpose**: Aggregates and summarizes content from multiple URLs.
 
-Error Handling
+**Accepts**: table (with URLs)
+
+**Produces**: table
+
+**Description**:
+UrlReviewerAgent takes search results containing URLs, fetches the content from each URL, and synthesizes the information into a unified summary. It is typically used after a search agent to process the found pages.
+
+**Example workflow usage**:
+
+.. code-block:: yaml
+
+   assets:
+     search_results:
+       agent: BraveSearchAgent
+       description: "Search for product reviews"
+       type: table
+
+     review_summary:
+       agent: UrlReviewerAgent
+       description: "Summarize content from search results"
+       type: table
+       inputs: [search_results]
+
+PlannerAgent
+~~~~~~~~~~~~
+
+**Role**: SYNTHESIZER
+
+**Purpose**: Creates execution workflows from natural language goals.
+
+**Accepts**: text (goals)
+
+**Produces**: text (YAML workflow)
+
+**Description**:
+PlannerAgent analyzes user goals and generates YAML workflow definitions. It uses RAG-based example retrieval from 50,000+ planning scenarios to produce high-quality workflows. The planner understands agent capabilities and artifact type compatibility.
+
+**Note**: PlannerAgent is used internally by the orchestrator. It is not typically called directly in workflows.
+
+**Capabilities**:
+
+- Goal extraction and analysis
+- Agent capability matching
+- Artifact type compatibility checking
+- DAG construction with proper dependencies
+- RAG-based example retrieval for better plans
+
+GENERATORS
+----------
+
+Generators create final outputs or side effects.
+
+VisualizationAgent
+~~~~~~~~~~~~~~~~~~
+
+**Role**: GENERATOR
+
+**Purpose**: Creates charts and visualizations from data.
+
+**Accepts**: table
+
+**Produces**: image
+
+**Description**:
+VisualizationAgent generates matplotlib-based visualizations from tabular data. It can create bar charts, line graphs, scatter plots, pie charts, and other visualization types. Output is saved as PNG images.
+
+**Output Permanence**: PERSISTENT (images are saved)
+
+**Example workflow usage**:
+
+.. code-block:: yaml
+
+   assets:
+     sales_data:
+       agent: SqlAgent
+       description: "Get quarterly sales"
+       type: table
+
+     sales_chart:
+       agent: VisualizationAgent
+       description: "Create bar chart of sales by quarter"
+       type: image
+       inputs: [sales_data]
+
+**Supported chart types**:
+
+- Bar charts (vertical and horizontal)
+- Line graphs
+- Scatter plots
+- Pie charts
+- Histograms
+- Box plots
+
+BashAgent
+~~~~~~~~~
+
+**Role**: GENERATOR
+
+**Purpose**: Performs filesystem operations.
+
+**Accepts**: text
+
+**Produces**: text
+
+**Description**:
+BashAgent executes filesystem operations like reading files, listing directories, and writing output. It operates in a sandboxed environment and may request user confirmation for sensitive operations.
+
+**Interaction Mode**: INTERACTIVE (may request confirmation)
+
+**Output Permanence**: PERSISTENT (files are created/modified)
+
+**Example workflow usage**:
+
+.. code-block:: yaml
+
+   assets:
+     report_data:
+       agent: AnswererAgent
+       description: "Generate report content"
+       type: table
+
+     saved_report:
+       agent: BashAgent
+       description: "Save report to file"
+       type: text
+       inputs: [report_data]
+
+**Security**: BashAgent operates with restricted permissions and may prompt for user confirmation before executing operations.
+
+Agent Configuration
+-------------------
+
+Per-Agent Model Settings
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Each agent can use different model settings:
+
+.. code-block:: json
+
+   {
+     "agents": [
+       "sql",
+       {
+         "name": "visualization",
+         "model": "qwen2.5-coder:32b",
+         "temperature": 0.1
+       },
+       {
+         "name": "answerer",
+         "model": "qwen2.5:32b",
+         "temperature": 0.7,
+         "max_tokens": 4096
+       }
+     ]
+   }
+
+Agent Budgets
 ~~~~~~~~~~~~~
 
-All agents implement comprehensive error handling:
+Agents have execution budgets limiting their LLM calls:
 
-* **Logging**: Errors are logged with context information
-* **Graceful Degradation**: Agents continue operation when possible
-* **User Feedback**: Error messages are returned to users when appropriate
-* **Recovery**: Agents attempt to recover from transient failures
-
-Agent Development
------------------
+- **Default budget**: 2 calls per query
+- **PlannerAgent**: 1 call (planning should be decisive)
+- **Complex agents**: May have higher budgets for multi-step reasoning
 
 Creating Custom Agents
-~~~~~~~~~~~~~~~~~~~~~~
+----------------------
 
 To create a new agent:
 
-1. **Inherit from BaseAgent**:
+1. **Choose a base class**:
+
+   - ``ToolBasedAgent``: For agents using the executor pattern
+   - ``CustomAgent``: For agents with custom logic
+
+2. **Define taxonomy**:
 
    .. code-block:: python
 
-      class CustomAgent(BaseAgent):
-          async def query(self, messages: Messages, notes: Optional[List[Note]] = None) -> str:
-              # Implement your agent logic here
-              return "Agent response"
-          
-          def get_description(self) -> str:
-              return "Description of what this agent does"
+      # In agent_taxonomies.py
+      "MyAgent": AgentTaxonomy(
+          data_flow=DataFlow.TRANSFORMER,
+          interaction_mode=InteractionMode.AUTONOMOUS,
+          output_permanence=OutputPermanence.EPHEMERAL,
+          description="Transforms X into Y"
+      )
 
-2. **Register with Orchestrator**:
-
-   .. code-block:: python
-
-      orchestrator.subscribe_agent(CustomAgent(client))
-
-3. **Handle Artifacts** (if needed):
+3. **Implement the agent**:
 
    .. code-block:: python
 
-      # Generate artifacts
-      artifact_id = create_hash(content)
-      self._storage.store_artefact(artifact_id, artifact)
-      
-      # Reference in response
-      return f"Result: <artefact type='custom'>{artifact_id}</artefact>"
+      class MyAgent(ToolBasedAgent):
+          def __init__(self, client):
+              super().__init__(client, MyExecutor())
+              self._system_prompt = my_prompt_template
 
-Best Practices
-~~~~~~~~~~~~~
+          @staticmethod
+          def get_info() -> str:
+              return "Transforms X into Y"
 
-* **Single Responsibility**: Each agent should have a clear, focused purpose
-* **Error Handling**: Implement comprehensive error handling and logging
-* **Artifact Management**: Use centralized storage for generated content
-* **Configuration**: Make agents configurable through dependency injection
-* **Testing**: Write unit tests for agent functionality
-* **Documentation**: Provide clear descriptions of agent capabilities
+4. **Register in orchestrator builder**:
 
-Agent Configuration
-------------------
+   .. code-block:: python
 
-Model Configuration
-~~~~~~~~~~~~~~~~~~
+      # In orchestrator_builder.py
+      self._agents_map["my_agent"] = MyAgent
 
-Agents can be configured with different models:
+5. **Add examples to planner dataset**:
 
-.. code-block:: python
+   The planner uses RAG-based example retrieval to generate workflows. For the planner to know how to use your custom agent, you must add examples to the planner dataset.
 
-   client = OllamaClient(
-       model="qwen2.5:32b",
-       temperature=0.4,
-       max_tokens=1000
-   )
+   Edit ``yaaaf/data/planner_dataset.csv`` and add rows with:
 
-Data Source Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~
+   - ``scenario``: A natural language description of when to use your agent
+   - ``workflow_yaml``: A YAML workflow showing your agent in action
+   - ``agents_used``: List including your agent name
+   - ``num_agents``: Number of agents in the workflow
+   - ``num_steps``: Number of steps
+   - ``complexity``: Workflow complexity (simple_chain, parallel, etc.)
+   - ``is_valid``: Set to ``True``
+   - ``error_message``: Leave empty
 
-Agents requiring data sources need proper configuration:
+   **Example entry**:
 
-.. code-block:: python
+   .. code-block:: text
 
-   # SQL Agent with database
-   sqlite_source = SqliteSource("data/database.db")
-   sql_agent = SqlAgent(client, sqlite_source)
-   
-   # Document Retriever Agent with document sources
-   text_sources = [TextSource("documents/folder1/"), TextSource("documents/folder2/")]
-   document_retriever_agent = DocumentRetrieverAgent(client, text_sources)
+      scenario,workflow_yaml,agents_used,num_agents,num_steps,complexity,is_valid,error_message
+      "Transform the raw sensor data into a normalized format for analysis","assets:
+        raw_data:
+          agent: SqlAgent
+          description: ""Get raw sensor readings""
+          type: table
+        normalized_data:
+          agent: MyAgent
+          description: ""Normalize sensor data""
+          type: table
+          inputs: [raw_data]","['SqlAgent', 'MyAgent']",2,2,simple_chain,True,
 
-Agent Registry
-~~~~~~~~~~~~~
+   Add 5-10 diverse examples showing your agent in different workflow contexts. This ensures the planner can correctly incorporate your agent into generated workflows.
 
-The orchestrator maintains a registry of available agents:
-
-.. code-block:: python
-
-   def build_orchestrator():
-       orchestrator = OrchestratorAgent(client)
-       
-       # Register all available agents
-       orchestrator.subscribe_agent(SqlAgent(client, source))
-       orchestrator.subscribe_agent(VisualizationAgent(client))
-       orchestrator.subscribe_agent(WebSearchAgent(client))
-       orchestrator.subscribe_agent(ReflectionAgent(client))
-       
-       return orchestrator
+   **Important**: Without examples in the dataset, the planner will not know when or how to use your custom agent in workflows.

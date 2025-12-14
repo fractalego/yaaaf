@@ -7,7 +7,6 @@ from starlette.middleware.cors import CORSMiddleware
 from yaaaf.server.routes import (
     create_stream,
     get_artifact,
-    get_latest_todo_artifact,
     get_image,
     get_all_utterances,
     get_query_suggestions,
@@ -19,6 +18,8 @@ from yaaaf.server.routes import (
     update_sql_source,
     get_all_sources,
     get_persistent_documents,
+    get_stream_status,
+    submit_user_response,
 )
 from yaaaf.server.feedback import save_feedback
 from yaaaf.server.server_settings import server_settings
@@ -31,9 +32,6 @@ app.add_api_route("/create_stream", endpoint=create_stream, methods=["POST"])
 app.add_api_route("/get_utterances", endpoint=get_all_utterances, methods=["POST"])
 app.add_api_route("/stream_utterances", endpoint=stream_utterances, methods=["POST"])
 app.add_api_route("/get_artefact", endpoint=get_artifact, methods=["POST"])
-app.add_api_route(
-    "/get_latest_todo", endpoint=get_latest_todo_artifact, methods=["POST"]
-)
 app.add_api_route("/get_image", endpoint=get_image, methods=["POST"])
 app.add_api_route(
     "/get_query_suggestions", endpoint=get_query_suggestions, methods=["POST"]
@@ -46,7 +44,11 @@ app.add_api_route(
 app.add_api_route("/get_sql_sources", endpoint=get_sql_sources, methods=["GET"])
 app.add_api_route("/update_sql_source", endpoint=update_sql_source, methods=["POST"])
 app.add_api_route("/get_all_sources", endpoint=get_all_sources, methods=["GET"])
-app.add_api_route("/get_persistent_documents", endpoint=get_persistent_documents, methods=["GET"])
+app.add_api_route(
+    "/get_persistent_documents", endpoint=get_persistent_documents, methods=["GET"]
+)
+app.add_api_route("/get_stream_status", endpoint=get_stream_status, methods=["POST"])
+app.add_api_route("/submit_user_response", endpoint=submit_user_response, methods=["POST"])
 app.add_api_route("/save_feedback", endpoint=save_feedback, methods=["POST"])
 
 

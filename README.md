@@ -1,162 +1,245 @@
 # YAAAF - Yet Another Autonomous Agents Framework
 
-YAAAF is a modular framework for building intelligent agentic applications with both Python backend and Next.js frontend components. The system features an orchestrator pattern with specialized agents for different tasks like SQL queries, web search, visualization, machine learning, and reflection.
+YAAAF is an **artifact-first** framework for building intelligent agentic applications.
 
-## 🚀 Key Features
+## The Core Philosophy
 
-- **🤖 Modular Agent System**: Specialized agents for SQL, visualization, web search, ML, document retrieval, and more
-- **🎯 Orchestrator Pattern**: Central coordinator that intelligently routes queries to appropriate agents
-- **🔌 MCP Integration**: Full support for Model Context Protocol (MCP) with SSE and stdio transports
-- **⚡ Real-time Streaming**: Live updates through WebSocket-like streaming with structured Note objects
-- **📊 Artifact Management**: Centralized storage for generated content (tables, images, models, etc.)
-- **🌐 Modern Frontend**: React-based UI with real-time chat interface and agent attribution
-- **🔧 Extensible**: Easy to add new agents and capabilities with standardized interfaces
-- **🏷️ Tag-Based Routing**: HTML-like tags for intuitive agent selection (`<sqlagent>`, `<visualizationagent>`, etc.)
+YAAAF is not about agents. It is about **artifacts**.
 
-## 🏗️ Architecture Overview
+In YAAAF, you do not route queries to agents. Instead, the system builds a **railway** - a planned pipeline that moves artifacts from sources to their final destination. Agents are merely the stations along this railway, transforming artifacts as they pass through.
 
 ```
-┌─────────────────┐    HTTP/REST     ┌──────────────────┐
-│  Frontend       │ ◄──────────────► │  Backend         │
-│  (Next.js)      │                  │  (FastAPI)       │
-└─────────────────┘                  └──────────────────┘
-                                              │
-                                              ▼
-                                    ┌──────────────────┐
-                                    │  🔄 Orchestrator │
-                                    │     Agent        │
-                                    └──────────────────┘
-                                              │
-                        ┌─────────────────────┼─────────────────────┬─────────────────────┐
-                        ▼                     ▼                     ▼                     ▼
-              ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
-              │ 🔄  TODO Agent  │   │ 🔄 SQL Agent    │   │ 🔄 Web Search   │   │ 🔄  ...         │
-              │                 │   │                 │   │   Agent         │   │                 │
-              └─────────────────┘   └─────────────────┘   └─────────────────┘   └─────────────────┘
-                                              ▼                     ▼
-                                    ┌─────────────────┐   ┌─────────────────┐
-                                    │ Database source │   │ Search API      │
-                                    │                 │   │                 │
-                                    └─────────────────┘   └─────────────────┘
+[Source] -----> [Station A] -----> [Station B] -----> [Destination]
+   |                |                   |                   |
+Database        SqlAgent          VisualizationAgent      Image
+   |                |                   |                   |
+   +--- artifact -->+--- artifact ----->+--- artifact -----+
+        (query)          (table)             (chart)
 ```
 
-## 🚀 Quick Start
+This is artifact-first design: **the artifact is the primary citizen, not the agent**.
 
-### Installation & Setup
+## How It Works
+
+Unlike traditional agent systems that route queries to individual agents, YAAAF takes a fundamentally different approach:
+
+1. **Goal Analysis**: The system extracts the user's goal and determines the required output type
+2. **Workflow Planning**: A planner creates a DAG (directed acyclic graph) defining how artifacts should flow
+3. **Artifact Flow**: Data moves through the planned pipeline - extracted, transformed, and finally output
+4. **Validation**: Each artifact is validated against the user's goal; failed validations trigger automatic replanning
+
+```
+User Query
+    |
+    v
++-------------------+
+|  Goal Extraction  |  "What does the user want?"
++-------------------+
+    |
+    v
++-------------------+
+|  Plan Generation  |  Creates YAML workflow with artifact dependencies
++-------------------+
+    |
+    v
++-------------------+
+|  Workflow Engine  |  Executes DAG, flowing artifacts between agents
++-------------------+
+    |
+    v
++-------------------+
+|    Validation     |  Checks each artifact against goal (replan if needed)
++-------------------+
+    |
+    v
+  Result
+```
+
+## Agent Taxonomy
+
+Agents are classified by their role in the artifact flow:
+
+| Role | Description |
+|------|-------------|
+| **EXTRACTOR** | Pulls data from external sources (databases, APIs, documents) |
+| **TRANSFORMER** | Converts artifacts from one form to another |
+| **SYNTHESIZER** | Combines multiple artifacts into unified outputs |
+| **GENERATOR** | Creates final outputs (visualizations, files, effects) |
+
+## Available Agents
+
+| Agent | Role | Description |
+|-------|------|-------------|
+| SqlAgent | EXTRACTOR | Executes SQL queries against configured databases |
+| DocumentRetrieverAgent | EXTRACTOR | Retrieves relevant text from document collections |
+| BraveSearchAgent | EXTRACTOR | Searches the web via Brave Search API |
+| DuckDuckGoSearchAgent | EXTRACTOR | Searches the web via DuckDuckGo |
+| UrlAgent | EXTRACTOR | Fetches and extracts content from URLs |
+| UserInputAgent | EXTRACTOR | Collects information from users interactively |
+| MleAgent | TRANSFORMER | Trains machine learning models on tabular data |
+| ReviewerAgent | TRANSFORMER | Analyzes and validates artifacts |
+| ToolAgent | TRANSFORMER | Executes external tools via MCP protocol |
+| NumericalSequencesAgent | TRANSFORMER | Structures unformatted data into tables |
+| AnswererAgent | SYNTHESIZER | Combines artifacts into comprehensive answers |
+| UrlReviewerAgent | SYNTHESIZER | Aggregates and summarizes URL content |
+| VisualizationAgent | GENERATOR | Creates charts and visualizations from data |
+| BashAgent | GENERATOR | Performs filesystem operations |
+| PlannerAgent | SYNTHESIZER | Creates execution workflows from goals |
+| ValidationAgent | TRANSFORMER | Validates artifacts against user goals, triggers replanning |
+
+## How Planning Works
+
+When a query arrives, the planner generates a YAML workflow defining the artifact flow:
+
+```yaml
+assets:
+  sales_data:
+    agent: SqlAgent
+    description: "Extract quarterly sales figures"
+    type: table
+
+  sales_chart:
+    agent: VisualizationAgent
+    description: "Create bar chart of sales by quarter"
+    type: image
+    inputs: [sales_data]
+```
+
+The planner uses **RAG-based example retrieval** to find similar scenarios from a dataset of 50,000+ planning examples, ensuring high-quality workflow generation.
+
+## Quick Start
+
+### Installation
 
 ```bash
-# Clone the repository
 git clone <repository-url>
 cd agents_framework
+pip install -e .
 
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Install frontend dependencies
-cd frontend
-pnpm install
-cd ..
+# Frontend (optional)
+cd frontend && pnpm install
 ```
 
-### Running YAAAF
+### Running
 
-**Start the backend server** (default port 4000):
 ```bash
+# Backend (default port 4000)
 python -m yaaaf backend
-```
 
-**Start the frontend server** (default port 3000):
-```bash
+# Frontend (default port 3000)
 python -m yaaaf frontend
+
+# Custom ports
+python -m yaaaf backend 8080
+python -m yaaaf frontend 3001
 ```
 
-**Custom ports**:
-```bash
-python -m yaaaf backend 8080         # Backend on port 8080
-python -m yaaaf frontend 3001        # Frontend on port 3001
+### Requirements
+
+- Python 3.11+
+- Ollama running locally (default: http://localhost:11434)
+- A compatible model (e.g., `ollama pull qwen2.5:32b`)
+
+## Configuration
+
+Set `YAAAF_CONFIG` environment variable to point to your configuration file:
+
+```json
+{
+  "client": {
+    "model": "qwen2.5:32b",
+    "temperature": 0.7,
+    "host": "http://localhost:11434"
+  },
+  "agents": [
+    "sql",
+    "visualization",
+    "websearch",
+    "document_retriever",
+    "answerer",
+    "reviewer"
+  ],
+  "sources": [
+    {
+      "name": "my_database",
+      "type": "sqlite",
+      "path": "./data/database.db"
+    }
+  ]
+}
 ```
 
-**HTTPS Support**:
-HTTPS mode is currently not fully supported in the standalone distribution. For HTTPS in production, use a reverse proxy like nginx:
+### Agent-Specific Configuration
 
-```bash
-# Start YAAAF on HTTP
-python -m yaaaf frontend 3000
+Override model settings per agent:
 
-# Configure nginx with SSL to proxy to port 3000
+```json
+{
+  "agents": [
+    "sql",
+    {
+      "name": "visualization",
+      "model": "qwen2.5-coder:32b",
+      "temperature": 0.1
+    }
+  ]
+}
 ```
 
+### MCP Tool Integration
 
-### First Steps
+Add external tools via Model Context Protocol:
 
-1. Open your browser to `http://localhost:3000`
-2. Start chatting with the AI system
-3. Try these example queries:
-   - "How many records are in the database?"
-   - "Create a visualization of the sales data"
-   - "Search for recent AI developments"
-   - "Analyze customer demographics and show trends"
-
-## 🤖 Available Agents
-
-| Agent | Purpose | Usage Tag | Capabilities |
-|-------|---------|-----------|-------------|
-| **OrchestratorAgent** | Central coordinator | `<orchestratoragent>` | Routes queries, manages flow |
-| **SqlAgent** | Database queries | `<sqlagent>` | Natural language to SQL, data retrieval |
-| **VisualizationAgent** | Charts & graphs | `<visualizationagent>` | Matplotlib visualizations from data |
-| **WebSearchAgent** | Web search | `<websearchagent>` | DuckDuckGo search integration |
-| **ReflectionAgent** | Planning & reasoning | `<reflectionagent>` | Step-by-step problem breakdown |
-| **DocumentRetrieverAgent** | Document retrieval | `<documentretrieveragent>` | Document search and retrieval from configured sources |
-| **AnswererAgent** | Research synthesis | `<answereragent>` | Synthesizes multiple artifacts into comprehensive research answers |
-| **TodoAgent** | Task planning | `<todoagent>` | Creates structured todo lists for complex tasks |
-| **MleAgent** | Machine learning | `<mleagent>` | sklearn model training & analysis |
-| **ReviewerAgent** | Data analysis | `<revieweragent>` | Extract insights from artifacts |
-| **ToolAgent** | External tools | `<toolagent>` | MCP (Model Context Protocol) integration - SSE & stdio |
-| **BashAgent** | Filesystem operations | `<bashagent>` | File reading, writing, directory operations (with user confirmation) |
-
-## 💡 Example Usage
-
-### Simple Query
-```python
-from yaaaf.components.orchestrator_builder import OrchestratorBuilder
-from yaaaf.components.data_types import Messages
-
-orchestrator = OrchestratorBuilder().build()
-messages = Messages().add_user_utterance("How many users are in the database?")
-response = await orchestrator.query(messages)
+```json
+{
+  "tools": [
+    {
+      "name": "math_server",
+      "type": "sse",
+      "url": "http://localhost:8080/sse"
+    },
+    {
+      "name": "file_tools",
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "my_mcp_server"]
+    }
+  ]
+}
 ```
 
-### MCP Integration
-```python
-from yaaaf.connectors.mcp_connector import MCPSseConnector, MCPStdioConnector
-from yaaaf.components.agents.tool_agent import ToolAgent
-from yaaaf.components.client import OllamaClient
+## Architecture
 
-# SSE-based MCP server
-sse_connector = MCPSseConnector(
-    url="http://localhost:8080/sse",
-    description="Math Tools Server"
-)
-
-# Stdio-based MCP server  
-stdio_connector = MCPStdioConnector(
-    command="python",
-    args=["-m", "my_mcp_server"],
-    description="Local MCP Server"
-)
-
-# Use with ToolAgent
-client = OllamaClient(model="qwen2.5:32b")
-tools = await sse_connector.get_tools()
-tool_agent = ToolAgent(client=client, tools=[tools])
-
-messages = Messages().add_user_utterance("Calculate the sum of 15 and 27")
-response = await tool_agent.query(messages)
+```
+Frontend (Next.js)  <--HTTP-->  Backend (FastAPI)
+                                      |
+                                      v
+                              +---------------+
+                              | Orchestrator  |
+                              +---------------+
+                                      |
+                         +------------+------------+
+                         |                         |
+                         v                         v
+                  +------------+           +----------------+
+                  |  Planner   |           | Workflow Engine|
+                  +------------+           +----------------+
+                         |                         |
+                         v                         v
+                  YAML Workflow  ------>   Agent Execution
+                                           (artifact flow)
 ```
 
-## 🛠️ Development
+### Key Components
 
-### Backend Development
+- **Orchestrator**: Entry point that coordinates goal extraction and workflow execution
+- **Planner**: Generates YAML workflows using RAG-retrieved examples
+- **Workflow Engine**: Executes the DAG, managing artifact dependencies
+- **Validation**: Inspects each artifact and triggers replanning if it doesn't match the goal
+- **Artifact Storage**: Centralized store for generated artifacts (tables, images, models)
+
+## Development
+
 ```bash
 # Run tests
 python -m unittest discover tests/
@@ -165,205 +248,31 @@ python -m unittest discover tests/
 ruff format .
 ruff check .
 
-# Start with debugging
-YAAAF_DEBUG=true python -m yaaaf backend
-
-# Test MCP servers
-python tests/mcp_sse_server.py --port 8080        # SSE server on port 8080
-python tests/mcp_stdio_server.py                  # Stdio server
+# Frontend development
+cd frontend && pnpm dev
 ```
 
-### Frontend Development
-```bash
-cd frontend
+## Project Structure
 
-# Development server
-pnpm dev
-
-# Type checking
-pnpm typecheck
-
-# Linting & formatting
-pnpm lint
-pnpm format:write
-
-# Build for production
-pnpm build
+```
+yaaaf/
+  components/
+    agents/           # Agent implementations
+    retrievers/       # RAG and search components
+    executors/        # Workflow and tool executors
+    sources/          # Data source connectors
+  server/             # FastAPI backend
+  data/               # Packaged datasets (planner examples)
+frontend/             # Next.js application
+tests/                # Unit tests
 ```
 
-## 📊 Data Flow
+## License
 
-1. **User Input**: Query submitted through frontend chat interface
-2. **Stream Creation**: Backend creates conversation stream
-3. **Orchestration**: OrchestratorAgent analyzes query and routes to appropriate agents
-4. **Agent Processing**: Specialized agents process their portions of the request
-5. **Artifact Generation**: Agents create structured artifacts (tables, images, etc.)
-6. **Note Creation**: Results packaged as Note objects with agent attribution
-7. **Real-time Streaming**: Notes streamed back to frontend with live updates
-8. **UI Rendering**: Frontend displays formatted responses with agent identification
+MIT License
 
-## 🔧 Configuration
+## Support
 
-### LLM Requirements
-
-**⚠️ Important**: YAAAF currently supports **Ollama only** for LLM integration. You must have Ollama installed and running on your system.
-
-**Prerequisites:**
-- Install [Ollama](https://ollama.ai/) on your system
-- Download and run a compatible model (e.g., `ollama pull qwen2.5:32b`)
-- Ensure Ollama is running (usually on `http://localhost:11434`)
-
-YAAAF uses the `OllamaClient` for all LLM interactions. Support for other LLM providers (OpenAI, Anthropic, etc.) may be added in future versions.
-
-### Environment Variables
-- `YAAAF_CONFIG`: Path to configuration JSON file
-
-### Configuration File
-```json
-{
-  "client": {
-    "model": "qwen2.5:32b",
-    "temperature": 0.7,
-    "max_tokens": 1024,
-    "host": "http://localhost:11434"
-  },
-  "agents": [
-    "reflection",
-    {
-      "name": "visualization",
-      "model": "qwen2.5-coder:32b",
-      "temperature": 0.1
-    },
-    "sql",
-    {
-      "name": "document_retriever",
-      "model": "qwen2.5:14b", 
-      "temperature": 0.8,
-      "max_tokens": 4096,
-      "host": "http://localhost:11435"
-    },
-    "reviewer",
-    "answerer",
-    "websearch",
-    "url_reviewer",
-    "bash",
-    "tool"
-  ],
-  "sources": [
-    {
-      "name": "london_archaeological_data",
-      "type": "sqlite",
-      "path": "../../data/london_archaeological_data.db"
-    }
-  ],
-  "tools": [
-    {
-      "name": "math_tools",
-      "type": "sse",
-      "description": "Mathematical calculation tools",
-      "url": "http://localhost:8080/sse"
-    },
-    {
-      "name": "file_tools",
-      "type": "stdio",
-      "description": "File manipulation tools",
-      "command": "python",
-      "args": ["-m", "my_file_server"]
-    }
-  ]
-}
-```
-
-**Per-Agent Configuration:**
-- **Simple format**: `"agent_name"` uses default client settings
-- **Object format**: `{"name": "agent_name", "model": "...", "temperature": 0.1, "host": "..."}` overrides specific parameters
-- **Fallback**: Any unspecified parameters use the default client configuration
-- **Examples**: Use specialized models for specific tasks (e.g., coding models for visualization, larger models for RAG)
-- **Host configuration**: Set different Ollama instances per agent or use default host
-
-**MCP Tools Configuration:**
-- **SSE Tools**: For HTTP-based MCP servers (`"type": "sse"` with `"url"`)
-- **Stdio Tools**: For command-line MCP servers (`"type": "stdio"` with `"command"` and `"args"`)
-- **Tool Agent**: Add `"tool"` to agents list to enable MCP tool integration
-- **Description**: Human-readable description of what the tool server provides
-- **Error Handling**: Failed tool connections are logged but don't prevent startup
-
-## 📚 Documentation
-
-Comprehensive documentation is available in the `documentation/` folder:
-
-```bash
-cd documentation
-pip install -r requirements.txt
-make html
-open build/html/index.html
-```
-
-**Documentation includes:**
-- 📖 Getting Started Guide
-- 🏗️ Architecture Overview  
-- 🤖 Agent Development Guide
-- 🔌 API Reference
-- 🌐 Frontend Development
-- 💻 Development Practices
-- 📋 Usage Examples
-
-## 🧪 Testing
-
-```bash
-# Backend tests
-python -m unittest discover tests/
-
-# Specific agent tests
-python -m unittest tests.test_sql_agent
-python -m unittest tests.test_orchestrator_agent
-
-# Frontend tests
-cd frontend
-pnpm test
-```
-
-## 🤝 Contributing
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Follow code style**: Run `ruff format .` and `pnpm format:write`
-4. **Add tests**: Ensure new features have test coverage
-5. **Update docs**: Add documentation for new features
-6. **Submit PR**: Create a pull request with clear description
-
-## 📋 Requirements
-
-**Backend:**
-- Python 3.11+
-- FastAPI
-- Pydantic
-- pandas
-- matplotlib
-- sqlite3
-
-**Frontend:**
-- Node.js 18+
-- Next.js 14
-- TypeScript
-- Tailwind CSS
-- pnpm
-
-**Package Distribution:**
-- The yaaaf wheel includes a complete standalone frontend (`yaaaf/client/standalone/`)
-- No additional frontend setup required for basic usage
-- Frontend source code available in `frontend/` for development
-
-## 📄 License
-
-MIT License (MIT)
-
-## 🆘 Support
-
-- 📖 **Documentation**: Check the `documentation/` folder
-- 🐛 **Issues**: Report bugs via GitHub Issues
-- 💬 **Discussions**: Join GitHub Discussions for questions
-
----
-
-**YAAAF** - Building the future of agentic applications, one intelligent agent at a time! 🚀
+- Documentation: `documentation/` folder
+- Issues: GitHub Issues
+- Discussions: GitHub Discussions

@@ -1,528 +1,491 @@
 import logging
 import re
-from typing import List, Tuple, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
+from yaaaf.components.agents.base_agent import CustomAgent
 
-from yaaaf.components.agents.artefact_utils import get_artefacts_from_utterance_content
-from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
-from yaaaf.components.agents.base_agent import BaseAgent
-from yaaaf.components.agents.settings import task_completed_tag, task_paused_tag
+if TYPE_CHECKING:
+    from yaaaf.components.agents.validation_agent import ValidationAgent
+from yaaaf.components.agents.planner_agent import PlannerAgent
+from yaaaf.components.agents.plan_artifact import PlanArtifact
+from yaaaf.components.agents.artefacts import ArtefactStorage
+from yaaaf.components.extractors.enhanced_goal_extractor import EnhancedGoalExtractor
+from yaaaf.components.executors.workflow_executor import (
+    WorkflowExecutor,
+    ValidationError,
+    ConditionError,
+    ReplanRequiredException,
+    UserDecisionRequiredException,
+)
+from yaaaf.components.executors.paused_execution import PausedExecutionException
+from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import Messages, Note
-from yaaaf.components.agents.prompts import orchestrator_prompt_template
-from yaaaf.components.extractors.goal_extractor import GoalExtractor
-from yaaaf.components.extractors.summary_extractor import SummaryExtractor
-from yaaaf.components.extractors.status_extractor import StatusExtractor
-from yaaaf.components.decorators import handle_exceptions
-from yaaaf.server.config import get_config
 
 _logger = logging.getLogger(__name__)
 
 
-class OrchestratorAgent(BaseAgent):
-    _completing_tags: List[str] = [task_completed_tag, task_paused_tag]
-    _agents_map: {str: BaseAgent} = {}
-    _stop_sequences = []
-    _max_steps = 10
-    _storage = ArtefactStorage()
+class OrchestratorAgent(CustomAgent):
+    """Orchestrator that uses plan-driven execution with automatic replanning."""
 
-    def __init__(self, client: BaseClient):
-        self._client = client
-        self._agents_map = {
-            key: agent(client) for key, agent in self._agents_map.items()
-        }
-        self._goal_extractor = GoalExtractor(client)
-        self._summary_extractor = SummaryExtractor(client)
-        self._status_extractor = StatusExtractor(client)
-        self._current_todo_artifact_id: Optional[str] = None
-        self._needs_replanning: bool = False
+    def __init__(
+        self,
+        client: BaseClient,
+        agents: Dict[str, Any],
+        validation_agent: Optional["ValidationAgent"] = None,
+    ):
+        """Initialize plan-driven orchestrator.
 
-    @handle_exceptions
-    async def query(
-        self, messages: Messages, notes: Optional[List[Note]] = None
-    ) -> str:
-        # Reset all agent budgets at the start of each query
-        self._reset_all_agent_budgets()
-        self._current_todo_artifact_id = None  # Reset todo tracking
-        self._needs_replanning = False  # Reset replanning state
-        messages = messages.apply(self.simplify_agents_tags)
+        Args:
+            client: LLM client
+            agents: Dictionary of available agents
+            validation_agent: Optional validation agent for artifact validation
+        """
+        super().__init__(client)
+        self.agents = agents
+        self.goal_extractor = EnhancedGoalExtractor(client)
+        self.planner = None  # Will be set from agents dict
+        self.current_plan = None
+        self.plan_executor = None
+        self.artefact_storage = ArtefactStorage()
+        self._max_replan_attempts = 3
+        self._validation_agent = validation_agent
+        self._original_goal = None  # Store for validation context
 
-        # Extract goal once at the beginning
-        goal = await self._goal_extractor.extract(messages)
-
-        answer: str = ""
-        for step_index in range(self._max_steps):
-            # Update system prompt with current budget information at each step
-            messages = messages.set_system_prompt(self._get_system_prompt(goal))
-            response = await self._client.predict(
-                messages, stop_sequences=self._stop_sequences
-            )
-            answer = self.simplify_agents_tags(response.message)
-            agent_to_call, instruction = self.map_answer_to_agent(answer)
-            extracted_agent_name = Note.extract_agent_name_from_tags(answer)
-            agent_name = extracted_agent_name or (
-                agent_to_call.get_name() if agent_to_call else self.get_name()
-            )
-
-            if notes is not None:
-                artefacts = get_artefacts_from_utterance_content(answer)
-                model_name = getattr(self._client, "model", None)
-
-                note = Note(
-                    message=Note.clean_agent_tags(answer),
-                    artefact_id=artefacts[0].id if artefacts else None,
-                    agent_name=agent_name,
-                    model_name=model_name,
-                )
-                note.internal = False
-                notes.append(note)
-
-            if agent_to_call is None and (
-                self.is_complete(answer) or answer.strip() == ""
-            ):
-                # Update todo status when task is completed
-                if self.is_complete(answer):
-                    await self._mark_tasks_as_completed(answer)
-                    config = get_config()
-                    _logger.info(f"Task completed - generate_summary setting: {config.generate_summary}")
-                    if config.generate_summary:
-                        answer = await self._generate_and_add_summary(answer, notes)
+        # Extract planner from agents
+        for agent_name, agent in agents.items():
+            if isinstance(agent, PlannerAgent):
+                self.planner = agent
                 break
-            if agent_to_call is not None:
-                # Check if agent has budget remaining
-                if agent_to_call.get_budget() <= 0:
-                    _logger.warning(
-                        f"Agent {agent_to_call.get_name()} has exhausted its budget"
-                    )
-                    answer = f"Agent {agent_to_call.get_name()} has exhausted its budget and cannot be called again."
-                else:
-                    # Consume budget before calling agent
-                    agent_to_call.consume_budget()
-                    _logger.info(
-                        f"Agent {agent_to_call.get_name()} called, remaining budget: {agent_to_call.get_budget()}"
-                    )
 
-                    answer = await agent_to_call.query(
-                        Messages().add_user_utterance(instruction),
-                        notes=notes,
-                    )
-                    answer = self._make_output_visible(answer)
+        if not self.planner:
+            raise ValueError("PlannerAgent not found in available agents")
 
-                if notes is not None:
-                    artefacts = get_artefacts_from_utterance_content(answer)
-                    extracted_agent_name = Note.extract_agent_name_from_tags(answer)
-                    final_agent_name = extracted_agent_name or agent_name
+    async def query(self, messages: Messages, notes=None, stream_id=None) -> str:
+        """Override query to accept stream_id parameter.
+        
+        Args:
+            messages: User messages
+            notes: Optional notes (not used)
+            stream_id: Stream ID for tracking and real-time updates
+            
+        Returns:
+            String representation of final result
+        """
+        return await self._query_custom(messages, notes, stream_id)
 
-                    # Check if this is a todo agent response and store the artifact ID
-                    if (
-                        agent_to_call
-                        and agent_to_call.get_name() == "todoagent"
-                        and artefacts
-                    ):
-                        for artifact in artefacts:
-                            if artifact.type == Artefact.Types.TODO_LIST:
-                                self._current_todo_artifact_id = artifact.id
-                                self._needs_replanning = False  # Reset replanning flag after new plan created
-                                _logger.info(f"Stored todo artifact ID: {artifact.id}")
-                                break
+    async def _query_custom(self, messages: Messages, notes=None, stream_id=None) -> str:
+        """Process messages using plan-driven approach.
 
-                    # Update todo status if we have a todo list and this isn't the todo agent
-                    if (
-                        self._current_todo_artifact_id
-                        and agent_to_call
-                        and agent_to_call.get_name() != "todoagent"
-                    ):
-                        _logger.info(f"Calling status extractor for agent {final_agent_name} with response: {answer[:200]}...")
-                        (
-                            updated_artifact_id,
-                            needs_replanning,
-                        ) = await self._status_extractor.extract_and_update_status(
-                            answer, final_agent_name, self._current_todo_artifact_id
-                        )
-                        _logger.info(f"Status extractor returned: updated_id={updated_artifact_id}, needs_replanning={needs_replanning}")
+        Args:
+            messages: User messages
+            notes: Optional notes (not used)
+            stream_id: Stream ID for tracking and real-time updates
 
-                        if needs_replanning:
-                            # Restore todo agent budget and mark for replanning
-                            self._restore_todo_agent_budget()
-                            self._needs_replanning = True
-                            self._current_todo_artifact_id = (
-                                None  # Reset to trigger new planning
-                            )
-                            _logger.info(
-                                f"Plan change detected - todo agent budget restored for replanning"
-                            )
-                        elif updated_artifact_id != self._current_todo_artifact_id:
-                            self._current_todo_artifact_id = updated_artifact_id
-                            _logger.info(
-                                f"Updated todo artifact ID: {updated_artifact_id}"
-                            )
-
-                    # Get model name from the agent's client if available
-                    agent_model_name = (
-                        getattr(agent_to_call._client, "model", None)
-                        if agent_to_call
-                        else None
-                    )
-
-                    # Add cleaned user-facing note
-                    note = Note(
-                        message=Note.clean_agent_tags(answer),
-                        artefact_id=artefacts[0].id if artefacts else None,
-                        agent_name=final_agent_name,
-                        model_name=agent_model_name,
-                    )
-                    note.internal = False
-                    notes.append(note)
-
-                messages = messages.add_user_utterance(
-                    f"The answer from the agent is:\n\n{answer}\n\nWhen you are 100% sure about the answer and the task is done, write the tag {self._completing_tags[0]}."
-                )
-            else:
-                messages = messages.add_assistant_utterance(answer)
-                messages = messages.add_user_utterance(
-                    "You didn't call any agent. Is the answer finished or did you miss outputting the tags? Reminder: use the relevant html tags to call the agents.\n\n"
-                )
-        if not self.is_complete(answer) and step_index == self._max_steps - 1:
-            answer += f"\nThe Orchestrator agent has finished its maximum number of steps. {task_completed_tag}"
-            # Generate summary artifact when max steps reached
-            config = get_config()
-            _logger.info(f"Max steps reached - generate_summary setting: {config.generate_summary}")
-            if config.generate_summary:
-                answer = await self._generate_and_add_summary(answer, notes)
-            if notes is not None:
-                model_name = getattr(self._client, "model", None)
-                notes.append(
-                    Note(
-                        message=f"The Orchestrator agent has finished its maximum number of steps. {task_completed_tag}",
-                        agent_name=self.get_name(),
-                        model_name=model_name,
-                    )
-                )
-
-        return answer
-
-    async def _mark_tasks_as_completed(self, answer: str) -> None:
-        """Mark tasks as completed in the todo list when the orchestrator finishes."""
-        if self._current_todo_artifact_id:
-            _logger.info(f"Task completed - calling status extractor with response: {answer[:200]}...")
-            (
-                updated_artifact_id,
-                needs_replanning,
-            ) = await self._status_extractor.extract_and_update_status(
-                answer, self.get_name(), self._current_todo_artifact_id
-            )
-            _logger.info(f"Status extractor returned: updated_id={updated_artifact_id}, needs_replanning={needs_replanning}")
-            if updated_artifact_id != self._current_todo_artifact_id:
-                self._current_todo_artifact_id = updated_artifact_id
-                _logger.info(f"Updated todo artifact ID: {updated_artifact_id}")
-
-    def is_paused(self, answer: str) -> bool:
-        """Check if the task is paused and waiting for user input."""
-        return task_paused_tag in answer
-
-    def _remove_and_extract_completion_tag(self, answer: str) -> str:
-        cleaned_answer = answer.replace(task_completed_tag, "").strip()
-        return cleaned_answer
-
-    async def _generate_and_add_summary(
-        self, answer: str, notes: Optional[List[Note]] = None
-    ) -> str:
-        """Generate summary artifact and add it to notes, returning updated answer."""
-        if not notes:
-            return answer
-
-        summary_result = await self._summary_extractor.extract(notes)
-        if summary_result:
-            updated_answer = f"\n\n{summary_result}\n\n{task_completed_tag}"
-            model_name = getattr(self._client, "model", None)
-            notes.append(
-                Note(
-                    message=updated_answer,
-                    agent_name=self.get_name(),
-                    model_name=model_name,
-                )
-            )
-            return updated_answer
-        return answer
-
-    def subscribe_agent(self, agent: BaseAgent):
-        if agent.get_opening_tag() in self._agents_map:
-            raise ValueError(
-                f"Agent with tag {agent.get_opening_tag()} already exists."
-            )
-        self._agents_map[agent.get_opening_tag()] = agent
-        self._stop_sequences.append(agent.get_closing_tag())
-
+        Returns:
+            String representation of final result
+        """
+        # Step 1: Extract goal and target artifact type
+        goal_info = await self._extract_goal_and_type(messages)
         _logger.info(
-            f"Registered agent: {agent.get_name()} (tag: {agent.get_opening_tag()})"
+            f"Extracted goal: {goal_info['goal']}, target type: {goal_info['artifact_type']}"
         )
 
-    def _reset_all_agent_budgets(self) -> None:
-        """Reset budgets for all agents at the start of a new query."""
-        for agent in self._agents_map.values():
-            agent.reset_budget()
-        _logger.info("Reset budgets for all agents")
+        # Store original goal for validation context
+        self._original_goal = goal_info['goal']
+        
+        # Update stream status
+        if stream_id:
+            from yaaaf.server.accessories import _stream_id_to_status
+            if stream_id in _stream_id_to_status:
+                _stream_id_to_status[stream_id].current_agent = "Planning execution workflow"
+                _stream_id_to_status[stream_id].goal = goal_info['goal']
 
-    def _restore_todo_agent_budget(self) -> None:
-        """Restore todo agent budget to allow replanning."""
-        for agent in self._agents_map.values():
-            if agent.get_name() == "TodoAgent":
-                agent.reset_budget()
-                _logger.info("Restored TodoAgent budget for replanning")
-                break
+        # Step 2: Execute with replanning on failure
+        last_error = None
+        partial_results = {}
 
-    def _get_available_agents(self) -> dict:
-        """Get agents that still have budget remaining."""
-        return {
-            tag: agent
-            for tag, agent in self._agents_map.items()
-            if agent.get_budget() > 0
-        }
+        for attempt in range(self._max_replan_attempts):
+            try:
+                # Generate or regenerate plan
+                if not self.current_plan or last_error:
+                    self.current_plan = await self._generate_plan(
+                        goal=goal_info["goal"],
+                        target_type=goal_info["artifact_type"],
+                        messages=messages,
+                        error_context=last_error,
+                        partial_results=partial_results,
+                    )
 
-    def _get_system_status(self) -> str:
-        """Collect status information from all agents."""
-        status_entries = []
+                    # Store plan as artifact
+                    plan_artifact = PlanArtifact(
+                        plan_yaml=self.current_plan,
+                        goal=goal_info["goal"],
+                        target_artifact_type=goal_info["artifact_type"],
+                    )
+                    self.artefact_storage.store_artefact(
+                        plan_artifact.id, plan_artifact
+                    )
+                    _logger.info(f"Generated plan artifact: {plan_artifact.id}")
+                    
+                    # Add note showing the plan to the user
+                    if notes is not None:
+                        from yaaaf.components.data_types import Note
+                        plan_note = Note(
+                            message=f"📋 **Execution Plan Generated**\n\nI'll execute the following steps to {goal_info['goal']}:\n\n```yaml\n{self.current_plan}\n```\n",
+                            artefact_id=plan_artifact.id,
+                            agent_name="planner",
+                        )
+                        notes.append(plan_note)
 
-        for agent in self._agents_map.values():
-            if hasattr(agent, "get_status_info"):
-                status = agent.get_status_info()
-                if status.strip():
-                    status_entries.append(f"• {agent.get_name()}: {status}")
+                    # Create new executor with notes for streaming and status updates
+                    self.plan_executor = WorkflowExecutor(
+                        yaml_plan=self.current_plan,
+                        agents=self.agents,
+                        notes=notes,
+                        stream_id=stream_id,
+                        original_messages=messages,
+                        validation_agent=self._validation_agent,
+                        original_goal=self._original_goal,
+                    )
 
-        if not status_entries:
-            return "No special conditions reported by agents."
+                # Execute plan
+                result = await self.plan_executor.execute(messages)
 
-        return "\n".join(status_entries)
+                # Verify result matches expected type
+                if not self._verify_artifact_type(result, goal_info["artifact_type"]):
+                    result_type = getattr(result, 'type', 'UNKNOWN')
+                    raise ValidationError(
+                        f"Expected {goal_info['artifact_type']} but got {result_type}"
+                    )
 
-    def _get_task_progress_section(self) -> str:
-        """Generate the task progress section for the orchestrator prompt."""
-        # If replanning is needed, show replanning state
-        if self._needs_replanning:
-            return """
-== CURRENT TASK PROGRESS ==
-**REPLANNING REQUIRED**: New information detected that requires updating the plan
+                _logger.info("Plan executed successfully")
+                # Return string representation of result
+                if hasattr(result, "content"):
+                    return result.content
+                elif hasattr(result, "code"):
+                    return result.code or str(result)
+                else:
+                    return str(result)
 
-### Current Status
-- [🔄] **Creating new todo list** ←─ CURRENT STEP
+            except PausedExecutionException as e:
+                # Execution paused for user input - save state and re-raise
+                _logger.info(f"Execution paused for user input: {e.state.question_asked}")
 
-### Step Context
-Currently investigating: Plan revision based on new discoveries
-Previous plan needs updating due to new information from sub-agent response.
-"""
+                # Store paused state for later resumption
+                from yaaaf.server.accessories import save_paused_state
+                save_paused_state(stream_id, e.state)
 
-        if not self._current_todo_artifact_id:
-            return ""
+                # Add a note to inform user that input is needed
+                if notes is not None:
+                    from yaaaf.components.data_types import Note
+                    waiting_note = Note(
+                        message=f"⏸️ **Waiting for your input:**\n\n{e.state.question_asked}\n\n<taskpaused/>",
+                        artefact_id=None,
+                        agent_name="userinputagent",  # Match frontend renderer tag name
+                    )
+                    notes.append(waiting_note)
+                    _logger.info(f"Added waiting note for stream {stream_id}")
 
-        step_info = self._status_extractor.get_current_step_info(
-            self._current_todo_artifact_id
+                # Re-raise to signal to server that execution is paused
+                raise
+
+            except ReplanRequiredException as e:
+                # Validation-triggered replanning
+                _logger.warning(
+                    f"Validation triggered replan (attempt {attempt + 1}): "
+                    f"asset={e.validation_result.asset_name}, "
+                    f"reason={e.validation_result.reason}"
+                )
+
+                # Include suggested fix in error context for better replanning
+                if e.validation_result.suggested_fix:
+                    last_error = (
+                        f"Validation failed for {e.validation_result.asset_name}: "
+                        f"{e.validation_result.reason}. "
+                        f"Suggested fix: {e.validation_result.suggested_fix}"
+                    )
+                else:
+                    last_error = (
+                        f"Validation failed for {e.validation_result.asset_name}: "
+                        f"{e.validation_result.reason}"
+                    )
+
+                partial_results = e.completed_assets
+                self.current_plan = None  # Force replanning
+
+                # Add note about validation-triggered replan
+                if notes is not None:
+                    from yaaaf.components.data_types import Note
+                    replan_note = Note(
+                        message=f"🔄 **Replanning required**\n\nValidation issue with '{e.validation_result.asset_name}': {e.validation_result.reason}",
+                        artefact_id=None,
+                        agent_name="validation",
+                    )
+                    notes.append(replan_note)
+
+            except UserDecisionRequiredException as e:
+                # Need user input to proceed
+                _logger.warning(
+                    f"User decision required for {e.validation_result.asset_name}: "
+                    f"{e.validation_result.reason}"
+                )
+
+                # Add note requesting user decision
+                if notes is not None:
+                    from yaaaf.components.data_types import Note
+                    decision_note = Note(
+                        message=(
+                            f"❓ **Decision needed**\n\n"
+                            f"Issue with '{e.validation_result.asset_name}': {e.validation_result.reason}\n\n"
+                            f"Please provide guidance on how to proceed."
+                        ),
+                        artefact_id=None,
+                        agent_name="validation",
+                    )
+                    notes.append(decision_note)
+
+                # For now, treat as error and trigger replan with user's implicit guidance
+                # In future, this could pause and wait for explicit user input
+                last_error = (
+                    f"User decision needed for {e.validation_result.asset_name}: "
+                    f"{e.validation_result.reason}"
+                )
+                partial_results = e.completed_assets
+                self.current_plan = None
+
+            except (ValidationError, ConditionError) as e:
+                _logger.warning(f"Plan execution failed (attempt {attempt + 1}): {e}")
+                last_error = str(e)
+                partial_results = (
+                    self.plan_executor.get_completed_assets()
+                    if self.plan_executor
+                    else {}
+                )
+                self.current_plan = None  # Force replanning
+
+            except Exception as e:
+                _logger.error(f"Unexpected error in plan execution: {e}")
+                last_error = f"Unexpected error: {str(e)}"
+                partial_results = (
+                    self.plan_executor.get_completed_assets()
+                    if self.plan_executor
+                    else {}
+                )
+                self.current_plan = None
+
+        # All attempts failed
+        raise RuntimeError(
+            f"Failed to execute plan after {self._max_replan_attempts} attempts. Last error: {last_error}"
         )
 
-        if not step_info:
-            return ""
+    async def _extract_goal_and_type(self, messages: Messages) -> Dict[str, str]:
+        """Extract goal and target artifact type from messages."""
+        return await self.goal_extractor.extract(messages)
 
-        current_step = step_info.get("current_step_index", 0)
-        total_steps = step_info.get("total_steps", 0)
-        current_desc = step_info.get("current_step_description", "")
-        markdown_todo = step_info.get("markdown_todo_list", "")
+    async def _generate_plan(
+        self,
+        goal: str,
+        target_type: str,
+        messages: Messages,
+        error_context: Optional[str] = None,
+        partial_results: Optional[Dict] = None,
+    ) -> str:
+        """Generate execution plan using planner agent."""
 
-        if not markdown_todo:
-            return ""
+        # Build planning request
+        if error_context and partial_results:
+            # Replanning with context
+            planning_request = f"""
+The following plan failed during execution:
 
-        return f"""
-== CURRENT TASK PROGRESS ==
-**Step {current_step} of {total_steps}**: {current_desc}
+```yaml
+{self.current_plan if self.current_plan else "No previous plan"}
+```
 
-### Todo List
-{markdown_todo}
+Error: {error_context}
 
-### Step Context
-Currently investigating: {current_desc}
+Completed assets so far:
+{self._format_partial_results(partial_results)}
+
+Please create a revised plan that:
+1. Uses the already completed assets where possible
+2. Works around the error condition
+3. Still achieves the goal: {goal}
+4. Produces a final artifact of type: {target_type}
+
+Original user request: {messages.utterances[-1].content}
+"""
+        else:
+            # Initial planning
+            planning_request = f"""
+Create an execution plan for this goal:
+
+Goal: {goal}
+Target Artifact Type: {target_type}
+
+The plan MUST:
+1. End with an agent that produces {target_type} artifacts
+2. Include all necessary data transformations
+3. Handle the specific requirements of: {goal}
+
+User Context: {messages.utterances[-1].content}
 """
 
-    def simplify_agents_tags(self, answer: str) -> str:
-        available_agents = self._get_available_agents()
-        for _, agent in available_agents.items():
-            opening_tag = agent.get_opening_tag().replace(">", ".*?>")
-            # This is to avoid confusing the frontend
-            answer = re.sub(
-                rf"{opening_tag}", agent.get_opening_tag(), answer, flags=re.DOTALL
+        # Call planner agent
+        planner_messages = Messages(
+            utterances=[Utterance(role="user", content=planning_request)]
+        )
+
+        response = await self.planner.query(planner_messages)
+        
+        # Debug: Log the raw planner response
+        _logger.info(f"Planner raw response: {response}")
+
+        # Extract YAML plan from artifact
+        yaml_plan = self._extract_yaml_from_artifact(response)
+
+        if not yaml_plan:
+            raise ValueError("Failed to extract valid YAML plan from planner artifact")
+
+        return yaml_plan
+
+    def _extract_yaml_from_response(self, response: Any) -> Optional[str]:
+        """Extract YAML content from planner response."""
+        if hasattr(response, "content"):
+            content = response.content
+        elif hasattr(response, "artefacts") and response.artefacts:
+            # Get from artifacts
+            artifact = response.artefacts[-1]
+            content = artifact.code if artifact.code else ""
+        else:
+            content = str(response)
+
+        # Find YAML block
+        yaml_match = re.search(r"```yaml\s*(.*?)```", content, re.DOTALL)
+        if yaml_match:
+            return yaml_match.group(1).strip()
+
+        # Try to find assets: block directly
+        if "assets:" in content:
+            # Extract from assets: to end or next ```
+            assets_start = content.find("assets:")
+            assets_end = content.find("```", assets_start)
+            if assets_end == -1:
+                assets_end = len(content)
+            return content[assets_start:assets_end].strip()
+
+        return None
+
+    def _extract_yaml_from_artifact(self, response: str) -> Optional[str]:
+        """Extract YAML plan from artifact response."""
+        import re
+        
+        # Parse artifact ID from response like: <artefact type='text'>1120040561809014270</artefact>
+        artifact_match = re.search(r"<artefact type='[^']*'>([^<]+)</artefact>", response)
+        if not artifact_match:
+            _logger.warning("No artifact ID found in planner response")
+            return None
+            
+        artifact_id = artifact_match.group(1).strip()
+        _logger.info(f"Extracting plan from artifact: {artifact_id}")
+        
+        try:
+            # Retrieve artifact from storage
+            artifact = self.artefact_storage.retrieve_from_id(artifact_id)
+            if not artifact:
+                _logger.warning(f"Artifact {artifact_id} not found in storage")
+                return None
+                
+            # Get content from artifact
+            if hasattr(artifact, 'code') and artifact.code:
+                content = artifact.code
+            elif hasattr(artifact, 'data') and artifact.data:
+                content = str(artifact.data)
+            elif hasattr(artifact, 'content') and artifact.content:
+                content = artifact.content
+            else:
+                content = str(artifact)
+                
+            _logger.info(f"Artifact content: {content}")
+            
+            # Extract YAML from content
+            yaml_match = re.search(r"```yaml\s*(.*?)```", content, re.DOTALL)
+            if yaml_match:
+                return yaml_match.group(1).strip()
+                
+            # Try to find assets: block directly
+            if "assets:" in content:
+                # Extract from assets: to end or next ```
+                assets_start = content.find("assets:")
+                assets_end = content.find("```", assets_start)
+                if assets_end == -1:
+                    assets_end = len(content)
+                return content[assets_start:assets_end].strip()
+                
+            return None
+            
+        except Exception as e:
+            _logger.error(f"Failed to retrieve artifact {artifact_id}: {e}")
+            return None
+
+    def _format_partial_results(self, partial_results: Dict[str, Any]) -> str:
+        """Format partial results for replanning context."""
+        if not partial_results:
+            return "None"
+
+        parts = []
+        for asset_name, artifact in partial_results.items():
+            artifact_type = getattr(artifact, 'type', 'UNKNOWN')
+            artifact_summary = getattr(artifact, 'summary', None) or getattr(artifact, 'description', None) or 'completed'
+            parts.append(
+                f"- {asset_name}: {artifact_type} ({artifact_summary})"
             )
 
-        return answer
+        return "\n".join(parts)
 
-    def map_answer_to_agent(self, answer: str) -> Tuple[BaseAgent | None, str]:
-        available_agents = self._get_available_agents()
-        for _, agent in available_agents.items():
-            opening_tag = agent.get_opening_tag().replace(">", ".*?>")
-            matches = re.findall(
-                rf"{opening_tag}(.+)", answer, re.DOTALL | re.MULTILINE
+    def _verify_artifact_type(self, artifact: Any, expected_type: str) -> bool:
+        """Verify artifact matches expected type."""
+        if hasattr(artifact, "type"):
+            artifact_type = (
+                artifact.type.upper()
+                if isinstance(artifact.type, str)
+                else str(artifact.type)
             )
-            if matches:
-                return agent, matches[0]
 
-        return None, ""
+            # Handle type mappings
+            type_mappings = {
+                "TABLE": ["table", "TABLE", "dataframe"],
+                "IMAGE": ["image", "IMAGE", "chart", "plot"],
+                "TEXT": ["text", "TEXT", "string", "table", "TABLE"],  # Allow TABLE as valid for TEXT
+                "MODEL": ["model", "MODEL", "sklearn"],
+                "TODO_LIST": ["todo-list", "TODO_LIST", "todo_list"],
+                "PLAN": ["plan", "PLAN"],
+            }
+
+            expected_upper = expected_type.upper()
+            if expected_upper in type_mappings:
+                return any(
+                    artifact_type.lower() == t.lower()
+                    for t in type_mappings[expected_upper]
+                )
+
+        return True  # Default to accepting if we can't determine type
+
+    @staticmethod
+    def get_info() -> str:
+        """Get a brief description of what this agent does."""
+        return "Orchestrates agents using AI-generated execution plans"
 
     def get_description(self) -> str:
-        return """
-Orchestrator agent: This agent orchestrates the agents.
-        """
+        """Get detailed description."""
+        return f"""
+Plan-Driven Orchestrator: {self.get_info()}.
 
-    def _get_system_prompt(self, goal: str) -> str:
-        # Get training cutoff information from the client if available
-        training_cutoff_info = ""
-        if hasattr(self._client, "get_training_cutoff_date"):
-            cutoff_date = self._client.get_training_cutoff_date()
-            if cutoff_date:
-                training_cutoff_info = f"Your training date cutoff is {cutoff_date}. You have been trained to know only information before that date."
+This orchestrator:
+1. Extracts user goals and required output types
+2. Generates execution plans using the PlannerAgent
+3. Executes plans deterministically 
+4. Automatically replans on failures
+5. Stores plans and results as artifacts
 
-        # Only include agents that still have budget
-        available_agents = self._get_available_agents()
-
-        # Generate budget information
-        budget_info = "Current agent budgets (remaining calls):\n" + "\n".join(
-            [
-                f"• {agent.get_name()}: {agent.get_budget()} calls remaining"
-                for agent in available_agents.values()
-            ]
-        )
-
-        # Generate task progress section
-        task_progress_section = self._get_task_progress_section()
-
-        return orchestrator_prompt_template.complete(
-            training_cutoff_info=training_cutoff_info,
-            agents_list="\n".join(
-                [
-                    "* "
-                    + agent.get_description().strip()
-                    + f" (Budget: {agent.get_budget()} calls)\n"
-                    for agent in available_agents.values()
-                ]
-            ),
-            all_tags_list="\n".join(
-                [
-                    agent.get_opening_tag().strip() + agent.get_closing_tag().strip()
-                    for agent in available_agents.values()
-                ]
-            ),
-            budget_info=budget_info,
-            status_info=self._get_system_status(),
-            task_progress_section=task_progress_section,
-            goal=goal,
-            task_completed_tag=task_completed_tag,
-        )
-
-    def _sanitize_dataframe_for_markdown(self, df) -> str:
-        """Sanitize dataframe data to prevent markdown table breakage."""
-        # Create a copy to avoid modifying the original
-        df_clean = df.copy()
-
-        # Apply sanitization to all string columns
-        for col in df_clean.columns:
-            if df_clean[col].dtype == "object":  # String columns
-                df_clean[col] = (
-                    df_clean[col]
-                    .astype(str)
-                    .apply(
-                        lambda x: (
-                            x.replace("|", "\\|")  # Escape pipe characters
-                            .replace("\n", " ")  # Replace newlines with spaces
-                            .replace("\r", " ")  # Replace carriage returns
-                            .replace("\t", " ")  # Replace tabs with spaces
-                            .strip()  # Remove leading/trailing whitespace
-                        )
-                    )
-                )
-
-        return df_clean.to_markdown(index=False)
-
-    def _sanitize_and_truncate_dataframe_for_markdown(
-        self, df, max_rows: int = 5
-    ) -> str:
-        """Sanitize dataframe and truncate to first max_rows, showing ellipsis if truncated."""
-        # Create a copy to avoid modifying the original
-        df_clean = df.copy()
-
-        # Apply basic sanitization to all string columns - keep it simple to avoid encoding issues
-        for col in df_clean.columns:
-            if df_clean[col].dtype == "object":  # String columns
-                df_clean[col] = (
-                    df_clean[col]
-                    .astype(str)
-                    .apply(
-                        lambda x: (
-                            # Only do basic cleaning - let frontend handle the rest
-                            x.replace("\n", " ")  # Replace newlines with spaces
-                            .replace("\r", " ")  # Replace carriage returns
-                            .replace("\t", " ")  # Replace tabs with spaces
-                            .strip()  # Remove leading/trailing whitespace
-                        )
-                    )
-                )
-
-        # Truncate all cells to 200 characters max
-        for col in df_clean.columns:
-            df_clean[col] = (
-                df_clean[col]
-                .astype(str)
-                .apply(lambda x: x[:200] + "..." if len(x) > 200 else x)
-            )
-
-        # Check if we need to truncate
-        is_truncated = len(df_clean) > max_rows
-        df_display = df_clean.head(max_rows)
-
-        # Convert to markdown - keep it simple
-        markdown_table = df_display.to_markdown(index=False)
-
-        # Add ellipsis indicator if truncated
-        if is_truncated:
-            total_rows = len(df_clean)
-            markdown_table += f"\n\n*... ({total_rows - max_rows} more rows)*"
-
-        return markdown_table
-
-    def _make_output_visible(self, answer: str) -> str:
-        """Make the output visible by printing or visualising the content of artefacts"""
-        # Handle images
-        if "<artefact type='image'>" in answer:
-            image_artefact: Artefact = get_artefacts_from_utterance_content(answer)[0]
-            answer = f"<imageoutput>{image_artefact.id}</imageoutput>" + "\n" + answer
-
-        # Handle ALL table types - get all artefacts from the answer
-        artefacts = get_artefacts_from_utterance_content(answer)
-        for artefact in artefacts:
-            # Check if this artefact has table data (DataFrame)
-            if artefact.data is not None and hasattr(artefact.data, "to_markdown"):
-                try:
-                    # Handle todo-list artifacts differently - show full table
-                    if artefact.type == Artefact.Types.TODO_LIST:
-                        markdown_table = self._sanitize_dataframe_for_markdown(
-                            artefact.data
-                        )
-                        logger_msg = f"Added full todo-list table with {len(artefact.data)} rows to output"
-                    else:
-                        # Regular tables - display with truncation
-                        markdown_table = (
-                            self._sanitize_and_truncate_dataframe_for_markdown(
-                                artefact.data
-                            )
-                        )
-                        logger_msg = (
-                            f"Added table with {len(artefact.data)} rows to output"
-                        )
-
-                    # Prepend the table display to the answer
-                    answer = f"<markdown>{markdown_table}</markdown>\n" + answer
-                    # Debug logging
-                    import logging
-
-                    logger = logging.getLogger(__name__)
-                    logger.info(logger_msg)
-                except Exception as e:
-                    # If table processing fails, log it but don't break the flow
-                    import logging
-
-                    logger = logging.getLogger(__name__)
-                    logger.warning(f"Failed to process table for display: {e}")
-
-        return answer
+The orchestrator ensures robust execution through automatic error recovery and replanning.
+"""

@@ -222,34 +222,35 @@ function ArtefactPage(element: {
       )}
       {element.image ? (
         <div>
-          <div className="flex">
+          <div className="flex flex-col lg:flex-row">
             <div className="m-5 align-baseline">
               <img
                 alt="Image"
                 src={`data:image/png;charset=utf-8;base64,${element.image}`}
+                className="max-w-full h-auto"
               />
             </div>
-            <div className="m-5 align-baseline">
-              <pre>{element.code}</pre>
+            <div className="m-5 align-baseline flex-1">
+              <pre className="whitespace-pre-wrap break-words overflow-wrap-anywhere">{element.code}</pre>
             </div>
           </div>
-          <div className="columns-[70vw]">
+          <div className="w-full">
             <div
-              className="m-5 align-baseline"
+              className="m-5 align-baseline break-words overflow-wrap-anywhere"
               dangerouslySetInnerHTML={{ __html: data }}
             />
           </div>
         </div>
       ) : (
         <div>
-          <div className="flex">
+          <div className="w-full">
             <div className="m-5 align-baseline">
-              <pre>{element.code}</pre>
+              <pre className="whitespace-pre-wrap break-words overflow-wrap-anywhere">{element.code}</pre>
             </div>
           </div>
-          <div className="columns-[70vw]">
+          <div className="w-full">
             <div
-              className="m-5 align-baseline"
+              className="m-5 align-baseline break-words overflow-wrap-anywhere"
               dangerouslySetInnerHTML={{ __html: data }}
             />
           </div>

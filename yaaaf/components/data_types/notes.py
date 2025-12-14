@@ -11,6 +11,9 @@ class Note(BaseModel):
     internal: bool = (
         False  # Flag to distinguish internal agent dialogue from user-facing messages
     )
+    is_status: bool = (
+        False  # Flag to indicate this is a status message (no spinner needed)
+    )
 
     def __repr__(self):
         return f"Note(message={self.message[:50]}..., artefact_id={self.artefact_id}, agent_name={self.agent_name}, model_name={self.model_name})"

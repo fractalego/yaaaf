@@ -13,6 +13,30 @@ Please analyze the following message exchange between the user and the assistant
 """
 )
 
+enhanced_goal_extractor_prompt = PromptTemplate(
+    prompt="""
+You are a goal extractor. Your task is to extract the goal and identify the required final artifact type.
+
+Please analyze the following message exchange:
+<messages>
+{messages}
+</messages>
+
+Extract:
+1. The user's goal (single sentence)
+2. The type of final artifact needed:
+   - TABLE: If user wants data, analysis results, or structured information
+   - IMAGE: If user wants visualization, chart, or graph  
+   - TEXT: If user wants a report, summary, or explanation
+   - MODEL: If user wants a trained ML model
+   - TODO_LIST: If user wants a task list or action items
+
+Output in this exact format:
+Goal: [single sentence goal]
+Artifact Type: [TABLE|IMAGE|TEXT|MODEL|TODO_LIST]
+"""
+)
+
 summary_extractor_prompt = PromptTemplate(
     prompt="""
 Based on the following conversation and results, create a comprehensive summary in markdown format with the following sections (if applicable):

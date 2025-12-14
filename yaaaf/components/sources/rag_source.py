@@ -1,5 +1,4 @@
 import hashlib
-import os
 from typing import List, Dict
 
 from yaaaf.components.retrievers.local_vector_db import BM25LocalDB
@@ -128,7 +127,7 @@ class RAGSource(BaseSource):
     def get_description(self) -> str:
         self._vector_db.build()
         return self._description
-    
+
     def get_document_count(self) -> int:
         """Get the number of documents/chunks in the source."""
         return len(self._id_to_chunk)

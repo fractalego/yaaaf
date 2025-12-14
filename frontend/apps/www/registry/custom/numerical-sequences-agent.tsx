@@ -9,7 +9,7 @@ function NumericalSequencesAgent(element: {
   modelName?: string
 }) {
   return (
-    <div className="inline-block bg-blue-300 dark:bg-blue-600 dark:text-white p-3 text-xl rounded-sm">
+    <div className="block bg-blue-300 dark:bg-blue-600 dark:text-white p-3 text-xl rounded-sm my-2">
       <div className="flex items-center gap-2 mb-1">
         <div className="inline-block">
           <svg
@@ -39,7 +39,7 @@ function NumericalSequencesAgent(element: {
           />
         )}
       </div>
-      <div>{element.text}</div>
+      <div className="whitespace-pre-wrap break-words">{element.text}</div>
     </div>
   )
 }

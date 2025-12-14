@@ -15,7 +15,12 @@ from yaaaf.components.data_types import Utterance, Messages, Note
 from yaaaf.components.orchestrator_builder import OrchestratorBuilder
 from yaaaf.components.sources.rag_source import RAGSource
 from yaaaf.components.sources.persistent_rag_source import PersistentRAGSource
-from yaaaf.server.accessories import do_compute, get_utterances
+from yaaaf.server.accessories import (
+    do_compute,
+    get_utterances,
+    get_paused_state,
+    resume_paused_execution,
+)
 from yaaaf.server.config import get_config
 
 _logger = logging.getLogger(__name__)
@@ -34,8 +39,21 @@ class ArtefactArguments(BaseModel):
     artefact_id: str
 
 
-class LatestTodoArguments(BaseModel):
+
+class StreamStatusArguments(BaseModel):
     stream_id: str
+
+
+class StreamStatusResponse(BaseModel):
+    goal: str
+    current_agent: str
+    is_active: bool
+
+
+class SubmitUserResponseArguments(BaseModel):
+    stream_id: str
+    user_response: str
+
 
 
 class ArtefactOutput(BaseModel):
@@ -99,59 +117,6 @@ def get_artifact(arguments: ArtefactArguments) -> ArtefactOutput:
         raise
 
 
-def get_latest_todo_artifact(arguments: LatestTodoArguments) -> ArtefactOutput:
-    """Get the most recent todo list artifact for a given conversation stream."""
-    try:
-        from yaaaf.server.accessories import _stream_id_to_messages
-
-        stream_id = arguments.stream_id
-        _logger.info(f"Looking for todo artifacts in stream: {stream_id}")
-        _logger.info(f"Available streams: {list(_stream_id_to_messages.keys())}")
-        
-        if stream_id not in _stream_id_to_messages:
-            raise HTTPException(status_code=404, detail=f"Stream {stream_id} not found")
-
-        notes = _stream_id_to_messages[stream_id]
-        _logger.info(f"Found {len(notes)} notes in stream {stream_id}")
-        artefact_storage = ArtefactStorage()
-
-        # Find all todo list artifacts in the conversation, ordered by appearance
-        todo_artifacts = []
-        for i, note in enumerate(notes):
-            if note.artefact_id:
-                _logger.info(f"Note {i}: artefact_id={note.artefact_id}, agent={note.agent_name}")
-                try:
-                    artifact = artefact_storage.retrieve_from_id(note.artefact_id)
-                    if artifact and artifact.type == Artefact.Types.TODO_LIST:
-                        todo_artifacts.append(artifact)
-                        _logger.info(f"Found TODO_LIST artifact: {artifact.id}")
-                except Exception as e:
-                    _logger.warning(f"Failed to retrieve artifact {note.artefact_id}: {e}")
-                    continue  # Skip invalid artifacts
-
-        _logger.info(f"Found {len(todo_artifacts)} todo artifacts total")
-        if not todo_artifacts:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No todo list artifacts found for stream {stream_id}",
-            )
-
-        # Return the most recent todo list artifact
-        latest_artifact = todo_artifacts[-1]
-        _logger.info(
-            f"Returning latest todo artifact {latest_artifact.id} for stream {stream_id}"
-        )
-        return ArtefactOutput.create_from_artefact(latest_artifact)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        _logger.error(
-            f"Routes: Failed to get latest todo artifact for {arguments.stream_id}: {e}"
-        )
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get latest todo artifact: {str(e)}"
-        )
 
 
 def get_image(arguments: ImageArguments) -> str:
@@ -270,23 +235,27 @@ _persistent_rag_source = None
 def _get_persistent_rag_source():
     """Get or create persistent RAG source if configured in sources."""
     global _persistent_rag_source
-    
+
     if _persistent_rag_source is not None:
         return _persistent_rag_source
-    
+
     config = get_config()
-    
+
     # Look for a RAG source in the sources configuration
     for source_config in config.sources:
         if source_config.type == "rag":
             _persistent_rag_source = PersistentRAGSource(
-                description=source_config.description or source_config.name or "Persistent RAG Source",
+                description=source_config.description
+                or source_config.name
+                or "Persistent RAG Source",
                 source_path=source_config.name or "persistent_rag",
-                pickle_path=source_config.path
+                pickle_path=source_config.path,
             )
-            _logger.info(f"Initialized persistent RAG source: {source_config.name} at {source_config.path}")
+            _logger.info(
+                f"Initialized persistent RAG source: {source_config.name} at {source_config.path}"
+            )
             return _persistent_rag_source
-    
+
     return None
 
 
@@ -319,7 +288,7 @@ async def upload_file_to_rag(
         if file_extension not in ["txt", "md", "html", "htm", "pdf"]:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported file type. Only .txt, .md, .html, .htm, .pdf files are supported",
+                detail="Unsupported file type. Only .txt, .md, .html, .htm, .pdf files are supported",
             )
 
         # Read file content
@@ -339,9 +308,11 @@ async def upload_file_to_rag(
             rag_source = persistent_rag
             # Update description to include the new file
             current_desc = rag_source._description
-            if not f"Uploaded file: {file.filename}" in current_desc:
+            if f"Uploaded file: {file.filename}" not in current_desc:
                 rag_source._description = f"{current_desc} | {initial_description}"
-            _logger.info(f"Using persistent RAG source with {persistent_rag.get_document_count()} existing documents")
+            _logger.info(
+                f"Using persistent RAG source with {persistent_rag.get_document_count()} existing documents"
+            )
         else:
             # Create temporary document source and index the content
             rag_source = RAGSource(
@@ -378,7 +349,7 @@ async def upload_file_to_rag(
 
         # Return appropriate source_id based on storage type
         response_source_id = "persistent_rag" if persistent_rag else source_id
-        
+
         return FileUploadResponse(
             success=True,
             message=f"File '{file.filename}' uploaded and indexed successfully",
@@ -408,12 +379,14 @@ def update_rag_source_description(
                 persistent_rag._description = new_description
                 # Save the updated description
                 persistent_rag._save_to_pickle()
-                _logger.info(f"Updated description for persistent RAG source")
+                _logger.info("Updated description for persistent RAG source")
                 return UpdateDescriptionResponse(
                     success=True, message="Description updated successfully"
                 )
             else:
-                raise HTTPException(status_code=404, detail="Persistent RAG source not found")
+                raise HTTPException(
+                    status_code=404, detail="Persistent RAG source not found"
+                )
 
         # Check temporary uploaded sources
         if source_id not in _uploaded_rag_sources:
@@ -441,12 +414,12 @@ def update_rag_source_description(
 def get_uploaded_rag_sources():
     """Get all uploaded document sources"""
     sources = list(_uploaded_rag_sources.values())
-    
+
     # Include persistent RAG source if configured
     persistent_rag = _get_persistent_rag_source()
     if persistent_rag:
         sources.append(persistent_rag)
-    
+
     return sources
 
 
@@ -479,7 +452,7 @@ def get_all_sources() -> AllSourcesResponse:
     try:
         # Get uploaded documents
         uploaded_docs = []
-        
+
         # Include temporary uploaded documents
         for source_id, rag_source in _uploaded_rag_sources.items():
             # Extract filename from description if it follows the pattern "Uploaded file: filename"
@@ -487,28 +460,29 @@ def get_all_sources() -> AllSourcesResponse:
             filename = ""
             if description.startswith("Uploaded file: "):
                 filename = description[15:]  # Remove "Uploaded file: " prefix
-            
-            uploaded_docs.append(UploadedDocumentInfo(
-                source_id=source_id,
-                description=description,
-                filename=filename
-            ))
-        
+
+            uploaded_docs.append(
+                UploadedDocumentInfo(
+                    source_id=source_id, description=description, filename=filename
+                )
+            )
+
         # Include persistent RAG source if configured
         persistent_rag = _get_persistent_rag_source()
         if persistent_rag:
-            uploaded_docs.append(UploadedDocumentInfo(
-                source_id="persistent_rag",
-                description=f"{persistent_rag._description} ({persistent_rag.get_document_count()} documents)",
-                filename="persistent_storage"
-            ))
+            uploaded_docs.append(
+                UploadedDocumentInfo(
+                    source_id="persistent_rag",
+                    description=f"{persistent_rag._description} ({persistent_rag.get_document_count()} documents)",
+                    filename="persistent_storage",
+                )
+            )
 
         # Get SQL sources using existing function
         sql_sources = get_sql_sources()
 
         return AllSourcesResponse(
-            uploaded_documents=uploaded_docs,
-            sql_sources=sql_sources
+            uploaded_documents=uploaded_docs, sql_sources=sql_sources
         )
 
     except Exception as e:
@@ -524,18 +498,16 @@ def get_persistent_documents() -> PersistentDocumentsResponse:
         persistent_rag = _get_persistent_rag_source()
         if not persistent_rag:
             raise HTTPException(
-                status_code=404, 
-                detail="No persistent RAG source configured"
+                status_code=404, detail="No persistent RAG source configured"
             )
-        
+
         documents_data = persistent_rag.get_all_documents()
         documents = [DocumentInfo(**doc) for doc in documents_data]
-        
+
         return PersistentDocumentsResponse(
-            documents=documents,
-            total_count=len(documents)
+            documents=documents, total_count=len(documents)
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -752,6 +724,7 @@ async def stream_utterances(arguments: NewUtteranceArguments):
                             "artefact_id": note.artefact_id,
                             "agent_name": note.agent_name,
                             "model_name": note.model_name,
+                            "is_status": getattr(note, "is_status", False),
                         }
                         yield f"data: {json.dumps(note_data)}\n\n"
 
@@ -789,3 +762,75 @@ async def stream_utterances(arguments: NewUtteranceArguments):
             "Access-Control-Allow-Headers": "Cache-Control",
         },
     )
+
+
+def get_stream_status(arguments: StreamStatusArguments) -> StreamStatusResponse:
+    """Get the current status of a stream (goal and active agent)"""
+    try:
+        from yaaaf.server.accessories import get_stream_status as get_status
+
+        stream_id = arguments.stream_id
+        status = get_status(stream_id)
+
+        if status is None:
+            raise HTTPException(status_code=404, detail=f"Stream {stream_id} not found")
+
+        return StreamStatusResponse(
+            goal=status.goal,
+            current_agent=status.current_agent,
+            is_active=status.is_active,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(
+            f"Routes: Failed to get stream status for {arguments.stream_id}: {e}"
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get stream status: {str(e)}"
+        )
+
+
+def submit_user_response(arguments: SubmitUserResponseArguments):
+    """Submit user's response to a paused execution and resume.
+
+    Args:
+        arguments: Contains stream_id and user_response
+
+    Returns:
+        Success response
+    """
+    try:
+        stream_id = arguments.stream_id
+        user_response = arguments.user_response
+
+        _logger.info(f"Received user response for stream {stream_id}: {user_response[:100]}")
+
+        # Check if there's a paused state for this stream
+        paused_state = get_paused_state(stream_id)
+        if not paused_state:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No paused execution found for stream {stream_id}"
+            )
+
+        # Build orchestrator and resume execution in a new thread
+        async def build_and_resume():
+            orchestrator = await OrchestratorBuilder(get_config()).build()
+            await resume_paused_execution(stream_id, user_response, orchestrator)
+
+        t = threading.Thread(target=asyncio.run, args=(build_and_resume(),))
+        t.start()
+
+        _logger.info(f"Started resumption thread for stream {stream_id}")
+
+        return {"success": True, "message": "User response received, resuming execution"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error(f"Routes: Failed to submit user response for {arguments.stream_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to submit user response: {str(e)}"
+        )

@@ -1,39 +1,6 @@
 from yaaaf.components.data_types import PromptTemplate
 
 
-orchestrator_prompt_template = PromptTemplate(
-    prompt="""
-Your role is to orchestrate a set of analytics agents. You call different agents for different tasks.
-These calls happen by writing the name of the agent as the tag name.
-Information about the task is provided between tags.
-
-{training_cutoff_info}
-
-IMPORTANT: Each agent has a limited budget (number of calls) per query. Once an agent's budget is exhausted, it cannot be called again for this query.
-
-You have these agents at your disposal:
-{agents_list}
-   
-These agents only know what you write between tags and have no memory.
-Use the agents to get what you want. Do not write the answer yourself.
-The only html tags they understand are these ones: {all_tags_list}. Use these tags to call the agents.
-
-{budget_info}
-
-== SYSTEM STATUS ==
-The following status information has been reported by various agents:
-{status_info}
-
-{task_progress_section}
-
-The goal to reach is the following:
-{goal}
-
-When you think you have reached this goal, write out the final answer and then {task_completed_tag}
-    """
-)
-
-
 sql_agent_prompt_template = PromptTemplate(
     prompt="""
 Your task is to write an SQL query according the schema below and the user's instructions
@@ -50,30 +17,6 @@ Only give one SQL instruction string per answer.
 )
 
 
-todo_agent_prompt_template = PromptTemplate(
-    prompt="""
-Your task is to create a structured todo list for planning how to answer the user's query.
-Analyze the instructions and break them down into actionable todo items with priorities.
-Mention the specific agents and tools you will use by their exact names.
-These are the agents and tools you can use:
-{agents_and_sources_and_tools_list}
-
-Create a todo list as a markdown table with the following columns:
-- ID: unique identifier
-- Task: description of the task
-- Status: "pending", or "completed"
-- Agent/Tool: specific agent or tool to use
-
-The table must be structured as follows:
-| ID | Task | Status | Agent/Tool |
-| --- | ---- | ------ | -------- | ----------- |
-| 1 | Example task | pending | ExampleAgent |
-... | ... | ... | ... | ...|
-
-When you are satisfied with the todo list, output it between markdown tags ```table ... ```
-You MUST use the ```table ... ``` tags to indicate the start and end of the todo list.
-"""
-)
 
 
 visualization_agent_prompt_template_without_model = PromptTemplate(
@@ -313,6 +256,22 @@ The arguments column should contain valid JSON that matches the tool's input sch
 
 url_agent_prompt_template = PromptTemplate(
     prompt="""
+You are a URL fetching and analysis agent. Your task is to:
+1. Extract URLs from user instructions
+2. Fetch the content from those URLs
+3. Analyze and summarize the content
+4. Provide relevant information based on the user's request
+
+Output the URL you want to fetch between ```url and ``` tags.
+For example: ```url https://example.com ```
+
+After fetching, analyze the content and provide a useful response.
+"""
+)
+
+# Template for when we have URL content to analyze
+url_content_template = PromptTemplate(
+    prompt="""
 URL: {url}
 Content from the URL:
 {content}
@@ -431,7 +390,7 @@ You will receive artifacts from various sources including:
 - Other agents: Additional relevant data
 
 Input Artifacts:
-{artifacts_content}
+{artifact_list}
 
 Instructions:
 1. Analyze ALL provided artifacts carefully
@@ -535,5 +494,132 @@ Respond with exactly one word:
 - "no" if the current plan can continue unchanged
 
 Your response must be exactly one of these two words, nothing else.
+    """
+)
+
+
+planner_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to create an execution plan as an asset-based workflow that shows how ARTIFACTS flow from sources through transformers to sinks.
+
+You are a planning expert who understands:
+1. Agent taxonomies:
+   - EXTRACTORS (Sources): Pull data from external sources, produce artifacts
+   - TRANSFORMERS (Processors): Transform artifacts into new artifacts
+   - SYNTHESIZERS: Combine multiple artifacts into unified artifacts
+   - GENERATORS (Sinks): Consume artifacts to create final outputs
+
+2. Artifact types:
+   - TABLE: Tabular data (DataFrames)
+   - TEXT: Text content (documents, responses)
+   - IMAGE: Visual outputs (charts, plots)
+   - MODEL: Trained ML models
+   - TODO_LIST: Task tracking tables
+   - JSON: Structured data
+
+Available agents and their artifact handling:
+{agent_descriptions}
+
+CRITICAL RULES:
+1. You MUST ONLY use the agent names listed above. DO NOT invent agent names.
+2. You MUST use the EXACT artifact types from each agent's "Produces" field. DO NOT guess types.
+3. If an agent "Produces: table" then you MUST use "type: table" in your plan.
+4. If an agent "Produces: image" then you MUST use "type: image" in your plan.
+5. NEVER use a type that is not in the agent's "Produces" list.
+
+Instructions for creating the workflow:
+1. Analyze the user's goal to identify the required FINAL ARTIFACT type
+2. Work backwards from the sink to determine what artifacts it needs
+3. Plan transformation steps that produce the required artifacts
+4. Identify source agents that can produce initial artifacts
+5. Define dependencies through inputs field
+
+Workflow Format Rules:
+- Use YAML asset-based syntax inspired by Prefect/Dagster
+- Each asset has: name, agent, description, type, inputs (optional), conditions (optional)
+- Assets without inputs are source nodes
+- Dependencies are explicit through inputs field
+- CRITICAL: The "type" field MUST be copied EXACTLY from the agent's "Produces" field
+- Example: If agent shows "Produces: table" then use "type: table" (lowercase)
+- Example: If agent shows "Produces: image" then use "type: image" (lowercase)
+- FORBIDDEN: Never use types not listed in the agent's "Produces" field
+- Include validation and error handling where appropriate
+
+EXAMPLES showing correct type usage from agent specifications:
+
+{examples}
+
+Optional features you can include:
+- validation: Data quality checks (row_count, columns, constraints)
+- conditions: Conditional execution based on input data
+- retry_policy: Error handling (max_attempts, backoff)
+- on_error: Fallback actions
+- params: Agent-specific parameters based on conditions
+
+Important considerations:
+- Each agent has INPUT and OUTPUT artifact requirements listed in their description
+- NEVER guess artifact types - use EXACTLY what each agent "Produces" according to its specification
+- If an agent "Produces: table" then use "type: table" in your plan
+- If an agent "Produces: image" then use "type: image" in your plan
+- Ensure artifact type compatibility: what one agent produces must match what the next agent accepts
+- The final artifact must match what the sink agent expects
+- Use meaningful asset names that describe the data transformation
+
+Think step-by-step:
+1. What is the desired final output (artifact type)?
+2. Which sink agent produces that artifact type?
+3. What artifact type does that sink need as input?
+4. Which agents can transform/produce those artifacts?
+5. What source agents can start the artifact chain?
+
+Output your workflow between ```yaml and ``` tags.
+    """
+)
+
+
+validation_agent_prompt_template = PromptTemplate(
+    prompt="""You are a validation agent. Your job is to evaluate whether an artifact produced by a workflow step matches what was expected.
+
+ORIGINAL USER GOAL:
+{user_goal}
+
+WORKFLOW STEP DESCRIPTION:
+{step_description}
+
+EXPECTED ARTIFACT TYPE: {expected_type}
+
+ARTIFACT CONTENT:
+{artifact_content}
+
+Evaluate the artifact by answering these questions:
+1. Does this artifact help achieve the user's original goal?
+2. Does it match what the step description promised to produce?
+3. Is the data reasonable, complete, and useful?
+4. Are there any obvious errors or problems?
+
+Based on your evaluation, provide a JSON response with EXACTLY this structure:
+```json
+{{
+  "is_valid": true or false,
+  "confidence": 0.0 to 1.0,
+  "reason": "Brief explanation of your evaluation",
+  "should_ask_user": true or false,
+  "suggested_fix": "What to do differently if invalid, or null if valid"
+}}
+```
+
+Confidence scale:
+- 0.9-1.0: Perfect, exactly what was needed
+- 0.7-0.9: Good, minor issues but usable
+- 0.5-0.7: Acceptable but has notable problems
+- 0.3-0.5: Problematic, should try a different approach
+- 0.0-0.3: Completely wrong, need user guidance
+
+Set should_ask_user=true ONLY if:
+- The result is completely unexpected and you cannot suggest a fix
+- The user's intent is ambiguous
+- Multiple valid interpretations exist
+
+Output ONLY the JSON block, no other text.
     """
 )

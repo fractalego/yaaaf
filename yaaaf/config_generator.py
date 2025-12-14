@@ -16,23 +16,27 @@ class ConfigGenerator:
 
     def __init__(self):
         self.config = {
-            "client": {"model": "qwen2.5:32b", "temperature": 0.7, "max_tokens": 1024},
+            "client": {"model": "qwen2.5:32b", "temperature": 0.7, "max_tokens": 1024, "disable_thinking": True},
             "agents": [],
             "sources": [],
         }
 
         # Available agents with descriptions
         self.available_agents = {
-            "reflection": "Step-by-step reasoning and thinking about tasks",
             "visualization": "Creates charts and visualizations from data",
             "sql": "Executes SQL queries against databases (requires SQLite sources)",
             "document_retriever": "Document search and retrieval from configured sources",
             "answerer": "Synthesizes multiple artifacts into comprehensive research answers",
             "reviewer": "Analyzes artifacts and validates results",
             "websearch": "Performs web searches using DuckDuckGo",
+            "brave_search": "Performs web searches using Brave Search API",
             "url": "Analyzes content from URLs based on instructions",
             "url_reviewer": "Extracts information from web search results",
             "user_input": "Interacts with users to gather additional information and clarification",
+            "bash": "Executes bash commands for filesystem operations",
+            "tool": "Executes external tools via MCP (Model Context Protocol)",
+            "numerical_sequences": "Analyzes and processes numerical sequences and statistical data",
+            "mle": "Executes machine learning and data science Python code",
         }
 
     def print_welcome(self):
@@ -124,6 +128,13 @@ class ConfigGenerator:
                     print("❌ Max tokens must be positive.")
             except ValueError:
                 print("❌ Please enter a valid number.")
+        
+        # Disable thinking
+        disable_thinking = self.get_yes_no(
+            "Disable thinking tags (for faster response with some models)", 
+            default=True
+        )
+        self.config["client"]["disable_thinking"] = disable_thinking
 
     def configure_agents(self):
         """Configure which agents to enable."""
@@ -140,9 +151,9 @@ class ConfigGenerator:
 
         if not self.config["agents"]:
             print(
-                "\n⚠️  Warning: No agents selected. Adding 'reflection' agent as minimum."
+                "\n⚠️  Warning: No agents selected. Adding 'visualization' agent as minimum."
             )
-            self.config["agents"].append("reflection")
+            self.config["agents"].append("visualization")
 
     def add_sqlite_sources(self):
         """Add SQLite database sources."""

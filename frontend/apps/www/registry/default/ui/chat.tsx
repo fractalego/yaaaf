@@ -34,6 +34,13 @@ interface ChatPropsBase {
     fileName: string,
     rowsInserted: number
   ) => void
+  streamStatus?: {
+    goal: string
+    current_agent: string
+    is_active: boolean
+  }
+  isPaused?: boolean
+  onUserResponseSubmit?: (userResponse: string) => void
 }
 
 interface ChatPropsWithoutSuggestions extends ChatPropsBase {
@@ -65,6 +72,9 @@ export function Chat({
   hasSqlAgent,
   onFileUpload,
   onSqlUpload,
+  streamStatus,
+  isPaused,
+  onUserResponseSubmit,
 }: ChatProps) {
   const lastMessage = messages.at(-1)
   const isEmpty = messages.length === 0
@@ -184,6 +194,7 @@ export function Chat({
             isTyping={isTyping}
             messageOptions={messageOptions}
             onArtifactClick={onArtifactClick}
+            streamStatus={streamStatus}
           />
         </ChatMessages>
       ) : null}
@@ -204,6 +215,8 @@ export function Chat({
           hasSqlAgent={hasSqlAgent}
           onFileUpload={onFileUpload}
           onSqlUpload={onSqlUpload}
+          isPaused={isPaused}
+          onUserResponseSubmit={onUserResponseSubmit}
         />
       </ChatForm>
       {isEmpty && append && suggestions ? (

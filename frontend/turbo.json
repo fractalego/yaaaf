@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["NODE_ENV"],
+  "globalEnv": ["NODE_ENV", "YAAAF_API_PORT"],
   "pipeline": {
     "build": {
       "dependsOn": ["^build"],
@@ -33,6 +33,7 @@
     },
     "lint": {
       "cache": false,
+      "env": ["YAAAF_API_PORT"],
       "outputs": []
     },
     "lint:fix": {
@@ -47,9 +48,12 @@
       "cache": false,
       "outputs": []
     },
-    "typecheck": {},
+    "typecheck": {
+      "env": ["YAAAF_API_PORT"]
+    },
     "dev": {
-      "cache": false
+      "cache": false,
+      "env": ["YAAAF_API_PORT"]
     },
     "check": {
       "cache": false

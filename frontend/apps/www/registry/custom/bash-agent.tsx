@@ -6,7 +6,7 @@ import { ModelIndicator } from "./model-indicator"
 
 function BashAgent(element: { text: string; modelName?: string }) {
   return (
-    <div className="inline-block bg-green-100 dark:bg-green-800 dark:text-white p-3 text-xl rounded-sm">
+    <div className="block bg-green-100 dark:bg-green-800 dark:text-white p-3 text-xl rounded-sm my-2">
       <div className="flex items-center gap-2 mb-1">
         <div className="inline-block">
           <svg
@@ -36,7 +36,7 @@ function BashAgent(element: { text: string; modelName?: string }) {
           />
         )}
       </div>
-      <div>{element.text}</div>
+      <div className="whitespace-pre-wrap break-words">{element.text}</div>
     </div>
   )
 }

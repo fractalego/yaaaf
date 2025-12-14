@@ -37,6 +37,8 @@ interface MessageInputProps
     fileName: string,
     rowsInserted: number
   ) => void
+  isPaused?: boolean
+  onUserResponseSubmit?: (userResponse: string) => void
 }
 
 export function MessageInput({
@@ -53,9 +55,12 @@ export function MessageInput({
   hasSqlAgent = false,
   onFileUpload,
   onSqlUpload,
+  isPaused = false,
+  onUserResponseSubmit,
   ...props
 }: MessageInputProps) {
   const [showInterruptPrompt, setShowInterruptPrompt] = useState(false)
+  const [userResponse, setUserResponse] = useState("")
 
   useEffect(() => {
     if (!isGenerating) {
@@ -100,6 +105,57 @@ export function MessageInput({
     dependencies: [props.value],
   })
 
+  const handleUserResponseSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (userResponse.trim() && onUserResponseSubmit) {
+      onUserResponseSubmit(userResponse)
+      setUserResponse("")
+    }
+  }
+
+  // If execution is paused, show special user response input
+  if (isPaused) {
+    return (
+      <div className="relative flex w-full">
+        <div className="relative flex w-full items-center space-x-2">
+          <div className="relative flex-1">
+            <form onSubmit={handleUserResponseSubmit}>
+              <textarea
+                aria-label="Provide your response"
+                placeholder="Type your response here..."
+                value={userResponse}
+                onChange={(e) => setUserResponse(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault()
+                    handleUserResponseSubmit(e)
+                  }
+                }}
+                className={cn(
+                  "z-10 w-full grow resize-none rounded-xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950 p-3 pr-16 text-sm ring-offset-background transition-[border] placeholder:text-muted-foreground focus-visible:border-amber-500 focus-visible:outline-none",
+                  className
+                )}
+                rows={2}
+              />
+              <div className="absolute right-3 top-3 z-20">
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="h-8 w-8 bg-amber-500 hover:bg-amber-600 transition-opacity"
+                  aria-label="Submit response"
+                  disabled={userResponse.trim() === ""}
+                >
+                  <ArrowUp className="h-5 w-5" />
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Normal input mode
   return (
     <div className="relative flex w-full">
       {enableInterrupt && (

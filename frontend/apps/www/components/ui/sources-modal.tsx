@@ -1,7 +1,14 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Database, FileText, Folder, ChevronDown, ChevronRight, Eye } from "lucide-react"
+import {
+  ChevronDown,
+  ChevronRight,
+  Database,
+  Eye,
+  FileText,
+  Folder,
+} from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/registry/default/ui/button"
@@ -50,11 +57,14 @@ interface SourcesModalProps {
 
 export function SourcesModal({ isOpen, onClose }: SourcesModalProps) {
   const [sources, setSources] = useState<AllSourcesResponse | null>(null)
-  const [persistentDocs, setPersistentDocs] = useState<PersistentDocumentsResponse | null>(null)
+  const [persistentDocs, setPersistentDocs] =
+    useState<PersistentDocumentsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingDocs, setIsLoadingDocs] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [expandedDocuments, setExpandedDocuments] = useState<Set<string>>(new Set())
+  const [expandedDocuments, setExpandedDocuments] = useState<Set<string>>(
+    new Set()
+  )
   const [showPersistentDocs, setShowPersistentDocs] = useState(false)
 
   const fetchSources = useCallback(async () => {
@@ -95,12 +105,15 @@ export function SourcesModal({ isOpen, onClose }: SourcesModalProps) {
     setIsLoadingDocs(true)
 
     try {
-      const response = await fetch("http://localhost:4000/get_persistent_documents", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
+      const response = await fetch(
+        "http://localhost:4000/get_persistent_documents",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      )
 
       if (response.ok) {
         const result = await response.json()
@@ -125,7 +138,7 @@ export function SourcesModal({ isOpen, onClose }: SourcesModalProps) {
   }, [isOpen, fetchSources])
 
   const toggleDocument = (docId: string) => {
-    setExpandedDocuments(prev => {
+    setExpandedDocuments((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(docId)) {
         newSet.delete(docId)
@@ -237,65 +250,68 @@ export function SourcesModal({ isOpen, onClose }: SourcesModalProps) {
                             Loading documents...
                           </div>
                         )}
-                        
-                        {persistentDocs && persistentDocs.documents.length > 0 && (
-                          <>
-                            <div className="text-sm font-medium text-muted-foreground">
-                              {persistentDocs.total_count} documents in persistent storage:
-                            </div>
-                            {persistentDocs.documents.map((doc) => (
-                              <div
-                                key={doc.id}
-                                className="rounded border bg-gray-50 p-3"
-                              >
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
-                                    <div className="text-sm font-medium">
-                                      {doc.title}
-                                    </div>
-                                    <div className="mt-1 text-xs text-muted-foreground">
-                                      {doc.size} characters
-                                    </div>
-                                    <div className="mt-2 text-xs text-muted-foreground">
-                                      {doc.preview}
-                                    </div>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => toggleDocument(doc.id)}
-                                    className="ml-2 h-6 w-6 p-0"
-                                  >
-                                    {expandedDocuments.has(doc.id) ? (
-                                      <ChevronDown className="h-3 w-3" />
-                                    ) : (
-                                      <Eye className="h-3 w-3" />
-                                    )}
-                                  </Button>
-                                </div>
-                                
-                                {expandedDocuments.has(doc.id) && (
-                                  <div className="mt-3 border-t pt-3">
-                                    <div className="mb-2 text-xs text-muted-foreground">
-                                      Full Content:
-                                    </div>
-                                    <div className="max-h-60 overflow-y-auto rounded bg-white p-3 font-mono text-xs">
-                                      <pre className="whitespace-pre-wrap">
-                                        {doc.content}
-                                      </pre>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </>
-                        )}
 
-                        {persistentDocs && persistentDocs.documents.length === 0 && (
-                          <div className="text-sm text-muted-foreground">
-                            No documents found in persistent storage
-                          </div>
-                        )}
+                        {persistentDocs &&
+                          persistentDocs.documents.length > 0 && (
+                            <>
+                              <div className="text-sm font-medium text-muted-foreground">
+                                {persistentDocs.total_count} documents in
+                                persistent storage:
+                              </div>
+                              {persistentDocs.documents.map((doc) => (
+                                <div
+                                  key={doc.id}
+                                  className="rounded border bg-gray-50 p-3"
+                                >
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                      <div className="text-sm font-medium">
+                                        {doc.title}
+                                      </div>
+                                      <div className="mt-1 text-xs text-muted-foreground">
+                                        {doc.size} characters
+                                      </div>
+                                      <div className="mt-2 text-xs text-muted-foreground">
+                                        {doc.preview}
+                                      </div>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => toggleDocument(doc.id)}
+                                      className="ml-2 h-6 w-6 p-0"
+                                    >
+                                      {expandedDocuments.has(doc.id) ? (
+                                        <ChevronDown className="h-3 w-3" />
+                                      ) : (
+                                        <Eye className="h-3 w-3" />
+                                      )}
+                                    </Button>
+                                  </div>
+
+                                  {expandedDocuments.has(doc.id) && (
+                                    <div className="mt-3 border-t pt-3">
+                                      <div className="mb-2 text-xs text-muted-foreground">
+                                        Full Content:
+                                      </div>
+                                      <div className="max-h-60 overflow-y-auto rounded bg-white p-3 font-mono text-xs">
+                                        <pre className="whitespace-pre-wrap">
+                                          {doc.content}
+                                        </pre>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </>
+                          )}
+
+                        {persistentDocs &&
+                          persistentDocs.documents.length === 0 && (
+                            <div className="text-sm text-muted-foreground">
+                              No documents found in persistent storage
+                            </div>
+                          )}
                       </div>
                     )}
                   </div>
@@ -367,11 +383,7 @@ export function SourcesModal({ isOpen, onClose }: SourcesModalProps) {
         </div>
 
         <div className="flex justify-end gap-2 border-t pt-4">
-          <Button
-            variant="outline"
-            onClick={fetchSources}
-            disabled={isLoading}
-          >
+          <Button variant="outline" onClick={fetchSources} disabled={isLoading}>
             Refresh
           </Button>
           <Button onClick={onClose}>Close</Button>

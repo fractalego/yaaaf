@@ -6,7 +6,9 @@ from requests.exceptions import ConnectionError, Timeout, RequestException
 
 from typing import Optional, List, TYPE_CHECKING
 
-from yaaaf.components.agents.tokens_utils import strip_thought_tokens
+from yaaaf.components.agents.tokens_utils import (
+    extract_thinking_content,
+)
 
 if TYPE_CHECKING:
     from yaaaf.components.data_types import Messages, Tool, ClientResponse
@@ -21,9 +23,14 @@ class OllamaConnectionError(Exception):
         self.host = host
         self.model = model
         self.original_error = original_error
-        super().__init__(
-            f"Failed to connect to Ollama at {host} for model '{model}': {original_error}"
-        )
+        
+        # Create user-friendly error message
+        if "Connection refused" in str(original_error) or "ConnectionRefusedError" in str(type(original_error)):
+            user_message = f"🔌 Ollama server is not running at {host}.\n\nTo fix this:\n1. Start Ollama: 'ollama serve'\n2. Pull the model: 'ollama pull {model}'\n3. Try again"
+        else:
+            user_message = f"❌ Cannot connect to Ollama at {host} for model '{model}': {original_error}"
+        
+        super().__init__(user_message)
 
 
 class OllamaResponseError(Exception):
@@ -34,9 +41,16 @@ class OllamaResponseError(Exception):
         self.model = model
         self.status_code = status_code
         self.response_text = response_text
-        super().__init__(
-            f"Ollama error at {host} for model '{model}': HTTP {status_code} - {response_text}"
-        )
+        
+        # Create user-friendly error message
+        if status_code == 404 or "model not found" in response_text.lower():
+            user_message = f"🤖 Model '{model}' not found in Ollama.\n\nTo fix this:\n1. Pull the model: 'ollama pull {model}'\n2. Or list available models: 'ollama list'"
+        elif "out of memory" in response_text.lower() or "insufficient memory" in response_text.lower():
+            user_message = f"💾 Insufficient memory to run model '{model}'.\n\nTo fix this:\n1. Try a smaller model\n2. Close other applications\n3. Or increase system RAM"
+        else:
+            user_message = f"❌ Ollama error: {response_text}"
+        
+        super().__init__(user_message)
 
 
 class BaseClient:
@@ -67,16 +81,21 @@ class OllamaClient(BaseClient):
         max_tokens: int = 2048,
         host: str = "http://localhost:11434",
         cutoffs_file: Optional[str] = None,
+        disable_thinking: bool = True,
     ):
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.host = host
+        self.disable_thinking = disable_thinking
         self._training_cutoff_date = None
         self._cutoffs_data = None
 
         # Log Ollama connection details
         _logger.info(f"Initializing OllamaClient for model '{model}' on host '{host}'")
+        
+        # Test connection to Ollama at startup
+        self._test_ollama_connection()
 
         # Load cutoffs file
         if cutoffs_file is None:
@@ -84,6 +103,28 @@ class OllamaClient(BaseClient):
             cutoffs_file = Path(__file__).parent / "model_training_cutoffs.json"
 
         self._load_cutoffs_data(cutoffs_file)
+
+    def _test_ollama_connection(self) -> None:
+        """Test connection to Ollama server at startup."""
+        try:
+            response = requests.get(f"{self.host}/api/tags", timeout=5)
+            if response.status_code == 200:
+                _logger.info(f"✅ Successfully connected to Ollama at {self.host}")
+                
+                # Check if the specified model is available
+                tags_data = response.json()
+                available_models = [model["name"] for model in tags_data.get("models", [])]
+                if self.model in available_models:
+                    _logger.info(f"✅ Model '{self.model}' is available")
+                else:
+                    _logger.warning(f"⚠️ Model '{self.model}' not found. Available models: {', '.join(available_models)}")
+                    _logger.warning(f"Consider running: ollama pull {self.model}")
+            else:
+                _logger.warning(f"⚠️ Ollama responded with status {response.status_code}")
+        except ConnectionError:
+            _logger.error(f"❌ Cannot connect to Ollama at {self.host}. Please start Ollama with 'ollama serve'")
+        except Exception as e:
+            _logger.warning(f"⚠️ Could not verify Ollama connection: {e}")
 
     def _load_cutoffs_data(self, cutoffs_file: Path) -> None:
         """
@@ -195,7 +236,7 @@ class OllamaClient(BaseClient):
                 timeout=600,
             )
         except ConnectionError as e:
-            error_msg = f"Connection refused to Ollama at {self.host}. Please ensure Ollama is running and accessible."
+            error_msg = f"❌ Ollama server not running at {self.host}. Please start Ollama with 'ollama serve' and ensure the model '{self.model}' is available."
             _logger.error(error_msg)
             raise OllamaConnectionError(self.host, self.model, e)
         except Timeout as e:
@@ -215,9 +256,14 @@ class OllamaClient(BaseClient):
                 # Import ClientResponse and ToolCall here to avoid circular imports
                 from yaaaf.components.data_types import ClientResponse, ToolCall
 
-                message_content = strip_thought_tokens(
+                # Extract thinking content and clean message
+                thinking_content, message_content = extract_thinking_content(
                     response_data["message"]["content"]
                 )
+                
+                # If thinking is disabled, don't store thinking content as artifacts
+                if self.disable_thinking:
+                    thinking_content = None
 
                 # Extract tool calls if present
                 tool_calls = None
@@ -234,7 +280,11 @@ class OllamaClient(BaseClient):
                         )
                         tool_calls.append(tool_call)
 
-                return ClientResponse(message=message_content, tool_calls=tool_calls)
+                return ClientResponse(
+                    message=message_content,
+                    tool_calls=tool_calls,
+                    thinking_content=thinking_content if thinking_content else None,
+                )
             except (json.JSONDecodeError, KeyError) as e:
                 error_msg = f"Invalid response format from Ollama at {self.host}: {e}"
                 _logger.error(error_msg)
@@ -242,9 +292,15 @@ class OllamaClient(BaseClient):
                     self.host, self.model, response.status_code, str(e)
                 )
         else:
-            _logger.error(
-                f"Error response from {self.host}: {response.status_code}, {response.text}"
-            )
+            error_text = response.text
+            
+            # Check for model not found error
+            if response.status_code == 404 or "model not found" in error_text.lower():
+                user_friendly_error = f"🤖 Model '{self.model}' not found in Ollama.\n\nTo fix this:\n1. Pull the model: 'ollama pull {self.model}'\n2. Or list available models: 'ollama list'"
+                _logger.error(user_friendly_error)
+            else:
+                _logger.error(f"Error response from {self.host}: {response.status_code}, {error_text}")
+            
             raise OllamaResponseError(
-                self.host, self.model, response.status_code, response.text
+                self.host, self.model, response.status_code, error_text
             )

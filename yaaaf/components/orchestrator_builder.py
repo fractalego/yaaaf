@@ -2,7 +2,7 @@ import os
 import logging
 from typing import List
 from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
-from yaaaf.components.agents.todo_agent import TodoAgent
+from yaaaf.components.agents.planner_agent import PlannerAgent
 from yaaaf.components.agents.reviewer_agent import ReviewerAgent
 from yaaaf.components.agents.sql_agent import SqlAgent
 from yaaaf.components.agents.document_retriever_agent import DocumentRetrieverAgent
@@ -16,6 +16,8 @@ from yaaaf.components.agents.bash_agent import BashAgent
 from yaaaf.components.agents.tool_agent import ToolAgent
 from yaaaf.components.agents.numerical_sequences_agent import NumericalSequencesAgent
 from yaaaf.components.agents.answerer_agent import AnswererAgent
+from yaaaf.components.agents.mle_agent import MleAgent
+from yaaaf.components.agents.validation_agent import ValidationAgent
 from yaaaf.components.client import OllamaClient
 from yaaaf.components.sources.sqlite_source import SqliteSource
 from yaaaf.components.sources.rag_source import RAGSource
@@ -30,7 +32,6 @@ class OrchestratorBuilder:
     def __init__(self, config: Settings):
         self.config = config
         self._agents_map = {
-            "todo": TodoAgent,
             "visualization": VisualizationAgent,
             "sql": SqlAgent,
             "document_retriever": DocumentRetrieverAgent,
@@ -44,6 +45,8 @@ class OrchestratorBuilder:
             "tool": ToolAgent,
             "numerical_sequences": NumericalSequencesAgent,
             "answerer": AnswererAgent,
+            "mle": MleAgent,
+            "planner": PlannerAgent,
         }
 
     def _load_text_from_file(self, file_path: str) -> str:
@@ -82,23 +85,32 @@ class OrchestratorBuilder:
                 # Use the same persistent RAG source instance from routes
                 try:
                     from yaaaf.server.routes import _get_persistent_rag_source
+
                     rag_source = _get_persistent_rag_source()
                     if rag_source:
                         rag_sources.append(rag_source)
-                        _logger.info(f"Using shared persistent RAG source: {source_config.name} at {source_config.path}")
+                        _logger.info(
+                            f"Using shared persistent RAG source: {source_config.name} at {source_config.path}"
+                        )
                     else:
-                        _logger.warning(f"Could not get persistent RAG source from routes")
+                        _logger.warning(
+                            "Could not get persistent RAG source from routes"
+                        )
                 except ImportError:
                     # Fallback: create new instance if routes not available
-                    description = getattr(source_config, "description", source_config.name)
+                    description = getattr(
+                        source_config, "description", source_config.name
+                    )
                     rag_source = PersistentRAGSource(
                         description=description,
                         source_path=source_config.name or "persistent_rag",
-                        pickle_path=source_config.path
+                        pickle_path=source_config.path,
                     )
                     rag_sources.append(rag_source)
-                    _logger.info(f"Created new persistent RAG source: {source_config.name} at {source_config.path}")
-            
+                    _logger.info(
+                        f"Created new persistent RAG source: {source_config.name} at {source_config.path}"
+                    )
+
             elif source_config.type == "text":
                 description = getattr(source_config, "description", source_config.name)
                 rag_source = RAGSource(
@@ -266,6 +278,7 @@ class OrchestratorBuilder:
             temperature=temperature,
             max_tokens=max_tokens,
             host=host,
+            disable_thinking=self.config.client.disable_thinking,
         )
 
     def _get_agent_name(self, agent_config) -> str:
@@ -274,54 +287,6 @@ class OrchestratorBuilder:
             return agent_config.name
         return agent_config
 
-    def _generate_agents_sources_tools_list(
-        self, mcp_tools: List[MCPTools] = None
-    ) -> str:
-        """Generate a comprehensive list of available agents, sources, and tools for the TodoAgent."""
-        sections = []
-
-        # Agents section
-        agents_info = ["**Available Agents:**"]
-        configured_agents = [
-            self._get_agent_name(agent_config) for agent_config in self.config.agents
-        ]
-        for agent_name in configured_agents:
-            if agent_name != "todo" and agent_name in self._agents_map:
-                agent_class = self._agents_map[agent_name]
-                # Use common function to get agent name (same as get_name() method)
-                from yaaaf.components.agents.base_agent import get_agent_name_from_class
-                actual_agent_name = get_agent_name_from_class(agent_class)
-                agents_info.append(f"• {actual_agent_name}: {agent_class.get_info()}")
-
-        sections.append("\n".join(agents_info))
-
-        # Sources section
-        if self.config.sources:
-            sources_info = ["**Available Data Sources:**"]
-            for source in self.config.sources:
-                source_desc = f"• {source.name} ({source.type}): {source.path}"
-                sources_info.append(source_desc)
-            sections.append("\n".join(sources_info))
-
-        # Tools section (MCP tools if available)
-        tools_info = ["**Available Tools:**"]
-        tools_info.append("• File system operations (via bash agent)")
-        tools_info.append("• Data visualization (matplotlib charts)")
-        tools_info.append("• Web search capabilities")
-        tools_info.append("• SQL database queries")
-        tools_info.append("• Text analysis and processing")
-
-        # Add MCP tools if available
-        if mcp_tools:
-            tools_info.append("\n**MCP Tools:**")
-            for tool_group in mcp_tools:
-                tools_info.append(f"• {tool_group.server_description}:")
-                for tool in tool_group.tools:
-                    tools_info.append(f"  - {tool.name}: {tool.description}")
-
-        sections.append("\n".join(tools_info))
-
-        return "\n\n".join(sections)
 
     async def build(self):
         # Log orchestrator configuration
@@ -335,6 +300,7 @@ class OrchestratorBuilder:
             temperature=self.config.client.temperature,
             max_tokens=self.config.client.max_tokens,
             host=self.config.client.host,
+            disable_thinking=self.config.client.disable_thinking,
         )
 
         # Prepare sources
@@ -344,46 +310,111 @@ class OrchestratorBuilder:
         # Prepare MCP tools
         mcp_tools = await self._create_mcp_tools()
 
-        orchestrator = OrchestratorAgent(orchestrator_client)
 
-        # Generate agents/sources/tools list for TodoAgent
-        agents_sources_tools_list = self._generate_agents_sources_tools_list(mcp_tools)
-
+        # First build all agents
+        all_agents = {}
         for agent_config in self.config.agents:
             agent_name = self._get_agent_name(agent_config)
+            if agent_name in self._agents_map:
+                agent_client = self._create_client_for_agent(agent_config)
+                agent = self._create_agent(
+                    agent_name,
+                    agent_client,
+                    sql_sources,
+                    rag_sources,
+                    mcp_tools,
+                )
+                if agent:
+                    all_agents[agent_name] = agent
 
-            if agent_name not in self._agents_map:
-                raise ValueError(f"Agent '{agent_name}' is not recognized.")
+        # Check if planner agent is available
+        if "planner" not in all_agents:
+            # Create planner agent if not in config
+            agent_client = orchestrator_client
+            from yaaaf.components.agents.agent_taxonomies import (
+                get_all_agents_with_taxonomy,
+            )
 
-            # Create agent-specific client
-            agent_client = self._create_client_for_agent(agent_config)
+            available_agents = []
+            # Only include agents that are actually configured
+            configured_agent_names = [self._get_agent_name(agent_config) for agent_config in self.config.agents]
+            for agent_name, agent_class in self._agents_map.items():
+                if agent_name in configured_agent_names:  # Only configured agents
+                    taxonomy = get_all_agents_with_taxonomy().get(agent_class.__name__)
+                    if taxonomy:
+                        available_agents.append(
+                            {
+                                "name": agent_name,  # Use config name instead of class name
+                                "description": agent_class.get_info(),
+                                "taxonomy": taxonomy,
+                            }
+                        )
+            all_agents["planner"] = PlannerAgent(agent_client, available_agents)
 
-            if agent_name == "sql" and sql_sources:
-                orchestrator.subscribe_agent(
-                    self._agents_map[agent_name](
-                        client=agent_client, sources=sql_sources
-                    )
-                )
-            elif agent_name == "document_retriever" and rag_sources:
-                orchestrator.subscribe_agent(
-                    self._agents_map[agent_name](
-                        client=agent_client, sources=rag_sources
-                    )
-                )
-            elif agent_name == "tool" and mcp_tools:
-                orchestrator.subscribe_agent(
-                    self._agents_map[agent_name](client=agent_client, tools=mcp_tools)
-                )
-            elif agent_name == "todo":
-                orchestrator.subscribe_agent(
-                    self._agents_map[agent_name](
-                        client=agent_client,
-                        agents_and_sources_and_tools_list=agents_sources_tools_list,
-                    )
-                )
-            elif agent_name not in ["sql", "document_retriever", "tool", "todo"]:
-                orchestrator.subscribe_agent(
-                    self._agents_map[agent_name](client=agent_client)
-                )
+        # Create validation agent for artifact validation
+        validation_agent = ValidationAgent(orchestrator_client)
+        _logger.info("Created validation agent")
+
+        # Create plan-driven orchestrator with validation
+        orchestrator = OrchestratorAgent(
+            orchestrator_client, all_agents, validation_agent=validation_agent
+        )
+        _logger.info("Created plan-driven orchestrator with validation")
 
         return orchestrator
+
+    def _create_agent(
+        self,
+        agent_name: str,
+        agent_client,
+        sql_sources,
+        rag_sources,
+        mcp_tools,
+    ):
+        """Helper method to create an agent with appropriate dependencies."""
+        if agent_name == "sql" and sql_sources:
+            return self._agents_map[agent_name](
+                client=agent_client, sources=sql_sources
+            )
+        elif agent_name == "document_retriever" and rag_sources:
+            return self._agents_map[agent_name](
+                client=agent_client, sources=rag_sources
+            )
+        elif agent_name == "tool" and mcp_tools:
+            return self._agents_map[agent_name](client=agent_client, tools=mcp_tools)
+        elif agent_name == "planner":
+            from yaaaf.components.agents.agent_taxonomies import (
+                get_all_agents_with_taxonomy,
+            )
+
+            available_agents = []
+            # Only include agents that are actually configured 
+            configured_agent_names = [self._get_agent_name(agent_config) for agent_config in self.config.agents]
+            for agent_key, agent_class in self._agents_map.items():
+                if agent_key in configured_agent_names:  # Only configured agents
+                    taxonomy = get_all_agents_with_taxonomy().get(agent_class.__name__)
+                    if taxonomy:
+                        available_agents.append(
+                            {
+                                "name": agent_key,  # Use config name instead of class name
+                                "description": agent_class.get_info(),
+                                "taxonomy": taxonomy,
+                            }
+                        )
+            
+            # Debug: Log available agents for planner
+            _logger.info(f"Available agents for planner: {[agent['name'] for agent in available_agents]}")
+            return self._agents_map[agent_name](
+                client=agent_client, available_agents=available_agents
+            )
+        elif agent_name in self._agents_map:
+            # Skip agents that require dependencies but don't have them
+            if agent_name == "sql" and not sql_sources:
+                return None  # SqlAgent requires sources
+            elif agent_name == "document_retriever" and not rag_sources:
+                return None  # DocumentRetrieverAgent requires sources
+            elif agent_name == "tool" and not mcp_tools:
+                return None  # ToolAgent requires tools
+            else:
+                return self._agents_map[agent_name](client=agent_client)
+        return None

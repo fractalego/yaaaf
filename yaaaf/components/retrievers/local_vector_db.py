@@ -24,6 +24,8 @@ class BM25LocalDB:
     def get_indices_from_text(
         self, text: str, topn: int
     ) -> Tuple[List[str], List[str]]:
+        if self._bm25 is None:
+            return [], []
         scores = self._bm25.get_scores(word_tokenize(text))
         best_n = np.argsort(-scores)[:topn]
         return [self._indices[i] for i in best_n], scores[:topn]
@@ -31,4 +33,8 @@ class BM25LocalDB:
     def build(self):
         if self._bm25 is None:
             del self._bm25
-        self._bm25 = BM25Okapi(self._texts)
+        try:
+            self._bm25 = BM25Okapi(self._texts)
+        except ZeroDivisionError:
+            # Handle empty corpus gracefully
+            self._bm25 = None

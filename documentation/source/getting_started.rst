@@ -1,272 +1,211 @@
 Getting Started
 ===============
 
-This guide will help you get YAAAF up and running on your system.
+This guide will get you running YAAAF in under 5 minutes.
+
+YAAAF is an **artifact-first** framework. When you send a query, the system plans a railway for artifacts to flow from sources (databases, documents, APIs) through transformation stations (agents) to their final destination (your answer). You will see this in action once you run your first query.
+
+Prerequisites
+-------------
+
+Before installing YAAAF, ensure you have:
+
+1. **Python 3.11 or higher**
+
+   .. code-block:: bash
+
+      python --version  # Should show 3.11+
+
+2. **Ollama** installed and running
+
+   Ollama is the LLM backend that YAAAF uses. Install it from https://ollama.ai/
+
+   .. code-block:: bash
+
+      # Verify Ollama is running
+      curl http://localhost:11434/api/tags
+
+3. **A compatible model** pulled in Ollama
+
+   .. code-block:: bash
+
+      # Pull the recommended model
+      ollama pull qwen2.5:32b
+
+      # Or a smaller model for testing
+      ollama pull qwen2.5:14b
+
+4. **Node.js 18+** and **pnpm** (for frontend, optional)
+
+   .. code-block:: bash
+
+      node --version  # Should show 18+
+      pnpm --version
 
 Installation
 ------------
 
-Prerequisites
-~~~~~~~~~~~~~
+Clone and install YAAAF:
 
-* Python 3.11 or higher
-* Node.js 18 or higher (for frontend development)
-* pnpm (for frontend package management)
-* **Ollama** - Required for LLM integration
+.. code-block:: bash
 
-Ollama Setup
-~~~~~~~~~~~~
+   # Clone the repository
+   git clone <repository-url>
+   cd agents_framework
 
-**Important**: YAAAF currently supports Ollama only for LLM integration.
+   # Install Python package
+   pip install -e .
 
-1. **Install Ollama**:
+   # Install frontend dependencies (optional)
+   cd frontend
+   pnpm install
+   cd ..
 
-   Visit `https://ollama.ai/ <https://ollama.ai/>`_ and follow the installation instructions for your operating system.
+Running the Backend
+-------------------
 
-2. **Download a model**:
+The backend is a FastAPI server that handles all agent execution:
 
-   .. code-block:: bash
+.. code-block:: bash
 
-      ollama pull qwen2.5:32b
+   # Start on default port 4000
+   python -m yaaaf backend
 
-   Or use a smaller model for testing:
+   # Or specify a custom port
+   python -m yaaaf backend 8080
 
-   .. code-block:: bash
+You should see output like:
 
-      ollama pull qwen2.5:7b
+.. code-block:: text
 
-3. **Start Ollama**:
+   INFO:     Uvicorn running on http://0.0.0.0:4000
+   INFO:     Successfully connected to Ollama at http://localhost:11434
+   INFO:     Model 'qwen2.5:32b' is available
 
-   Ollama should start automatically after installation. Verify it's running:
+The backend is now ready to accept requests.
 
-   .. code-block:: bash
+Running the Frontend
+--------------------
 
-      ollama list
+The frontend is a Next.js application providing a chat interface:
 
-   Ollama typically runs on ``http://localhost:11434``.
+.. code-block:: bash
 
-.. note::
-   YAAAF uses the ``OllamaClient`` for all LLM interactions. Support for other LLM providers (OpenAI, Anthropic, etc.) may be added in future versions.
+   # Start on default port 3000
+   python -m yaaaf frontend
 
-Backend Setup
-~~~~~~~~~~~~~
+   # Or specify a custom port
+   python -m yaaaf frontend 3001
 
-1. **Clone the repository**:
+Open your browser to http://localhost:3000 to access the chat interface.
 
-   .. code-block:: bash
+Running Both Together
+---------------------
 
-      git clone <repository-url>
-      cd agents_framework
+For a complete setup, run both in separate terminals:
 
-2. **Install Python dependencies**:
-
-   .. code-block:: bash
-
-      pip install -r requirements.txt
-
-3. **Set up environment variables** (optional):
-
-   .. code-block:: bash
-
-      export YAAAF_CONFIG=path/to/your/config.json
-
-Frontend Setup
-~~~~~~~~~~~~~~
-
-1. **Navigate to frontend directory**:
-
-   .. code-block:: bash
-
-      cd frontend
-
-2. **Install dependencies**:
-
-   .. code-block:: bash
-
-      pnpm install
-
-3. **Build the registry** (if needed):
-
-   .. code-block:: bash
-
-      pnpm build:registry
-
-Running YAAAF
-------------
-
-Using the CLI
-~~~~~~~~~~~~~
-
-The easiest way to run YAAAF is using the command-line interface:
-
-**Start the backend server**:
+**Terminal 1 - Backend:**
 
 .. code-block:: bash
 
    python -m yaaaf backend
 
-This starts the backend server on the default port 4000.
-
-**Start the frontend server**:
+**Terminal 2 - Frontend:**
 
 .. code-block:: bash
 
    python -m yaaaf frontend
 
-This starts the frontend server on the default port 3000.
+Then open http://localhost:3000 in your browser.
 
-**HTTPS Support**:
+Your First Query
+----------------
 
-.. code-block:: bash
+Once both servers are running, try these example queries in the chat interface:
 
-   python -m yaaaf frontend https
+1. **Simple question** (uses AnswererAgent):
 
-This starts the frontend server with HTTPS using self-signed certificates.
+   .. code-block:: text
 
-**Custom ports and HTTPS**:
+      What is the capital of France?
 
-.. code-block:: bash
+2. **Database query** (uses SqlAgent, requires configured database):
 
-   python -m yaaaf backend 8080         # Backend on port 8080
-   python -m yaaaf frontend 3001        # Frontend on port 3001
-   python -m yaaaf frontend 3001 https  # Frontend with HTTPS on port 3001
-   python -m yaaaf frontend https       # Frontend with HTTPS on port 3000
+   .. code-block:: text
 
-.. note::
-   When using HTTPS, self-signed certificates are automatically generated. You may see a security warning in your browser on first access. This is normal for development use.
+      How many records are in the users table?
 
-**Custom SSL Certificates**:
+3. **Web search** (uses BraveSearchAgent or DuckDuckGoSearchAgent):
 
-If you have your own SSL certificates, you can specify them using environment variables:
+   .. code-block:: text
 
-.. code-block:: bash
+      Search for the latest news about artificial intelligence
 
-   export YAAAF_CERT_PATH=/path/to/your/certificate.pem
-   export YAAAF_KEY_PATH=/path/to/your/private-key.pem
-   python -m yaaaf frontend https
+4. **Visualization** (uses SqlAgent + VisualizationAgent pipeline):
 
-Or use the programmatic interface:
+   .. code-block:: text
 
-.. code-block:: python
+      Show me a chart of sales by month from the database
 
-   from yaaaf.client.run import run_frontend
-   
-   # Use custom certificates
-   run_frontend(
-       port=3000, 
-       use_https=True, 
-       cert_path="/path/to/cert.pem",
-       key_path="/path/to/key.pem"
-   )
+Watch the chat interface - you will see the system:
 
-Manual Setup
-~~~~~~~~~~~~
+1. Extract your goal
+2. Generate a workflow plan
+3. Execute agents in sequence
+4. Return the final artifact
 
-You can also run the servers manually:
+Verifying the Installation
+--------------------------
 
-**Backend**:
-
-.. code-block:: python
-
-   from yaaaf.server.run import run_server
-   run_server(host="0.0.0.0", port=4000)
-
-**Frontend**:
+Test that everything is working:
 
 .. code-block:: bash
 
-   cd frontend
-   pnpm dev
+   # Test backend health
+   curl http://localhost:4000/health
 
-Configuration
--------------
-
-YAAAF can be configured through environment variables or a configuration file.
-
-Environment Variables
-~~~~~~~~~~~~~~~~~~~~~
-
-* ``YAAAF_CONFIG``: Path to configuration JSON file
-
-Configuration File
-~~~~~~~~~~~~~~~~~~
-
-Create a JSON configuration file:
-
-.. code-block:: json
-    {
-      "client": {
-        "model": "qwen2.5:32b",
-        "temperature": 0.7,
-        "max_tokens": 1024
-      },
-      "agents": [
-        "reflection",
-        "visualization",
-        "sql",
-        "reviewer",
-        "websearch",
-        "url_reviewer"
-      ],
-      "sources": [
-        {
-          "name": "london_archaeological_data",
-          "type": "sqlite",
-          "path": "../../data/london_archaeological_data.db"
-        }
-      ]
-    }
-
-First Steps
------------
-
-Once both servers are running:
-
-1. **Open your browser** to ``http://localhost:3000`` (or ``https://localhost:3000`` if using HTTPS)
-2. **Start a conversation** with the AI system
-3. **Try different queries**:
-
-   * "How many records are in the database?"
-   * "Create a visualization of the sales data"
-   * "Search for recent AI developments"
-   * "Analyze the customer demographics"
-
-Understanding the Interface
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The chat interface displays messages with agent identifiers:
-
-* Messages are wrapped in agent tags: ``<sqlagent>...</sqlagent>``
-* Artifacts are shown as: ``<Artefact>artifact_id</Artefact>``
-* Each agent specializes in different types of tasks
-
-Troubleshooting
----------------
+   # Run unit tests
+   python -m unittest discover tests/
 
 Common Issues
-~~~~~~~~~~~~~
+-------------
 
-**Backend won't start**:
+**Ollama not running:**
 
-* Check if port 4000 is already in use
-* Verify Python dependencies are installed
-* Check for configuration file errors
+.. code-block:: text
 
-**Frontend build errors**:
+   Connection Error: Cannot connect to Ollama
 
-* Ensure Node.js 18+ is installed
-* Try deleting ``node_modules`` and running ``pnpm install`` again
-* Check for TypeScript compilation errors
+Solution: Start Ollama with ``ollama serve`` or check if it's running.
 
-**No agents responding**:
+**Model not found:**
 
-* Verify the backend is running and accessible
-* Check browser console for API errors
-* Ensure the correct model is configured and available
+.. code-block:: text
 
-Getting Help
-~~~~~~~~~~~~
+   Model 'qwen2.5:32b' is not available
 
-* Check the logs for error messages
-* Verify all dependencies are correctly installed
-* Ensure configuration matches your environment
+Solution: Pull the model with ``ollama pull qwen2.5:32b``
+
+**Port already in use:**
+
+.. code-block:: text
+
+   Address already in use
+
+Solution: Use a different port with ``python -m yaaaf backend 8080``
+
+**Frontend build issues:**
+
+.. code-block:: bash
+
+   # Clear cache and reinstall
+   cd frontend
+   rm -rf node_modules .next
+   pnpm install
+
+Next Steps
+----------
+
+* :doc:`core_concepts` - Understand how artifact-driven execution works
+* :doc:`configuration` - Configure databases, agents, and external tools
+* :doc:`agents` - Learn about each agent's capabilities

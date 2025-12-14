@@ -15,6 +15,7 @@ class ClientSettings(BaseSettings):
     temperature: float = 0.5
     max_tokens: int = 1024
     host: str = "http://localhost:11434"
+    disable_thinking: bool = True
 
 
 class SourceSettings(BaseSettings):
@@ -90,14 +91,13 @@ def _get_simple_config() -> Settings:
         sources=[],
         tools=[],
         agents=[
-            "reflection",
+            "todo",
             "visualization",
             "sql",
             "document_retriever",
             "reviewer",
             "answerer",
             "websearch",
-            "answerer",
             "user_input",
             "url",
         ],
@@ -110,11 +110,11 @@ def _get_simple_config() -> Settings:
 def get_config() -> Settings:
     """
     Returns the default configuration for the orchestrator.
-    unless an environment variable `YAAF_CONFIG` is set to a different configuration json file.
+    unless an environment variable `YAAAF_CONFIG` is set to a different configuration json file.
     If so, Load that configuration file and return it.
     """
-    if os.environ.get("YAAF_CONFIG"):
-        config_path = os.environ["YAAF_CONFIG"]
+    if os.environ.get("YAAAF_CONFIG"):
+        config_path = os.environ["YAAAF_CONFIG"]
         if not os.path.exists(config_path):
             raise FileNotFoundError(
                 f"Configuration file '{config_path}' does not exist."

@@ -4,7 +4,6 @@ from typing import Optional, Dict, Any
 import pandas as pd
 
 from yaaaf.components.agents.artefacts import ArtefactStorage, Artefact
-from yaaaf.components.agents.hash_utils import create_hash
 from yaaaf.components.agents.settings import task_completed_tag, task_paused_tag
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages
@@ -54,17 +53,10 @@ class StatusExtractor:
 
             df = todo_artifact.data.copy()
 
-            # Check if the agent response requires plan changes
-            needs_replanning = await self._evaluate_plan_changes(
-                df, agent_name, agent_response
-            )
-
-            if needs_replanning:
-                _logger.info(
-                    f"Plan change detected from {agent_name} response - replanning needed"
-                )
-                return todo_artifact_id, True
-
+            # Skip plan change evaluation for now - just update status
+            # TODO: Re-enable plan change evaluation with better prompts
+            needs_replanning = False
+            
             # Use LLM to evaluate step completion for tasks matching this agent
             updated = await self._evaluate_and_update_status(
                 df, agent_name, agent_response
@@ -82,9 +74,12 @@ class StatusExtractor:
 
                 self._storage.store_artefact(todo_artifact_id, updated_artifact)
                 _logger.info(
-                    f"Updated todo list artifact with LLM evaluation: {todo_artifact_id}"
+                    f"[STATUS_EXTRACTOR] Updated todo list artifact {todo_artifact_id} with new status from {agent_name}"
                 )
+                _logger.info(f"[STATUS_EXTRACTOR] Updated DataFrame:\n{df[['Task', 'Status', 'Agent/Tool']].to_string()}")
                 return todo_artifact_id, False
+            else:
+                _logger.info(f"[STATUS_EXTRACTOR] No updates made to todo list for agent {agent_name}")
 
         except Exception as e:
             _logger.error(f"Failed to update todo status: {e}")
@@ -106,9 +101,14 @@ class StatusExtractor:
 
         # Find tasks that match this agent and are not already completed
         if "Agent/Tool" in df.columns and "Task" in df.columns:
+            _logger.info(f"[STATUS_EXTRACTOR] Looking for tasks matching agent: {agent_name}")
+            _logger.info(f"[STATUS_EXTRACTOR] Agent/Tool column values: {df['Agent/Tool'].tolist()}")
+            
             agent_mask = df["Agent/Tool"].str.contains(agent_name, case=False, na=False)
             incomplete_mask = df["Status"] != "completed"
             tasks_to_evaluate = df[agent_mask & incomplete_mask]
+            
+            _logger.info(f"[STATUS_EXTRACTOR] Found {len(tasks_to_evaluate)} tasks to evaluate for agent {agent_name}")
 
             for idx, row in tasks_to_evaluate.iterrows():
                 task_description = row["Task"]
@@ -125,7 +125,11 @@ class StatusExtractor:
                         df.loc[idx, "Status"] = evaluation
                         updated = True
                         _logger.info(
-                            f"LLM updated step '{task_description}' from '{current_status}' to '{evaluation}'"
+                            f"[STATUS_EXTRACTOR] LLM updated step '{task_description}' from '{current_status}' to '{evaluation}' for agent {agent_name}"
+                        )
+                    else:
+                        _logger.info(
+                            f"[STATUS_EXTRACTOR] LLM evaluation kept status as '{current_status}' for task '{task_description[:50]}...'"
                         )
 
                 except Exception as e:
@@ -168,18 +172,21 @@ class StatusExtractor:
 
             response = await self._client.predict(messages, stop_sequences=[])
             evaluation = response.message.strip().lower()
+            
+            _logger.info(f"[STATUS_EXTRACTOR] Plan change evaluation for {agent_name}: '{evaluation}' (raw: '{response.message}')")
 
             # Check if plan change is needed
             if evaluation == "yes":
                 _logger.info(
-                    f"LLM determined plan change needed based on {agent_name} response"
+                    f"[STATUS_EXTRACTOR] LLM determined plan change needed based on {agent_name} response"
                 )
                 return True
             elif evaluation == "no":
+                _logger.info(f"[STATUS_EXTRACTOR] No plan change needed for {agent_name}")
                 return False
             else:
                 _logger.warning(
-                    f"Invalid plan change evaluation response: '{evaluation}', defaulting to no change"
+                    f"[STATUS_EXTRACTOR] Invalid plan change evaluation response: '{evaluation}', defaulting to no change"
                 )
                 return False
 

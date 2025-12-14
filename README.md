@@ -26,6 +26,7 @@ Unlike traditional agent systems that route queries to individual agents, YAAAF 
 1. **Goal Analysis**: The system extracts the user's goal and determines the required output type
 2. **Workflow Planning**: A planner creates a DAG (directed acyclic graph) defining how artifacts should flow
 3. **Artifact Flow**: Data moves through the planned pipeline - extracted, transformed, and finally output
+4. **Validation**: Each artifact is validated against the user's goal; failed validations trigger automatic replanning
 
 ```
 User Query
@@ -43,6 +44,11 @@ User Query
     v
 +-------------------+
 |  Workflow Engine  |  Executes DAG, flowing artifacts between agents
++-------------------+
+    |
+    v
++-------------------+
+|    Validation     |  Checks each artifact against goal (replan if needed)
 +-------------------+
     |
     v
@@ -79,6 +85,7 @@ Agents are classified by their role in the artifact flow:
 | VisualizationAgent | GENERATOR | Creates charts and visualizations from data |
 | BashAgent | GENERATOR | Performs filesystem operations |
 | PlannerAgent | SYNTHESIZER | Creates execution workflows from goals |
+| ValidationAgent | TRANSFORMER | Validates artifacts against user goals, triggers replanning |
 
 ## How Planning Works
 
@@ -228,6 +235,7 @@ Frontend (Next.js)  <--HTTP-->  Backend (FastAPI)
 - **Orchestrator**: Entry point that coordinates goal extraction and workflow execution
 - **Planner**: Generates YAML workflows using RAG-retrieved examples
 - **Workflow Engine**: Executes the DAG, managing artifact dependencies
+- **Validation**: Inspects each artifact and triggers replanning if it doesn't match the goal
 - **Artifact Storage**: Centralized store for generated artifacts (tables, images, models)
 
 ## Development

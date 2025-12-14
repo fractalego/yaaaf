@@ -359,6 +359,49 @@ NumericalSequencesAgent parses unstructured text containing numerical data and c
        type: table
        inputs: [raw_text]
 
+ValidationAgent
+~~~~~~~~~~~~~~~
+
+**Role**: TRANSFORMER
+
+**Purpose**: Validates artifacts against user goals and triggers replanning when needed.
+
+**Accepts**: table, text, image, model
+
+**Produces**: (validation result - used internally)
+
+**Description**:
+ValidationAgent inspects each artifact produced during workflow execution and validates it against both the user's original goal and the step description. It returns a confidence score from 0.0 to 1.0. Based on the confidence level, the system will:
+
+- **0.5 - 1.0**: Continue execution (artifact is acceptable)
+- **0.3 - 0.5**: Trigger automatic replanning (artifact has issues)
+- **0.0 - 0.3**: Ask user for guidance (too uncertain to auto-fix)
+
+**Note**: ValidationAgent is used internally by the workflow engine. It is not called directly in workflows.
+
+**Validation criteria**:
+
+1. Does the artifact help achieve the user's original goal?
+2. Does it match what the step description promised to produce?
+3. Is the data reasonable, complete, and useful?
+4. Are there any obvious errors or problems?
+
+**Artifact inspection limits**:
+
+- **Tables**: Schema + first 20 rows are inspected
+- **Text**: First ~1000 tokens are inspected
+- **Images**: Metadata and generation code are inspected
+- **Models**: Model type and parameters are inspected
+
+**Replanning behavior**:
+
+When validation fails with confidence 0.3-0.5, the system:
+
+1. Keeps all successfully validated artifacts
+2. Generates a new plan that works around the failed step
+3. Uses the suggested fix from the validation agent
+4. Retries up to 3 times before giving up
+
 SYNTHESIZERS
 ------------
 

@@ -5,6 +5,7 @@ import logging
 import re
 
 from yaaaf.components.agents.base_agent import CustomAgent
+from yaaaf.components.agents.prompts import validation_agent_prompt_template
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.validators.validation_result import ValidationResult
@@ -12,50 +13,6 @@ from yaaaf.components.validators.artifact_inspector import inspect_artifact
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 
 _logger = logging.getLogger(__name__)
-
-VALIDATION_PROMPT = """You are a validation agent. Your job is to evaluate whether an artifact produced by a workflow step matches what was expected.
-
-ORIGINAL USER GOAL:
-{user_goal}
-
-WORKFLOW STEP DESCRIPTION:
-{step_description}
-
-EXPECTED ARTIFACT TYPE: {expected_type}
-
-ARTIFACT CONTENT:
-{artifact_content}
-
-Evaluate the artifact by answering these questions:
-1. Does this artifact help achieve the user's original goal?
-2. Does it match what the step description promised to produce?
-3. Is the data reasonable, complete, and useful?
-4. Are there any obvious errors or problems?
-
-Based on your evaluation, provide a JSON response with EXACTLY this structure:
-```json
-{{
-  "is_valid": true or false,
-  "confidence": 0.0 to 1.0,
-  "reason": "Brief explanation of your evaluation",
-  "should_ask_user": true or false,
-  "suggested_fix": "What to do differently if invalid, or null if valid"
-}}
-```
-
-Confidence scale:
-- 0.9-1.0: Perfect, exactly what was needed
-- 0.7-0.9: Good, minor issues but usable
-- 0.5-0.7: Acceptable but has notable problems
-- 0.3-0.5: Problematic, should try a different approach
-- 0.0-0.3: Completely wrong, need user guidance
-
-Set should_ask_user=true ONLY if:
-- The result is completely unexpected and you cannot suggest a fix
-- The user's intent is ambiguous
-- Multiple valid interpretations exist
-
-Output ONLY the JSON block, no other text."""
 
 
 class ValidationAgent(CustomAgent):
@@ -99,7 +56,7 @@ class ValidationAgent(CustomAgent):
         artifact_content = inspect_artifact(artifact)
 
         # Build the prompt
-        prompt = VALIDATION_PROMPT.format(
+        prompt = validation_agent_prompt_template.complete(
             user_goal=user_goal,
             step_description=step_description,
             expected_type=expected_type,

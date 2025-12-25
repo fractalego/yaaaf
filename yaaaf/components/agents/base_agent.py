@@ -124,12 +124,16 @@ class BaseAgent(ABC):
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
         
+        # For single-step agents, return whatever was produced (no reflection expected)
+        if self._max_steps == 1:
+            return f"{clean_message} {task_completed_tag}"
+
         self._add_internal_message(
             f"Max steps ({self._max_steps}) reached",
             notes,
             "Warning"
         )
-        return "Could not complete task within allowed steps. Please try rephrasing. <taskcompleted/>"
+        return f"Could not complete task within allowed steps. Please try rephrasing. {task_completed_tag}"
     
     @abstractmethod
     async def _query_custom(

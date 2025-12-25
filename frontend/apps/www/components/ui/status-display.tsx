@@ -34,13 +34,17 @@ export function StatusDisplay({ streamId, className }: StatusDisplayProps) {
       })
 
       console.log("Status response:", response.status, response.statusText)
-      
+
       if (response.ok) {
         const statusData = await response.json()
         console.log("Status data received:", statusData)
         setStatus(statusData)
       } else {
-        console.error("Failed to fetch status:", response.status, response.statusText)
+        console.error(
+          "Failed to fetch status:",
+          response.status,
+          response.statusText
+        )
         const errorText = await response.text()
         console.error("Error response:", errorText)
       }
@@ -77,7 +81,9 @@ export function StatusDisplay({ streamId, className }: StatusDisplayProps) {
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-blue-400" />
           <span className="font-medium text-muted-foreground">
-            {isLoading ? "Loading status..." : `Initializing... (Stream: ${streamId?.slice(0, 8)})`}
+            {isLoading
+              ? "Loading status..."
+              : `Initializing... (Stream: ${streamId?.slice(0, 8)})`}
           </span>
         </div>
       </div>

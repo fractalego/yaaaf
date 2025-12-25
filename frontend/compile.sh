@@ -61,7 +61,13 @@ mkdir -p .next/standalone/node_modules
 # Copy only essential Next.js files for server-side operation
 echo "📦 Copying minimal Next.js dependencies..."
 mkdir -p .next/standalone/node_modules/next/dist
-NEXT_SRC="../../node_modules/.pnpm/next@14.3.0-canary.43_@babel+core@7.24.6_@opentelemetry+api@1.9.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next"
+# Find the Next.js module dynamically
+NEXT_SRC=$(find ../../node_modules/.pnpm -type d -name "next" -path "*next@14*" | grep "/node_modules/next$" | head -1)
+if [ -z "$NEXT_SRC" ]; then
+    echo "⚠️  Could not find Next.js in pnpm store, trying fallback..."
+    NEXT_SRC="../../node_modules/next"
+fi
+echo "📍 Using Next.js from: $NEXT_SRC"
 
 # Copy essential server-side directories only
 cp -r $NEXT_SRC/dist/server .next/standalone/node_modules/next/dist/

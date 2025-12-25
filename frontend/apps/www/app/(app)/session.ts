@@ -6,20 +6,20 @@ let lastSessionWasPaused = false
 
 function generateSecureId(): string {
   // Use crypto.randomUUID() if available (modern browsers)
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID()
   }
-  
+
   // Fallback: Use a more professional character set (no vowels to avoid forming words)
-  const chars = '0123456789BCDFGHJKLMNPQRSTVWXZ' // Removed vowels to prevent word formation
-  let result = ''
+  const chars = "0123456789BCDFGHJKLMNPQRSTVWXZ" // Removed vowels to prevent word formation
+  let result = ""
   const array = new Uint8Array(12)
   crypto.getRandomValues(array)
-  
+
   for (let i = 0; i < array.length; i++) {
     result += chars[array[i] % chars.length]
   }
-  
+
   return result
 }
 

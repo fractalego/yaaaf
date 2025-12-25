@@ -39,7 +39,8 @@ export function MessageList({
             : messageOptions
 
         // Check if this is the last assistant message
-        const isLastMessage = message.role === "assistant" && index === messages.length - 1
+        const isLastMessage =
+          message.role === "assistant" && index === messages.length - 1
 
         // Pass streamStatus only to the last assistant message (the one being generated)
         const shouldPassStatus = isLastMessage && streamStatus?.is_active

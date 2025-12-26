@@ -76,12 +76,15 @@ class BaseAgent(ABC):
             completed_prompt = self._try_complete_prompt_with_artifacts(context)
             messages = messages.add_system_prompt(completed_prompt)
         
+        # Track the last successful artifact for single-step agent fallback
+        last_artifact_result = None
+
         # Multi-step execution loop - abstracted reflection pattern
         for step_idx in range(self._max_steps):
             response = await self._client.predict(
                 messages, stop_sequences=self._stop_sequences
             )
-            
+
             clean_message, thinking_ref = self._process_client_response(response, notes)
             
             if step_idx > 0:
@@ -119,21 +122,34 @@ class BaseAgent(ABC):
                 artifact_id = create_hash(str(result))
                 artifact = self._executor.transform_to_artifact(result, instruction, artifact_id)
                 self._storage.store_artefact(artifact_id, artifact)
-                
+
+                # Store for potential single-step fallback
+                last_artifact_result = f"Operation completed. Result: <artefact type='{artifact.type}'>{artifact_id}</artefact> <taskcompleted/>"
+
                 self._add_internal_message(
                     f"Created {artifact.type} artifact: {artifact_id}",
                     notes,
                     "Artifact"
                 )
-                
-                return f"Operation completed. Result: <artefact type='{artifact.type}'>{artifact_id}</artefact> <taskcompleted/>"
+
+                # Check if LLM indicated task is complete
+                if self.is_complete(clean_message):
+                    return last_artifact_result
+
+                # Operation succeeded but task not complete - feed result back to LLM
+                result_summary = str(result)[:500] + "..." if len(str(result)) > 500 else str(result)
+                feedback = f"Operation completed successfully. Result:\n{result_summary}\n\nContinue with next operation or say <taskcompleted/> if done."
+                messages = messages.add_assistant_utterance(clean_message)
+                messages = messages.add_user_utterance(feedback)
             else:
                 feedback = "Invalid result. Please try again."
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
         
-        # For single-step agents, return whatever was produced (no reflection expected)
+        # For single-step agents, return the artifact if one was created
         if self._max_steps == 1:
+            if last_artifact_result:
+                return last_artifact_result
             return f"{clean_message} {task_completed_tag}"
 
         self._add_internal_message(

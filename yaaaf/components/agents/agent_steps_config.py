@@ -10,13 +10,14 @@ AGENT_MAX_STEPS = {
     "answereragent": 1,
     "bravesearchagent": 1,
     "documentretrieveragent": 1,
+    "planneragent": 1,  # Generates plan in one step
     "revieweragent": 1,
     "todoagent": 1,
     "urlagent": 1,
     "urlrevieweragent": 1,
     "userinputagent": 1,
     "websearchagent": 1,
-    
+
     # Two-step agents (one reflection allowed)
     "bashagent": 2,
     "mleagent": 2,
@@ -24,11 +25,9 @@ AGENT_MAX_STEPS = {
     "sqlagent": 2,
     "toolagent": 2,
     "visualizationagent": 2,
-    
-    # Three-step agents
-    # (none currently, but available if needed)
-    
-    # Multi-step agents
+
+    # Multi-step agents (can do multiple operations before completing)
+    "codeeditagent": 5,  # May need to VIEW then STR_REPLACE
     "orchestratoragent": 15,  # Needs many steps to coordinate other agents
 }
 

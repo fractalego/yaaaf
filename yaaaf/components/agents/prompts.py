@@ -640,12 +640,14 @@ CRITICAL for str_replace:
 - If the string is not found, you'll receive an error with similar lines
 
 Think step-by-step:
-1. First VIEW the file to understand its structure
-2. Identify the exact location that needs to be changed
-3. Use STR_REPLACE with enough context for a unique match
-4. Verify the change was successful
+1. First VIEW the file to understand its structure (do NOT include {task_completed_tag} yet)
+2. You will see the file contents, then identify what needs to be changed
+3. Use STR_REPLACE with enough context for a unique match (do NOT include {task_completed_tag} yet)
+4. After the fix is applied, include {task_completed_tag} to signal you are done
 
-When you are done, output the tag {task_completed_tag}.
+IMPORTANT: Only output {task_completed_tag} AFTER you have completed ALL necessary operations.
+- If your task is to FIX something, do NOT say {task_completed_tag} until you have done STR_REPLACE
+- If you only did VIEW, you are NOT done yet - continue with the fix
 """
 )
 

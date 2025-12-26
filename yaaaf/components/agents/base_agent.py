@@ -66,18 +66,18 @@ class BaseAgent(ABC):
         """Standard query implementation using ToolExecutor pattern."""
         if not self._client:
             raise ValueError("Agent with executor requires client")
-        
+
         # Prepare context using executor
         context = await self._executor.prepare_context(messages, notes)
-        
+
         # Add system prompt if available
         if self._system_prompt:
             # Try to complete prompt with artifacts if available
             completed_prompt = self._try_complete_prompt_with_artifacts(context)
             messages = messages.add_system_prompt(completed_prompt)
-        
-        # Track the last successful artifact for single-step agent fallback
-        last_artifact_result = None
+
+        # Accumulate all successful results from each step
+        all_results = []
 
         # Multi-step execution loop - abstracted reflection pattern
         for step_idx in range(self._max_steps):
@@ -86,7 +86,7 @@ class BaseAgent(ABC):
             )
 
             clean_message, thinking_ref = self._process_client_response(response, notes)
-            
+
             if step_idx > 0:
                 self._add_internal_message(
                     f"Step {step_idx + 1}/{self._max_steps}: {clean_message[:100]}...",
@@ -104,6 +104,9 @@ class BaseAgent(ABC):
                         f"{self.get_name()}: LLM said task complete but no instruction found. "
                         f"Response: {clean_message[:200]}..."
                     )
+                    # Return accumulated results if any, otherwise format completion
+                    if all_results:
+                        return self._create_combined_artifact(all_results, notes)
                     return self._format_completion_response(clean_message, thinking_ref)
                 # Not complete and no instruction - ask for valid instruction
                 _logger.debug(f"{self.get_name()}: No instruction found in: {clean_message[:200]}...")
@@ -111,30 +114,26 @@ class BaseAgent(ABC):
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
                 continue
-            
+
             result, error = await self._executor.execute_operation(instruction, context)
-            
+
             if error:
                 feedback = self._executor.get_feedback_message(error)
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
             elif self._executor.validate_result(result):
-                artifact_id = create_hash(str(result))
-                artifact = self._executor.transform_to_artifact(result, instruction, artifact_id)
-                self._storage.store_artefact(artifact_id, artifact)
-
-                # Store for potential single-step fallback
-                last_artifact_result = f"Operation completed. Result: <artefact type='{artifact.type}'>{artifact_id}</artefact> <taskcompleted/>"
+                # Accumulate the result
+                all_results.append(str(result))
 
                 self._add_internal_message(
-                    f"Created {artifact.type} artifact: {artifact_id}",
+                    f"Step {step_idx + 1} completed: {str(result)[:100]}...",
                     notes,
                     "Artifact"
                 )
 
                 # Check if LLM indicated task is complete
                 if self.is_complete(clean_message):
-                    return last_artifact_result
+                    return self._create_combined_artifact(all_results, notes)
 
                 # Operation succeeded but task not complete - feed result back to LLM
                 result_summary = str(result)[:500] + "..." if len(str(result)) > 500 else str(result)
@@ -145,23 +144,38 @@ class BaseAgent(ABC):
                 feedback = "Invalid result. Please try again."
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
-        
-        # For single-step agents, return the artifact if one was created
-        if self._max_steps == 1:
-            if last_artifact_result:
-                return last_artifact_result
-            return f"{clean_message} {task_completed_tag}"
 
-        # If we created an artifact, return it even if max steps reached
-        if last_artifact_result:
-            return last_artifact_result
+        # Return accumulated results if any
+        if all_results:
+            return self._create_combined_artifact(all_results, notes)
 
         self._add_internal_message(
-            f"Max steps ({self._max_steps}) reached",
+            f"Max steps ({self._max_steps}) reached with no results",
             notes,
             "Warning"
         )
         return f"Could not complete task within allowed steps. Please try rephrasing. {task_completed_tag}"
+
+    def _create_combined_artifact(self, results: List[str], notes: Optional[List[Note]]) -> str:
+        """Create a single artifact from accumulated results."""
+        combined_content = "\n\n---\n\n".join(results)
+        artifact_id = create_hash(combined_content)
+
+        artifact = Artefact(
+            id=artifact_id,
+            type="text",
+            code=combined_content,
+            description=f"Combined results from {len(results)} operation(s)"
+        )
+        self._storage.store_artefact(artifact_id, artifact)
+
+        self._add_internal_message(
+            f"Created combined artifact from {len(results)} operations: {artifact_id}",
+            notes,
+            "Artifact"
+        )
+
+        return f"Operations completed. Result: <artefact type='text'>{artifact_id}</artefact> {task_completed_tag}"
     
     @abstractmethod
     async def _query_custom(

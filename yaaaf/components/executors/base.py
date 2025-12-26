@@ -175,3 +175,18 @@ class ToolExecutor(ABC):
             A formatted feedback message
         """
         return f"Error: {error}. Please correct and try again."
+
+    def is_mutation_operation(self, instruction: str) -> bool:
+        """Check if this operation modifies data/files vs read-only.
+
+        Override for executors with both read and write operations.
+        Used to filter which results appear in the final combined artifact.
+        Read-only results (like file views) are excluded from final output.
+
+        Args:
+            instruction: The instruction being executed
+
+        Returns:
+            True if this operation modifies data (default), False if read-only.
+        """
+        return True

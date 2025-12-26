@@ -226,6 +226,46 @@ class RepoManager:
 
         # Try to install the package itself
         if (repo_path / "setup.py").exists() or (repo_path / "pyproject.toml").exists():
+            # Install common build dependencies first (needed for packages with compiled extensions)
+            _logger.info("Installing common build dependencies...")
+            subprocess.run(
+                [str(pip_path), "install", "numpy", "cython", "extension-helpers", "setuptools-scm", "wheel"],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+
+            # Install repo-specific dependencies based on package name
+            repo_name = repo.split("/")[-1].lower()
+            if "astropy" in repo_name:
+                _logger.info("Installing astropy-specific dependencies (pyerfa)...")
+                result = subprocess.run(
+                    [str(pip_path), "install", "pyerfa"],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+                if result.returncode != 0:
+                    _logger.error(f"Failed to install astropy deps: {result.stderr}")
+                else:
+                    _logger.info("astropy dependencies installed successfully")
+            elif "scipy" in repo_name:
+                _logger.info("Installing scipy-specific dependencies...")
+                subprocess.run(
+                    [str(pip_path), "install", "pybind11", "meson-python", "pythran"],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+            elif "matplotlib" in repo_name:
+                _logger.info("Installing matplotlib-specific dependencies...")
+                subprocess.run(
+                    [str(pip_path), "install", "meson-python", "pybind11", "certifi"],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+
             _logger.info(f"Installing package in development mode from {repo_path}")
             try:
                 result = subprocess.run(

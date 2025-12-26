@@ -131,6 +131,11 @@ class BaseAgent(ABC):
                     "Artifact"
                 )
 
+                # Force completion after mutation operations (str_replace, create, etc.)
+                # This prevents unnecessary views after the fix is applied
+                if self._executor.is_mutation_operation(instruction):
+                    return self._create_combined_artifact(all_results, notes)
+
                 # Check if LLM indicated task is complete
                 if self.is_complete(clean_message):
                     return self._create_combined_artifact(all_results, notes)

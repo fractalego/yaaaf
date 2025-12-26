@@ -240,8 +240,9 @@ class CodeEditExecutor(ToolExecutor):
             new_lines = new_str.count('\n') + 1
 
             result = f"Replaced in file: {file_path}\n"
-            result += f"Removed: {old_lines} lines ({len(old_str)} chars)\n"
-            result += f"Added: {new_lines} lines ({len(new_str)} chars)"
+            result += f"Removed {old_lines} lines, Added {new_lines} lines\n\n"
+            result += f"OLD:\n{old_str}\n\n"
+            result += f"NEW:\n{new_str}"
 
             return result, None
 
@@ -253,6 +254,16 @@ class CodeEditExecutor(ToolExecutor):
     def validate_result(self, result: Any) -> bool:
         """Validate code edit result."""
         return result is not None and isinstance(result, str)
+
+    def is_mutation_operation(self, instruction: str) -> bool:
+        """Check if the operation modifies files (vs read-only).
+
+        Only str_replace and create are mutations. View is read-only.
+        Read-only results are excluded from the final combined artifact.
+        """
+        params = self._parse_instruction(instruction)
+        operation = params.get('operation', '').lower()
+        return operation in ('str_replace', 'create')
 
     def get_feedback_message(self, error: str) -> str:
         """Provide detailed feedback for code edit errors."""

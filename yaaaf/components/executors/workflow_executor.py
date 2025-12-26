@@ -240,6 +240,10 @@ class WorkflowExecutor:
                     )
 
                     if not validation_result.is_valid:
+                        # Log the artifact content for debugging
+                        artifact_preview = result_string[:1000] + "..." if len(result_string) > 1000 else result_string
+                        _logger.warning(f"Validation failed artifact content for {asset_name}:\n{artifact_preview}")
+
                         if validation_result.should_ask_user:
                             if self._disable_user_prompts:
                                 # User prompts disabled - go straight to replanning

@@ -65,7 +65,11 @@ class CodeEditExecutor(ToolExecutor):
         pattern = r"```code_edit\s*(.*?)```"
         match = re.search(pattern, response, re.DOTALL)
         if match:
-            return match.group(1).strip()
+            instruction = match.group(1).strip()
+            _logger.info(f"Extracted code_edit instruction: {instruction[:100]}...")
+            return instruction
+
+        _logger.info(f"No ```code_edit block found in response: {response[:200]}...")
         return None
 
     def _parse_instruction(self, instruction: str) -> Dict[str, str]:
@@ -119,7 +123,13 @@ class CodeEditExecutor(ToolExecutor):
             elif operation == 'str_replace':
                 return self._str_replace(file_path, params)
             else:
-                return None, f"Unknown operation: {operation}. Use 'view', 'create', or 'str_replace'"
+                _logger.warning(f"Invalid operation '{operation}' requested. Only view/create/str_replace are supported.")
+                return None, (
+                    f"INVALID OPERATION: '{operation}' is not supported. "
+                    f"This agent ONLY supports: 'view', 'create', or 'str_replace'. "
+                    f"To FIX code, use 'str_replace' with old_str and new_str to replace the buggy code. "
+                    f"Do NOT try to use bash commands here - use the bash agent for that."
+                )
 
         except Exception as e:
             error_msg = f"Error executing code edit: {str(e)}"
@@ -243,6 +253,25 @@ class CodeEditExecutor(ToolExecutor):
     def validate_result(self, result: Any) -> bool:
         """Validate code edit result."""
         return result is not None and isinstance(result, str)
+
+    def get_feedback_message(self, error: str) -> str:
+        """Provide detailed feedback for code edit errors."""
+        if "INVALID OPERATION" in error:
+            return (
+                f"{error}\n\n"
+                "EXAMPLE of str_replace to fix code:\n"
+                "```code_edit\n"
+                "operation: str_replace\n"
+                "path: /path/to/file.py\n"
+                "old_str:\n"
+                "def buggy_function():\n"
+                "    return wrong_value\n"
+                "new_str:\n"
+                "def buggy_function():\n"
+                "    return correct_value\n"
+                "```"
+            )
+        return f"Error: {error}. Please correct and try again."
 
     def transform_to_artifact(self, result: Any, instruction: str, artifact_id: str) -> Artefact:
         """Transform code edit result to artifact."""

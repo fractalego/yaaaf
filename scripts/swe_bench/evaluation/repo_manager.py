@@ -226,15 +226,23 @@ class RepoManager:
 
         # Try to install the package itself
         if (repo_path / "setup.py").exists() or (repo_path / "pyproject.toml").exists():
-            _logger.info(f"Installing package in development mode")
+            _logger.info(f"Installing package in development mode from {repo_path}")
             try:
-                subprocess.run(
+                result = subprocess.run(
                     [str(pip_path), "install", "-e", str(repo_path)],
                     capture_output=True,
                     text=True,
-                    timeout=300,
+                    timeout=600,  # 10 minutes for complex packages
                 )
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+                if result.returncode != 0:
+                    _logger.error(f"Failed to install package (exit code {result.returncode})")
+                    _logger.error(f"stdout: {result.stdout[-2000:] if result.stdout else 'none'}")
+                    _logger.error(f"stderr: {result.stderr[-2000:] if result.stderr else 'none'}")
+                else:
+                    _logger.info("Package installed successfully in development mode")
+            except subprocess.TimeoutExpired as e:
+                _logger.warning(f"Package installation timed out after 600s: {e}")
+            except Exception as e:
                 _logger.warning(f"Failed to install package: {e}")
 
         return env_path

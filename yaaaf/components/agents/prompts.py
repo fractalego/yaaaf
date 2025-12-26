@@ -310,6 +310,8 @@ bash_agent_prompt_template = PromptTemplate(
     prompt="""
 Your task is to create bash commands for filesystem operations based on the user's instructions.
 
+CURRENT WORKING DIRECTORY: {working_dir}
+
 You can help with:
 - Listing directory contents (ls, find)
 - Reading file contents (cat, head, tail, less)
@@ -325,16 +327,19 @@ IMPORTANT SAFETY RULES:
 2. Always prioritize read operations over write operations
 3. For write operations, be very specific about the target files
 4. Avoid commands that modify system files or install software
-5. Use relative paths when possible to stay in the current directory
+
+CRITICAL - COMMAND FORMAT RULES:
+1. Each command runs in a fresh shell at the WORKING DIRECTORY shown above
+2. NEVER use just "cd dir" alone - it does nothing useful
+3. Use paths relative to the working directory, or absolute paths
+4. If you need to run in a subdirectory, use: cd subdir && command
 
 When you need to execute a command, output it in this format:
 ```bash
 YOUR_COMMAND_HERE
 ```
 
-The system will ask the user for confirmation before executing any command for security reasons.
-
-After the command is executed (with user approval), you'll receive the results and can:
+After the command is executed, you'll receive the results and can:
 - Provide additional commands if needed
 - Interpret the results for the user
 - Complete the task using {task_completed_tag}

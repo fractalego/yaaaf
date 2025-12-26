@@ -118,6 +118,7 @@ class BaseAgent(ABC):
             result, error = await self._executor.execute_operation(instruction, context)
 
             if error:
+                _logger.warning(f"{self.get_name()}: Operation failed: {error[:200]}")
                 feedback = self._executor.get_feedback_message(error)
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
@@ -256,19 +257,29 @@ class BaseAgent(ABC):
         return any(tag in answer for tag in self._completing_tags)
     
     def _try_complete_prompt_with_artifacts(self, context: dict) -> str:
-        """Try to complete prompt template with artifacts if available."""
+        """Try to complete prompt template with artifacts and context variables."""
         artifacts = context.get("artifacts", [])
-        
+
+        # First, replace context variables in the prompt template BEFORE other processing
+        # This is needed because PromptTemplate.complete() uses .format() which would fail on unknown placeholders
+        prompt_template = self._system_prompt
+        if isinstance(prompt_template, PromptTemplate) and "{working_dir}" in prompt_template.prompt:
+            working_dir = context.get("working_dir", "unknown")
+            modified_prompt = prompt_template.prompt.replace("{working_dir}", str(working_dir))
+            prompt_template = PromptTemplate(prompt=modified_prompt)
+
         # Always try to complete with artifacts - if no variables exist, nothing happens
-        if isinstance(self._system_prompt, PromptTemplate):
-            return create_prompt_from_artefacts(
+        if isinstance(prompt_template, PromptTemplate):
+            prompt = create_prompt_from_artefacts(
                 artifacts,
                 filename=getattr(self, '_artifact_filename', 'output.png'),
                 prompt_with_model=getattr(self, '_system_prompt_with_model', None),
-                prompt_without_model=self._system_prompt
+                prompt_without_model=prompt_template
             )
-        
-        return self._system_prompt
+        else:
+            prompt = prompt_template
+
+        return prompt
     
     # === Utility Methods ===
     

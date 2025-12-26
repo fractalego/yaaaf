@@ -90,12 +90,15 @@ class BaseAgent(ABC):
                     notes,
                     f"{self.get_name()} Progress"
                 )
-            
-            if self.is_complete(clean_message):
-                return self._format_completion_response(clean_message, thinking_ref)
-            
+
+            # Try to extract instruction FIRST - execute before checking completion
+            # This ensures commands are run even if LLM prematurely says <taskcompleted/>
             instruction = self._executor.extract_instruction(clean_message)
             if not instruction:
+                # No instruction found - NOW check if task is complete
+                if self.is_complete(clean_message):
+                    return self._format_completion_response(clean_message, thinking_ref)
+                # Not complete and no instruction - ask for valid instruction
                 feedback = "No valid instruction found. Please provide a valid instruction."
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)

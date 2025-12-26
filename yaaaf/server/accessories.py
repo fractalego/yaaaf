@@ -320,8 +320,11 @@ async def resume_paused_execution(stream_id: str, user_response: str, orchestrat
 
         _logger.info(f"Resuming execution for stream {stream_id} with user response: {user_response[:100]}")
 
-        # Get notes for this stream
-        notes = _stream_id_to_messages.get(stream_id, [])
+        # Get the live notes list for this stream (must exist from initial execution)
+        if stream_id not in _stream_id_to_messages:
+            _logger.error(f"No notes list found for stream {stream_id}, creating new one")
+            _stream_id_to_messages[stream_id] = []
+        notes = _stream_id_to_messages[stream_id]
 
         # Update stream status
         if stream_id in _stream_id_to_status:
@@ -329,12 +332,13 @@ async def resume_paused_execution(stream_id: str, user_response: str, orchestrat
             _stream_id_to_status[stream_id].current_agent = "Resuming execution"
 
         # Create a new workflow executor from the saved state
+        # IMPORTANT: Use the live notes list, not state.notes, so frontend can poll new messages
         from yaaaf.components.executors.workflow_executor import WorkflowExecutor
 
         executor = WorkflowExecutor(
             yaml_plan=state.yaml_plan,
             agents=orchestrator.agents,
-            notes=state.notes,
+            notes=notes,  # Use live notes list instead of state.notes
             stream_id=stream_id,
             original_messages=state.original_messages,
         )
@@ -434,18 +438,20 @@ async def resume_paused_execution(stream_id: str, user_response: str, orchestrat
         error_message = f"❌ **Resume Error**: Failed to resume execution: {e}\n\n<taskcompleted/>"
         _logger.error(f"Accessories: Failed to resume execution for stream {stream_id}: {e}")
 
-        # Add error to notes
-        notes = _stream_id_to_messages.get(stream_id, [])
-        if notes is not None:
-            from yaaaf.components.data_types import Note
+        # Add error to notes - ensure we use the live list
+        if stream_id not in _stream_id_to_messages:
+            _stream_id_to_messages[stream_id] = []
+        notes = _stream_id_to_messages[stream_id]
 
-            error_note = Note(
-                message=error_message,
-                artefact_id=None,
-                agent_name="system",
-                model_name=None,
-            )
-            notes.append(error_note)
+        from yaaaf.components.data_types import Note
+
+        error_note = Note(
+            message=error_message,
+            artefact_id=None,
+            agent_name="system",
+            model_name=None,
+        )
+        notes.append(error_note)
 
         # Clear paused state and mark stream as completed
         clear_paused_state(stream_id)

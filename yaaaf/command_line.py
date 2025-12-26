@@ -5,6 +5,7 @@ from yaaaf.client.run import run_frontend
 from yaaaf.server.run import run_server
 from yaaaf.config_generator import ConfigGenerator
 from yaaaf.variables import get_variables
+from yaaaf.cli import run_cli
 
 
 def print_help():
@@ -16,6 +17,7 @@ def print_help():
     )
     print("    - Use 'https' as second or third argument to enable HTTPS")
     print("    - Examples: 'yaaaf frontend https', 'yaaaf frontend 3001 https'")
+    print("> yaaaf cli [host] [port]: start the CLI interface (default: localhost:4000)")
     print("> yaaaf config: create a local config.json file interactively")
     print()
 
@@ -77,6 +79,28 @@ def process_cli():
             case "config":
                 generator = ConfigGenerator()
                 generator.generate()
+
+            case "cli":
+                # Parse host and port arguments
+                host = "localhost"
+                port = 4000
+
+                if len(arguments) >= 3:
+                    arg = arguments[2]
+                    try:
+                        port = int(arg)
+                    except ValueError:
+                        host = arg
+
+                if len(arguments) >= 4:
+                    try:
+                        port = int(arguments[3])
+                    except ValueError:
+                        print(f"Invalid port '{arguments[3]}'. Must be an integer.\n")
+                        print_help()
+                        return
+
+                run_cli(host=host, port=port)
 
             case _:
                 print("Unknown argument.\n")

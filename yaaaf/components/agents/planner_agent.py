@@ -33,8 +33,15 @@ class PlannerAgent(ToolBasedAgent):
         )
         self._system_prompt = self._system_prompt_template  # Will be completed at query time
 
-        # Initialize the example retriever (singleton, loads dataset once)
-        self._example_retriever = PlannerExampleRetriever()
+        # Extract class names for retriever filtering
+        available_class_names = [
+            agent.get("class_name", agent.get("name"))
+            for agent in available_agents
+        ]
+
+        # Initialize the example retriever with agent filtering
+        # Only examples using a subset of available agents will be indexed
+        self._example_retriever = PlannerExampleRetriever(available_class_names)
 
         self._output_tag = "```yaml"
         self.set_budget(1)

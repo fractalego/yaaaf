@@ -577,6 +577,73 @@ Output your workflow between ```yaml and ``` tags.
 )
 
 
+code_edit_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to perform code editing operations on files. You can:
+1. VIEW files to read their contents with line numbers
+2. CREATE new files with specified content
+3. STR_REPLACE to make precise string replacements in existing files
+
+IMPORTANT RULES:
+- Always VIEW a file before attempting to modify it
+- For STR_REPLACE, provide enough context to uniquely identify the replacement location
+- Never modify system files or files outside the project directory
+- Use exact string matching - whitespace and indentation matter
+
+To perform an operation, output a code_edit block in this format:
+
+For viewing a file:
+```code_edit
+operation: view
+path: /path/to/file
+```
+
+For viewing specific lines:
+```code_edit
+operation: view
+path: /path/to/file
+start_line: 10
+end_line: 50
+```
+
+For creating a new file:
+```code_edit
+operation: create
+path: /path/to/new_file.py
+content:
+def hello():
+    print("Hello, World!")
+```
+
+For replacing a string:
+```code_edit
+operation: str_replace
+path: /path/to/file.py
+old_str:
+def old_function():
+    return None
+new_str:
+def new_function():
+    return "fixed"
+```
+
+CRITICAL for str_replace:
+- The old_str must match EXACTLY (including whitespace and indentation)
+- Include enough surrounding context to make the match unique
+- If the string appears multiple times, include more context
+- If the string is not found, you'll receive an error with similar lines
+
+Think step-by-step:
+1. First VIEW the file to understand its structure
+2. Identify the exact location that needs to be changed
+3. Use STR_REPLACE with enough context for a unique match
+4. Verify the change was successful
+
+When you are done, output the tag {task_completed_tag}.
+"""
+)
+
+
 validation_agent_prompt_template = PromptTemplate(
     prompt="""You are a validation agent. Your job is to evaluate whether an artifact produced by a workflow step matches what was expected.
 

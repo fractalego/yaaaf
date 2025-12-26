@@ -9,6 +9,7 @@ from .document_retriever_executor import DocumentRetrieverExecutor
 from .tool_executor import MCPToolExecutor
 from .artifact_processor_executor import ArtifactProcessorExecutor
 from .planner_executor import PlannerExecutor
+from .code_edit_executor import CodeEditExecutor
 
 __all__ = [
     "ToolExecutor",
@@ -24,4 +25,5 @@ __all__ = [
     "MCPToolExecutor",
     "ArtifactProcessorExecutor",
     "PlannerExecutor",
+    "CodeEditExecutor",
 ]

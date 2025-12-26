@@ -18,6 +18,7 @@ from yaaaf.components.agents.numerical_sequences_agent import NumericalSequences
 from yaaaf.components.agents.answerer_agent import AnswererAgent
 from yaaaf.components.agents.mle_agent import MleAgent
 from yaaaf.components.agents.validation_agent import ValidationAgent
+from yaaaf.components.agents.code_edit_agent import CodeEditAgent
 from yaaaf.components.client import OllamaClient
 from yaaaf.components.sources.sqlite_source import SqliteSource
 from yaaaf.components.sources.rag_source import RAGSource
@@ -47,6 +48,7 @@ class OrchestratorBuilder:
             "answerer": AnswererAgent,
             "mle": MleAgent,
             "planner": PlannerAgent,
+            "code_edit": CodeEditAgent,
         }
 
     def _load_text_from_file(self, file_path: str) -> str:
@@ -345,6 +347,7 @@ class OrchestratorBuilder:
                         available_agents.append(
                             {
                                 "name": agent_name,  # Use config name instead of class name
+                                "class_name": agent_class.__name__,  # Class name for retriever filtering
                                 "description": agent_class.get_info(),
                                 "taxonomy": taxonomy,
                             }
@@ -388,7 +391,7 @@ class OrchestratorBuilder:
             )
 
             available_agents = []
-            # Only include agents that are actually configured 
+            # Only include agents that are actually configured
             configured_agent_names = [self._get_agent_name(agent_config) for agent_config in self.config.agents]
             for agent_key, agent_class in self._agents_map.items():
                 if agent_key in configured_agent_names:  # Only configured agents
@@ -397,6 +400,7 @@ class OrchestratorBuilder:
                         available_agents.append(
                             {
                                 "name": agent_key,  # Use config name instead of class name
+                                "class_name": agent_class.__name__,  # Class name for retriever filtering
                                 "description": agent_class.get_info(),
                                 "taxonomy": taxonomy,
                             }

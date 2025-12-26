@@ -123,6 +123,13 @@ AGENT_TAXONOMIES = {
         output_permanence=OutputPermanence.EPHEMERAL,
         description="Validates artifacts against user goals and step descriptions"
     ),
+
+    "CodeEditAgent": AgentTaxonomy(
+        data_flow=DataFlow.TRANSFORMER,
+        interaction_mode=InteractionMode.AUTONOMOUS,
+        output_permanence=OutputPermanence.PERSISTENT,
+        description="Performs code editing operations (view, create, str_replace) on source files"
+    ),
 }
 
 

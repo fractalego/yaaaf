@@ -97,8 +97,13 @@ class BaseAgent(ABC):
             if not instruction:
                 # No instruction found - NOW check if task is complete
                 if self.is_complete(clean_message):
+                    _logger.warning(
+                        f"{self.get_name()}: LLM said task complete but no instruction found. "
+                        f"Response: {clean_message[:200]}..."
+                    )
                     return self._format_completion_response(clean_message, thinking_ref)
                 # Not complete and no instruction - ask for valid instruction
+                _logger.debug(f"{self.get_name()}: No instruction found in: {clean_message[:200]}...")
                 feedback = "No valid instruction found. Please provide a valid instruction."
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)

@@ -422,6 +422,12 @@ class OrchestratorBuilder:
                 return None  # DocumentRetrieverAgent requires sources
             elif agent_name == "tool" and not mcp_tools:
                 return None  # ToolAgent requires tools
+            elif agent_name == "bash":
+                # BashAgent can optionally skip safety checks
+                return self._agents_map[agent_name](
+                    client=agent_client,
+                    skip_safety_check=self.config.skip_bash_safety_check,
+                )
             else:
                 return self._agents_map[agent_name](client=agent_client)
         return None

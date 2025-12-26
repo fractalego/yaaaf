@@ -11,9 +11,14 @@ _logger = logging.getLogger(__name__)
 class BashAgent(ToolBasedAgent):
     """Agent that executes bash commands with safety features."""
 
-    def __init__(self, client: BaseClient):
-        """Initialize bash agent."""
-        super().__init__(client, BashExecutor())
+    def __init__(self, client: BaseClient, skip_safety_check: bool = False):
+        """Initialize bash agent.
+
+        Args:
+            client: LLM client
+            skip_safety_check: If True, skip safety checks and allow all commands
+        """
+        super().__init__(client, BashExecutor(skip_safety_check=skip_safety_check))
         self._system_prompt = bash_agent_prompt_template
         self._output_tag = "```bash"
 

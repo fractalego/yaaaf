@@ -15,9 +15,14 @@ _logger = logging.getLogger(__name__)
 class BashExecutor(ToolExecutor):
     """Executor for bash command execution."""
 
-    def __init__(self):
-        """Initialize bash executor."""
+    def __init__(self, skip_safety_check: bool = False):
+        """Initialize bash executor.
+
+        Args:
+            skip_safety_check: If True, skip safety checks and allow all commands
+        """
         self._storage = ArtefactStorage()
+        self._skip_safety_check = skip_safety_check
         
     async def prepare_context(self, messages: Messages, notes: Optional[list[Note]] = None) -> Dict[str, Any]:
         """Prepare context for bash execution."""
@@ -30,9 +35,13 @@ class BashExecutor(ToolExecutor):
     def extract_instruction(self, response: str) -> Optional[str]:
         """Extract bash command from response."""
         command = get_first_text_between_tags(response, "```bash", "```")
-        if command and not self._is_safe_command(command):
-            # Return None to indicate unsafe command - this will be handled by the reflection engine
+        if not command:
+            _logger.debug(f"No ```bash block found in response: {response[:200]}...")
             return None
+        if not self._skip_safety_check and not self._is_safe_command(command):
+            _logger.warning(f"Command rejected as unsafe: {command}")
+            return None
+        _logger.info(f"Extracted bash command: {command[:100]}...")
         return command
     
     def _is_safe_command(self, command: str) -> bool:

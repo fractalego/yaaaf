@@ -166,12 +166,6 @@ def _generate_artifact_list(artefact_list: List[Artefact]) -> str:
                 content = f"Table artifact: {artifact.description or 'Unable to display table'}"
         elif artifact.type == Artefact.Types.IMAGE:
             content = f"Image artifact: {artifact.description or 'Image data'}"
-        elif artifact.type == Artefact.Types.TODO_LIST and hasattr(artifact.data, 'to_markdown'):
-            # Todo lists are also tables
-            try:
-                content = artifact.data.to_markdown(index=False)
-            except Exception as e:
-                content = f"Todo list artifact: {artifact.description or 'Unable to display todo list'}"
         elif artifact.code:
             # For artifacts with code (like models)
             content = f"{artifact.type} artifact:\n{artifact.code[:500]}..." if len(artifact.code) > 500 else artifact.code

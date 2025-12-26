@@ -364,8 +364,9 @@ class OrchestratorBuilder:
             all_agents,
             validation_agent=validation_agent,
             disable_user_prompts=self.config.disable_user_prompts,
+            max_replan_attempts=self.config.max_replan_attempts,
         )
-        _logger.info(f"Created plan-driven orchestrator with validation (disable_user_prompts={self.config.disable_user_prompts})")
+        _logger.info(f"Created plan-driven orchestrator with validation (disable_user_prompts={self.config.disable_user_prompts}, max_replan_attempts={self.config.max_replan_attempts})")
 
         return orchestrator
 

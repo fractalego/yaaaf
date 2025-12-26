@@ -193,16 +193,16 @@ class RepoManager:
             capture_output=True,
             text=True,
         )
-        _logger.info("Installing pytest...")
+        _logger.info("Installing pytest and common test dependencies...")
         result = subprocess.run(
-            [str(pip_path), "install", "pytest"],
+            [str(pip_path), "install", "pytest", "hypothesis", "pytest-astropy", "pytest-xdist"],
             capture_output=True,
             text=True,
         )
         if result.returncode == 0:
-            _logger.info("pytest installed successfully")
+            _logger.info("Test dependencies installed successfully")
         else:
-            _logger.warning(f"pytest installation may have failed: {result.stderr}")
+            _logger.warning(f"Test dependencies installation may have failed: {result.stderr}")
 
         # Try to install requirements if they exist
         requirements_files = [

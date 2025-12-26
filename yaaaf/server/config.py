@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     generate_summary: bool = False
     disable_user_prompts: bool = False  # If True, skip user prompts on validation failure and replan instead
     skip_bash_safety_check: bool = False  # If True, allow all bash commands without safety filtering
+    max_replan_attempts: int = 3  # Maximum number of replan attempts before giving up
 
 
 def _get_simple_config() -> Settings:

@@ -32,6 +32,7 @@ class OrchestratorAgent(CustomAgent):
         agents: Dict[str, Any],
         validation_agent: Optional["ValidationAgent"] = None,
         disable_user_prompts: bool = False,
+        max_replan_attempts: int = 3,
     ):
         """Initialize plan-driven orchestrator.
 
@@ -40,6 +41,7 @@ class OrchestratorAgent(CustomAgent):
             agents: Dictionary of available agents
             validation_agent: Optional validation agent for artifact validation
             disable_user_prompts: If True, skip user prompts on validation failure and replan instead
+            max_replan_attempts: Maximum number of replan attempts before giving up
         """
         super().__init__(client)
         self.agents = agents
@@ -48,7 +50,7 @@ class OrchestratorAgent(CustomAgent):
         self.current_plan = None
         self.plan_executor = None
         self.artefact_storage = ArtefactStorage()
-        self._max_replan_attempts = 3
+        self._max_replan_attempts = max_replan_attempts
         self._validation_agent = validation_agent
         self._original_goal = None  # Store for validation context
         self._disable_user_prompts = disable_user_prompts

@@ -640,14 +640,21 @@ CRITICAL for str_replace:
 - If the string is not found, you'll receive an error with similar lines
 
 Think step-by-step:
-1. First VIEW the file to understand its structure (do NOT include {task_completed_tag} yet)
+1. First VIEW the file to understand its structure
 2. You will see the file contents, then identify what needs to be changed
-3. Use STR_REPLACE with enough context for a unique match (do NOT include {task_completed_tag} yet)
-4. After the fix is applied, include {task_completed_tag} to signal you are done
+3. Use STR_REPLACE with enough context for a unique match.
 
-IMPORTANT: Only output {task_completed_tag} AFTER you have completed ALL necessary operations.
-- If your task is to FIX something, do NOT say {task_completed_tag} until you have done STR_REPLACE
-- If you only did VIEW, you are NOT done yet - continue with the fix
+WHEN TO OUTPUT {task_completed_tag}:
+- If your task is to VIEW/READ a file: output {task_completed_tag} immediately after the view operation
+- If your task is to CREATE a file: output {task_completed_tag} immediately after the create operation
+- If your task is to FIX/MODIFY code: output {task_completed_tag} immediately after the str_replace operation
+
+Examples:
+1. Task "view config.py" → VIEW → {task_completed_tag}
+2. Task "create utils.py" → CREATE → {task_completed_tag}
+3. Task "fix bug in main.py" → VIEW → STR_REPLACE → {task_completed_tag}
+
+IMPORTANT: Output {task_completed_tag} on the SAME response as your final operation. Do NOT do extra operations after the task is done.
 """
 )
 

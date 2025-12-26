@@ -426,9 +426,12 @@ class WorkflowExecutor:
     def _validate_type_compatibility(self, asset_name: str, actual_types: List[str], asset_config: Dict) -> None:
         """Validate that the actual artifact types match what the next steps expect."""
         expected_type = asset_config.get("type", "TEXT").upper()
-        
+
+        # Normalize actual types to uppercase for comparison
+        actual_types_upper = [t.upper() for t in actual_types]
+
         # Check if any of the actual types match the expected type
-        type_match = expected_type in actual_types
+        type_match = expected_type in actual_types_upper
         
         if not type_match:
             _logger.warning(

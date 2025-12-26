@@ -152,6 +152,10 @@ class BaseAgent(ABC):
                 return last_artifact_result
             return f"{clean_message} {task_completed_tag}"
 
+        # If we created an artifact, return it even if max steps reached
+        if last_artifact_result:
+            return last_artifact_result
+
         self._add_internal_message(
             f"Max steps ({self._max_steps}) reached",
             notes,

@@ -58,6 +58,7 @@ class WorkflowExecutor:
         original_messages: Optional[Messages] = None,
         validation_agent: Optional["ValidationAgent"] = None,
         original_goal: Optional[str] = None,
+        disable_user_prompts: bool = False,
     ):
         """Initialize workflow executor.
 
@@ -69,6 +70,7 @@ class WorkflowExecutor:
             original_messages: Optional original user messages (needed for pause/resume)
             validation_agent: Optional validation agent for artifact validation
             original_goal: Original user goal for validation context
+            disable_user_prompts: If True, skip user prompts on validation failure and replan instead
         """
         self.yaml_plan = yaml_plan  # Store raw YAML for state persistence
         self.plan = yaml.safe_load(yaml_plan)
@@ -81,6 +83,7 @@ class WorkflowExecutor:
         self._original_messages = original_messages
         self._validation_agent = validation_agent
         self._original_goal = original_goal
+        self._disable_user_prompts = disable_user_prompts
         self._build_execution_graph()
 
     def _build_execution_graph(self):
@@ -238,13 +241,22 @@ class WorkflowExecutor:
 
                     if not validation_result.is_valid:
                         if validation_result.should_ask_user:
-                            # Need user decision
-                            _logger.warning(
-                                f"Validation failed for {asset_name}, asking user: {validation_result.reason}"
-                            )
-                            raise UserDecisionRequiredException(
-                                validation_result, self.asset_results.copy()
-                            )
+                            if self._disable_user_prompts:
+                                # User prompts disabled - go straight to replanning
+                                _logger.warning(
+                                    f"Validation failed for {asset_name}, user prompts disabled, replanning: {validation_result.reason}"
+                                )
+                                raise ReplanRequiredException(
+                                    validation_result, self.asset_results.copy()
+                                )
+                            else:
+                                # Need user decision
+                                _logger.warning(
+                                    f"Validation failed for {asset_name}, asking user: {validation_result.reason}"
+                                )
+                                raise UserDecisionRequiredException(
+                                    validation_result, self.asset_results.copy()
+                                )
                         elif validation_result.should_replan:
                             # Trigger replanning
                             _logger.warning(

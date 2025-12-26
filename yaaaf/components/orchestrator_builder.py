@@ -360,9 +360,12 @@ class OrchestratorBuilder:
 
         # Create plan-driven orchestrator with validation
         orchestrator = OrchestratorAgent(
-            orchestrator_client, all_agents, validation_agent=validation_agent
+            orchestrator_client,
+            all_agents,
+            validation_agent=validation_agent,
+            disable_user_prompts=self.config.disable_user_prompts,
         )
-        _logger.info("Created plan-driven orchestrator with validation")
+        _logger.info(f"Created plan-driven orchestrator with validation (disable_user_prompts={self.config.disable_user_prompts})")
 
         return orchestrator
 

@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     safety_filter: SafetyFilterSettings = SafetyFilterSettings()
     api_keys: APISettings = APISettings()
     generate_summary: bool = False
+    disable_user_prompts: bool = False  # If True, skip user prompts on validation failure and replan instead
 
 
 def _get_simple_config() -> Settings:

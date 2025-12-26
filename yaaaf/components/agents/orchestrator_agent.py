@@ -31,6 +31,7 @@ class OrchestratorAgent(CustomAgent):
         client: BaseClient,
         agents: Dict[str, Any],
         validation_agent: Optional["ValidationAgent"] = None,
+        disable_user_prompts: bool = False,
     ):
         """Initialize plan-driven orchestrator.
 
@@ -38,6 +39,7 @@ class OrchestratorAgent(CustomAgent):
             client: LLM client
             agents: Dictionary of available agents
             validation_agent: Optional validation agent for artifact validation
+            disable_user_prompts: If True, skip user prompts on validation failure and replan instead
         """
         super().__init__(client)
         self.agents = agents
@@ -49,6 +51,7 @@ class OrchestratorAgent(CustomAgent):
         self._max_replan_attempts = 3
         self._validation_agent = validation_agent
         self._original_goal = None  # Store for validation context
+        self._disable_user_prompts = disable_user_prompts
 
         # Extract planner from agents
         for agent_name, agent in agents.items():
@@ -145,6 +148,7 @@ class OrchestratorAgent(CustomAgent):
                         original_messages=messages,
                         validation_agent=self._validation_agent,
                         original_goal=self._original_goal,
+                        disable_user_prompts=self._disable_user_prompts,
                     )
 
                 # Execute plan

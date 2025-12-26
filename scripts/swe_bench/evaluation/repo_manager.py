@@ -186,12 +186,23 @@ class RepoManager:
         # Install the repo in development mode if possible
         pip_path = env_path / "bin" / "pip"
 
-        # Upgrade pip
+        # Upgrade pip and install pytest
+        _logger.info("Upgrading pip...")
         subprocess.run(
             [str(pip_path), "install", "--upgrade", "pip"],
             capture_output=True,
             text=True,
         )
+        _logger.info("Installing pytest...")
+        result = subprocess.run(
+            [str(pip_path), "install", "pytest"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            _logger.info("pytest installed successfully")
+        else:
+            _logger.warning(f"pytest installation may have failed: {result.stderr}")
 
         # Try to install requirements if they exist
         requirements_files = [
@@ -289,6 +300,8 @@ class RepoManager:
         # Build pytest command
         command = ["python", "-m", "pytest", "-xvs"] + test_list
 
+        _logger.info(f"Running pytest with {len(test_list)} test(s) in {repo_path}")
+
         try:
             result = self.run_in_env(repo, command, cwd=repo_path, timeout=timeout)
 
@@ -297,6 +310,15 @@ class RepoManager:
             passed = output.count(" PASSED")
             failed = output.count(" FAILED")
             errors = output.count(" ERROR")
+
+            # Check for common setup errors
+            if "No module named pytest" in output:
+                _logger.error("pytest is not installed in the virtual environment")
+            elif "No module named" in output:
+                _logger.warning(f"Missing module detected in test output")
+
+            _logger.info(f"Test run completed: returncode={result.returncode}, "
+                        f"passed={passed}, failed={failed}, errors={errors}")
 
             return {
                 "success": result.returncode == 0,
@@ -308,6 +330,7 @@ class RepoManager:
             }
 
         except subprocess.TimeoutExpired:
+            _logger.error(f"Test execution timed out after {timeout}s")
             return {
                 "success": False,
                 "passed": 0,

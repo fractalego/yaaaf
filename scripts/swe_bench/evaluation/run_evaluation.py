@@ -131,13 +131,20 @@ def evaluate_instance(
         repo_manager.checkout_commit(repo, base_commit)
         repo_manager.reset_repo(repo)  # Clean state
 
-        # Step 2: Setup Python environment
-        _logger.info("Step 2: Setting up Python environment...")
-        repo_manager.setup_environment(repo)
+        # Step 2: Setup Python environment (force clean every time)
+        _logger.info("Step 2: Setting up Python environment (clean rebuild)...")
+        repo_manager.setup_environment(repo, force=True)
 
         # Step 3: Verify initial test state (tests should fail)
         _logger.info("Step 3: Verifying initial test state...")
+        _logger.info(f"  FAIL_TO_PASS tests ({len(fail_to_pass)} total):")
+        for test in fail_to_pass[:3]:
+            _logger.info(f"    - {test}")
+        if len(fail_to_pass) > 3:
+            _logger.info(f"    ... and {len(fail_to_pass) - 3} more")
         initial_test_result = repo_manager.run_tests(repo, fail_to_pass[:3])  # Sample
+        _logger.info(f"  Initial test result: passed={initial_test_result['passed']}, "
+                     f"failed={initial_test_result['failed']}, errors={initial_test_result['errors']}")
         result["initial_tests"] = initial_test_result
 
         # Step 4: Run YAAAF
@@ -152,13 +159,28 @@ def evaluate_instance(
 
         # Step 5: Run tests after YAAAF's changes
         _logger.info("Step 5: Running tests after YAAAF changes...")
+        _logger.info(f"  Running {len(fail_to_pass)} FAIL_TO_PASS tests:")
+        for test in fail_to_pass:
+            _logger.info(f"    - {test}")
         final_test_result = repo_manager.run_tests(repo, fail_to_pass)
+        _logger.info(f"  Final test result: passed={final_test_result['passed']}, "
+                     f"failed={final_test_result['failed']}, errors={final_test_result['errors']}")
+        _logger.info(f"  Return code: {final_test_result['returncode']}")
+        if final_test_result.get('output') and len(final_test_result['output']) < 2000:
+            _logger.debug(f"  Test output:\n{final_test_result['output']}")
         result["final_tests"] = final_test_result
 
         # Step 6: Check pass_to_pass tests (regression)
         if pass_to_pass:
             _logger.info("Step 6: Checking for regressions...")
+            _logger.info(f"  Running {min(10, len(pass_to_pass))} of {len(pass_to_pass)} PASS_TO_PASS tests:")
+            for test in pass_to_pass[:10]:
+                _logger.info(f"    - {test}")
+            if len(pass_to_pass) > 10:
+                _logger.info(f"    ... and {len(pass_to_pass) - 10} more (not run)")
             regression_result = repo_manager.run_tests(repo, pass_to_pass[:10])  # Sample
+            _logger.info(f"  Regression test result: passed={regression_result['passed']}, "
+                         f"failed={regression_result['failed']}, errors={regression_result['errors']}")
             result["regression_tests"] = regression_result
 
         # Determine overall success

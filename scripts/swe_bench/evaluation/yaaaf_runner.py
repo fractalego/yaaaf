@@ -47,7 +47,11 @@ class YaaafRunner:
             )
             if response.status_code == 200:
                 config = response.json()
-                agents = [a["name"] for a in config.get("agents", [])]
+                # Response is a list of {"name": ..., "type": ...} items
+                if isinstance(config, list):
+                    agents = [a.get("name") for a in config if a.get("type") == "agent"]
+                else:
+                    agents = [a.get("name") for a in config.get("agents", [])]
                 _logger.info(f"YAAAF server available. Agents: {agents}")
                 return True
         except httpx.ConnectError:

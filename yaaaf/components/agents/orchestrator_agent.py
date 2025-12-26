@@ -296,8 +296,8 @@ class OrchestratorAgent(CustomAgent):
         """Generate execution plan using planner agent."""
 
         # Build planning request
-        if error_context and partial_results:
-            # Replanning with context
+        if error_context:
+            # Replanning with context (partial_results may be empty if first asset failed)
             planning_request = f"""
 The following plan failed during execution:
 
@@ -305,16 +305,17 @@ The following plan failed during execution:
 {self.current_plan if self.current_plan else "No previous plan"}
 ```
 
-Error: {error_context}
+**VALIDATION FEEDBACK**: {error_context}
 
 Completed assets so far:
-{self._format_partial_results(partial_results)}
+{self._format_partial_results(partial_results) if partial_results else "None (failed on first step)"}
 
 Please create a revised plan that:
-1. Uses the already completed assets where possible
-2. Works around the error condition
-3. Still achieves the goal: {goal}
-4. Produces a final artifact of type: {target_type}
+1. ADDRESSES THE VALIDATION FEEDBACK above - this is critical
+2. Uses any already completed assets where possible
+3. Works around the error condition
+4. Still achieves the goal: {goal}
+5. Produces a final artifact of type: {target_type}
 
 Original user request: {messages.utterances[-1].content}
 """
@@ -432,17 +433,30 @@ User Context: {messages.utterances[-1].content}
             return None
 
     def _format_partial_results(self, partial_results: Dict[str, Any]) -> str:
-        """Format partial results for replanning context."""
+        """Format partial results for replanning context.
+
+        Args:
+            partial_results: Dict of asset_name -> result_string from workflow executor
+        """
         if not partial_results:
             return "None"
 
         parts = []
-        for asset_name, artifact in partial_results.items():
-            artifact_type = getattr(artifact, 'type', 'UNKNOWN')
-            artifact_summary = getattr(artifact, 'summary', None) or getattr(artifact, 'description', None) or 'completed'
-            parts.append(
-                f"- {asset_name}: {artifact_type} ({artifact_summary})"
-            )
+        for asset_name, result_string in partial_results.items():
+            # Result strings look like: "Operation completed. Result: <artefact type='text'>abc123</artefact> <taskcompleted/>"
+            if isinstance(result_string, str):
+                # Extract artifact type from result string
+                type_match = re.search(r"<artefact type='([^']+)'>", result_string)
+                artifact_type = type_match.group(1).upper() if type_match else "TEXT"
+
+                # Truncate long result strings for context
+                truncated = result_string[:200] + "..." if len(result_string) > 200 else result_string
+                parts.append(f"- {asset_name}: {artifact_type}\n  Result: {truncated}")
+            else:
+                # Handle artifact objects (legacy)
+                artifact_type = getattr(result_string, 'type', 'UNKNOWN')
+                artifact_summary = getattr(result_string, 'summary', None) or getattr(result_string, 'description', None) or 'completed'
+                parts.append(f"- {asset_name}: {artifact_type} ({artifact_summary})")
 
         return "\n".join(parts)
 

@@ -118,7 +118,7 @@ class BaseAgent(ABC):
             result, error = await self._executor.execute_operation(instruction, context)
 
             if error:
-                _logger.warning(f"{self.get_name()}: Operation failed: {error[:200]}")
+                _logger.warning(f"{self.get_name()}: Operation failed: {error[:500]}")
                 feedback = self._executor.get_feedback_message(error)
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)

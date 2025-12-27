@@ -66,11 +66,14 @@ class CodeEditExecutor(ToolExecutor):
         match = re.search(pattern, response, re.DOTALL)
         if match:
             instruction = match.group(1).strip()
-            _logger.info(f"Extracted code_edit instruction: {instruction[:100]}...")
+            _logger.info(f"Extracted code_edit instruction:\n{instruction}")
             return instruction
 
         _logger.info(f"No ```code_edit block found in response: {response[:200]}...")
         return None
+
+    # Known keys for code_edit instructions
+    KNOWN_KEYS = {'operation', 'path', 'old_str', 'new_str', 'content', 'start_line', 'end_line'}
 
     def _parse_instruction(self, instruction: str) -> Dict[str, str]:
         """Parse the instruction into operation and parameters."""
@@ -79,15 +82,20 @@ class CodeEditExecutor(ToolExecutor):
         current_value = []
 
         for line in instruction.split('\n'):
-            # Check if this is a new key
+            # Check if this is a new key (must be a known key name)
             if ':' in line and not line.startswith(' ') and not line.startswith('\t'):
-                # Save previous key if exists
-                if current_key:
-                    result[current_key] = '\n'.join(current_value).strip()
+                key_candidate = line.partition(':')[0].strip().lower()
+                if key_candidate in self.KNOWN_KEYS:
+                    # Save previous key if exists
+                    if current_key:
+                        result[current_key] = '\n'.join(current_value).strip()
 
-                key, _, value = line.partition(':')
-                current_key = key.strip().lower()
-                current_value = [value.strip()] if value.strip() else []
+                    key, _, value = line.partition(':')
+                    current_key = key.strip().lower()
+                    current_value = [value.strip()] if value.strip() else []
+                elif current_key:
+                    # Not a known key, treat as continuation of previous value
+                    current_value.append(line)
             elif current_key:
                 # Continuation of previous value
                 current_value.append(line)
@@ -213,15 +221,29 @@ class CodeEditExecutor(ToolExecutor):
 
             # Check if old_str exists
             if old_str not in content:
-                # Try to find similar matches for helpful error message
-                lines_with_partial = []
-                for i, line in enumerate(content.split('\n'), 1):
-                    if any(word in line for word in old_str.split()[:3]):
-                        lines_with_partial.append(f"  Line {i}: {line[:100]}...")
-
+                # Try to find the function/class the LLM is trying to modify
+                first_line = old_str.strip().split('\n')[0].strip()
                 error_msg = f"String not found in file: {file_path}\n"
-                if lines_with_partial:
-                    error_msg += "Similar lines found:\n" + "\n".join(lines_with_partial[:5])
+                error_msg += f"You tried to match: {first_line[:80]}...\n\n"
+
+                # Find lines that contain key identifiers from old_str
+                lines = content.split('\n')
+                for i, line in enumerate(lines):
+                    if first_line[:30] in line or (len(first_line) > 10 and first_line[4:20] in line):
+                        # Show context around this line
+                        start = max(0, i - 2)
+                        end = min(len(lines), i + 8)
+                        context_lines = lines[start:end]
+                        error_msg += f"ACTUAL FILE CONTENT around line {i+1}:\n"
+                        for j, ctx_line in enumerate(context_lines, start + 1):
+                            error_msg += f"  {j}: {ctx_line}\n"
+                        error_msg += "\nCopy the EXACT text from above for old_str."
+                        return None, error_msg
+
+                # Fallback: show first part of file
+                error_msg += "Could not find similar content. First 30 lines of file:\n"
+                for i, line in enumerate(lines[:30], 1):
+                    error_msg += f"  {i}: {line}\n"
                 return None, error_msg
 
             # Count occurrences

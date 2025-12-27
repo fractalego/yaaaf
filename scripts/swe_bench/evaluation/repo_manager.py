@@ -2,6 +2,7 @@
 Manages repository cloning, checkout, and Python environment setup for SWE-bench evaluation.
 """
 
+import glob
 import logging
 import os
 import shutil
@@ -238,9 +239,18 @@ class RepoManager:
             # Install repo-specific dependencies based on package name
             repo_name = repo.split("/")[-1].lower()
             if "astropy" in repo_name:
-                _logger.info("Installing astropy-specific dependencies (pyerfa)...")
+                _logger.info("Installing astropy-specific dependencies...")
+                # Install all astropy build dependencies
+                astropy_deps = [
+                    "pyerfa",
+                    "setuptools<70",  # setuptools 70+ removed dep_util
+                    "jinja2",         # used by astropy templates
+                    "pyyaml",         # used by astropy config
+                    "packaging",      # used by astropy version checks
+                    "extension-helpers>=1,<2",  # astropy extension builder
+                ]
                 result = subprocess.run(
-                    [str(pip_path), "install", "pyerfa"],
+                    [str(pip_path), "install"] + astropy_deps,
                     capture_output=True,
                     text=True,
                     timeout=300,
@@ -266,24 +276,97 @@ class RepoManager:
                     timeout=300,
                 )
 
+            # For packages with C extensions (like astropy), we need to build extensions.
+            # Some packages need build_ext even after a "successful" pip install.
+            needs_build_ext = "astropy" in repo_name or "scipy" in repo_name
+
             _logger.info(f"Installing package in development mode from {repo_path}")
+            python_path = env_path / "bin" / "python"
+            editable_success = False
+
             try:
                 result = subprocess.run(
-                    [str(pip_path), "install", "-e", str(repo_path)],
+                    [str(pip_path), "install", "-e", str(repo_path), "--no-build-isolation"],
                     capture_output=True,
                     text=True,
                     timeout=600,  # 10 minutes for complex packages
                 )
-                if result.returncode != 0:
-                    _logger.error(f"Failed to install package (exit code {result.returncode})")
-                    _logger.error(f"stdout: {result.stdout[-2000:] if result.stdout else 'none'}")
-                    _logger.error(f"stderr: {result.stderr[-2000:] if result.stderr else 'none'}")
+                if result.returncode == 0:
+                    _logger.info("Editable install completed")
+                    editable_success = True
                 else:
-                    _logger.info("Package installed successfully in development mode")
+                    _logger.warning(f"Editable install failed: {result.stderr[-300:] if result.stderr else 'none'}")
             except subprocess.TimeoutExpired as e:
-                _logger.warning(f"Package installation timed out after 600s: {e}")
+                _logger.warning(f"Package installation timed out: {e}")
             except Exception as e:
                 _logger.warning(f"Failed to install package: {e}")
+
+            # For packages with C extensions, always run build_ext --inplace
+            # This is needed even if editable install "succeeded" because pip might not build extensions
+            if needs_build_ext or not editable_success:
+                _logger.info(f"Building C extensions in-place for {repo_name}...")
+                # Set up environment for build_ext
+                build_env = os.environ.copy()
+                build_env["PATH"] = f"{env_path}/bin:{build_env['PATH']}"
+                build_env["VIRTUAL_ENV"] = str(env_path)
+                try:
+                    build_result = subprocess.run(
+                        [str(python_path), "setup.py", "build_ext", "--inplace"],
+                        cwd=repo_path,
+                        env=build_env,
+                        capture_output=True,
+                        text=True,
+                        timeout=600,
+                    )
+                    if build_result.returncode == 0:
+                        _logger.info("Built extensions in-place successfully")
+                        # Log some of the stdout to confirm what was built
+                        if build_result.stdout:
+                            # Look for lines about building extensions
+                            for line in build_result.stdout.split('\n')[-20:]:
+                                if 'building' in line.lower() or 'compil' in line.lower():
+                                    _logger.info(f"  {line}")
+                    else:
+                        _logger.error(f"build_ext FAILED with return code {build_result.returncode}")
+                        if build_result.stdout:
+                            _logger.error(f"build_ext stdout (last 500 chars): {build_result.stdout[-500:]}")
+                        if build_result.stderr:
+                            _logger.error(f"build_ext stderr (last 500 chars): {build_result.stderr[-500:]}")
+                except subprocess.TimeoutExpired:
+                    _logger.error("build_ext timed out after 600s")
+                except Exception as e:
+                    _logger.error(f"build_ext exception: {e}")
+
+                # Verify that extensions were actually built by checking for .so files
+                so_files = glob.glob(str(repo_path / "**/*.so"), recursive=True)
+                if so_files:
+                    _logger.info(f"Found {len(so_files)} compiled extension(s)")
+                    for so_file in so_files[:5]:
+                        _logger.info(f"  - {so_file}")
+                else:
+                    _logger.warning("No .so files found - extensions may not have been built!")
+
+                # Use PYTHONPATH for packages with C extensions
+                (env_path / ".use_pythonpath").touch()
+
+                # Verify the package can be imported
+                _logger.info(f"Verifying {repo_name} can be imported...")
+                import_test_env = os.environ.copy()
+                import_test_env["PATH"] = f"{env_path}/bin:{import_test_env['PATH']}"
+                import_test_env["VIRTUAL_ENV"] = str(env_path)
+                import_test_env["PYTHONPATH"] = str(repo_path)
+                import_result = subprocess.run(
+                    [str(python_path), "-c", f"import {repo_name}; print({repo_name}.__version__)"],
+                    cwd=repo_path,
+                    env=import_test_env,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                if import_result.returncode == 0:
+                    _logger.info(f"Import successful: {repo_name} {import_result.stdout.strip()}")
+                else:
+                    _logger.error(f"Import FAILED: {import_result.stderr[:300]}")
 
         return env_path
 
@@ -316,6 +399,16 @@ class RepoManager:
         env["PATH"] = f"{env_path}/bin:{env['PATH']}"
         env["VIRTUAL_ENV"] = str(env_path)
 
+        # Fix astropy logging conflict with pytest warnings
+        # This prevents "Cannot disable warnings logging" error
+        env["PYTHONWARNINGS"] = "ignore"
+
+        # If editable install failed, add repo to PYTHONPATH
+        if (env_path / ".use_pythonpath").exists():
+            existing_pythonpath = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = f"{repo_path}:{existing_pythonpath}" if existing_pythonpath else str(repo_path)
+            _logger.debug(f"Using PYTHONPATH for {repo}: {env['PYTHONPATH']}")
+
         work_dir = cwd or repo_path
 
         return subprocess.run(
@@ -346,7 +439,8 @@ class RepoManager:
         repo_path = self.get_repo_path(repo)
 
         # Build pytest command
-        command = ["python", "-m", "pytest", "-xvs"] + test_list
+        # -p no:warnings disables pytest's warnings plugin to avoid conflict with astropy's logger
+        command = ["python", "-m", "pytest", "-xvs", "-p", "no:warnings"] + test_list
 
         _logger.info(f"Running pytest with {len(test_list)} test(s) in {repo_path}")
 

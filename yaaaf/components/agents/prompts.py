@@ -596,6 +596,13 @@ IMPORTANT RULES:
 - Never modify system files or files outside the project directory
 - Use exact string matching - whitespace and indentation matter
 
+FINDING THE RIGHT CODE - CRITICAL:
+- ALWAYS view the ENTIRE file first (without start_line/end_line) to find where the code you need is located
+- Pay attention to LINE NUMBERS in the view output - they tell you exactly where each function/class is
+- If a file is very large, view it in sections, but scan to find the function you need BEFORE trying str_replace
+- NEVER guess line numbers or assume where code is - always verify with view first
+- The function you need to modify might be at line 50, or line 500 - you must LOOK first
+
 WHEN TO USE EACH OPERATION:
 - VIEW: When you need to read/understand code (analysis, exploration)
 - CREATE: When you need to create a new file that doesn't exist
@@ -603,13 +610,13 @@ WHEN TO USE EACH OPERATION:
 
 To perform an operation, output a code_edit block in this format:
 
-For viewing a file:
+For viewing a file (RECOMMENDED - view entire file first):
 ```code_edit
 operation: view
 path: /path/to/file
 ```
 
-For viewing specific lines:
+For viewing specific lines (only after you've found the right lines):
 ```code_edit
 operation: view
 path: /path/to/file
@@ -638,16 +645,25 @@ def new_function():
     return "fixed"
 ```
 
-CRITICAL for str_replace:
-- The old_str must match EXACTLY (including whitespace and indentation)
-- Include enough surrounding context to make the match unique
-- If the string appears multiple times, include more context
-- If the string is not found, you'll receive an error with similar lines
+CRITICAL for str_replace - READ THIS CAREFULLY:
+- The old_str must match EXACTLY what is in the file - character for character
+- DO NOT paraphrase, summarize, or guess what the code looks like
+- DO NOT invent or hallucinate code - only use text you have ACTUALLY SEEN in a VIEW result
+- COPY the exact text from the VIEW output - including all whitespace, docstrings, and comments
+- If you haven't viewed the specific lines containing the function, VIEW THEM FIRST
+- If your str_replace fails, look at the ACTUAL FILE CONTENT in the error and copy from there
+
+COMMON MISTAKES TO AVOID:
+- Viewing lines 100-150 but trying to modify a function at line 290 (you never saw it!)
+- Making up what you think code should look like instead of copying from VIEW output
+- Guessing indentation or formatting
 
 Think step-by-step:
-1. First VIEW the file to understand its structure
-2. You will see the file contents, then identify what needs to be changed
-3. Use STR_REPLACE with enough context for a unique match.
+1. First VIEW the ENTIRE file (no start_line/end_line) to find where the code you need is located
+2. Note the LINE NUMBERS where the function/code you need to modify actually is
+3. If needed, view those specific lines to see the exact content
+4. COPY the exact text from the VIEW output (don't type from memory!)
+5. Use STR_REPLACE with that exact copied text as old_str
 
 WHEN TO OUTPUT {task_completed_tag}:
 - If your task is to VIEW/READ a file: output {task_completed_tag} immediately after the view operation

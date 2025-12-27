@@ -81,11 +81,21 @@ class BaseAgent(ABC):
 
         # Multi-step execution loop - abstracted reflection pattern
         for step_idx in range(self._max_steps):
-            response = await self._client.predict(
-                messages, stop_sequences=self._stop_sequences
-            )
+            _logger.debug(f"{self.get_name()}: Starting step {step_idx + 1}/{self._max_steps}")
+            try:
+                response = await self._client.predict(
+                    messages, stop_sequences=self._stop_sequences
+                )
+            except Exception as e:
+                _logger.error(f"{self.get_name()}: predict() failed with error: {e}")
+                raise
+
+            if not response:
+                _logger.warning(f"{self.get_name()}: Empty response from LLM at step {step_idx + 1}")
+                continue
 
             clean_message, thinking_ref = self._process_client_response(response, notes)
+            _logger.debug(f"{self.get_name()}: Response length={len(clean_message)}, first 200 chars: {clean_message[:200]}")
 
             if step_idx > 0:
                 self._add_internal_message(
@@ -142,8 +152,12 @@ class BaseAgent(ABC):
                     return self._create_combined_artifact(all_results, notes)
 
                 # Operation succeeded but task not complete - feed result back to LLM
-                result_summary = str(result)[:500] + "..." if len(str(result)) > 500 else str(result)
-                feedback = f"Operation completed successfully. Result:\n{result_summary}\n\nContinue with next operation or say <taskcompleted/> if done."
+                # Use custom feedback from executor if available
+                if hasattr(self._executor, 'get_success_feedback'):
+                    feedback = self._executor.get_success_feedback(str(result), instruction)
+                else:
+                    result_summary = str(result)[:500] + "..." if len(str(result)) > 500 else str(result)
+                    feedback = f"Operation completed successfully. Result:\n{result_summary}\n\nContinue with next operation or say <taskcompleted/> if done."
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
             else:
@@ -153,8 +167,10 @@ class BaseAgent(ABC):
 
         # Return accumulated results if any
         if all_results:
+            _logger.info(f"{self.get_name()}: Returning combined artifact with {len(all_results)} results after {self._max_steps} steps")
             return self._create_combined_artifact(all_results, notes)
 
+        _logger.warning(f"{self.get_name()}: Max steps ({self._max_steps}) reached with no results")
         self._add_internal_message(
             f"Max steps ({self._max_steps}) reached with no results",
             notes,

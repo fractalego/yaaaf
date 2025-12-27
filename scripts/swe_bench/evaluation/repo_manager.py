@@ -227,27 +227,22 @@ class RepoManager:
 
         # Try to install the package itself
         if (repo_path / "setup.py").exists() or (repo_path / "pyproject.toml").exists():
-            # Install common build dependencies first (needed for packages with compiled extensions)
-            _logger.info("Installing common build dependencies...")
-            subprocess.run(
-                [str(pip_path), "install", "numpy", "cython", "extension-helpers", "setuptools-scm", "wheel"],
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
-
-            # Install repo-specific dependencies based on package name
             repo_name = repo.split("/")[-1].lower()
+
+            # Install repo-specific dependencies FIRST (they may pin versions like numpy<2)
             if "astropy" in repo_name:
                 _logger.info("Installing astropy-specific dependencies...")
                 # Install all astropy build dependencies
+                # NOTE: numpy<2 is required because old astropy uses numpy C API that changed in numpy 2.0
                 astropy_deps = [
+                    "numpy<2",        # MUST be before build - numpy 2.0 changed C API
                     "pyerfa",
                     "setuptools<70",  # setuptools 70+ removed dep_util
                     "jinja2",         # used by astropy templates
                     "pyyaml",         # used by astropy config
                     "packaging",      # used by astropy version checks
                     "extension-helpers>=1,<2",  # astropy extension builder
+                    "cython<3",       # old astropy may need cython 0.x
                 ]
                 result = subprocess.run(
                     [str(pip_path), "install"] + astropy_deps,
@@ -262,7 +257,7 @@ class RepoManager:
             elif "scipy" in repo_name:
                 _logger.info("Installing scipy-specific dependencies...")
                 subprocess.run(
-                    [str(pip_path), "install", "pybind11", "meson-python", "pythran"],
+                    [str(pip_path), "install", "numpy<2", "pybind11", "meson-python", "pythran", "cython<3"],
                     capture_output=True,
                     text=True,
                     timeout=300,
@@ -275,6 +270,15 @@ class RepoManager:
                     text=True,
                     timeout=300,
                 )
+
+            # Install common build dependencies (skip numpy - handled by repo-specific deps above)
+            _logger.info("Installing common build dependencies...")
+            subprocess.run(
+                [str(pip_path), "install", "cython", "extension-helpers", "setuptools-scm", "wheel"],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
 
             # For packages with C extensions (like astropy), we need to build extensions.
             # Some packages need build_ext even after a "successful" pip install.
@@ -309,6 +313,8 @@ class RepoManager:
                 build_env = os.environ.copy()
                 build_env["PATH"] = f"{env_path}/bin:{build_env['PATH']}"
                 build_env["VIRTUAL_ENV"] = str(env_path)
+                # Disable warnings-as-errors for old packages with minor API mismatches
+                build_env["CFLAGS"] = build_env.get("CFLAGS", "") + " -Wno-error=incompatible-pointer-types"
                 try:
                     build_result = subprocess.run(
                         [str(python_path), "setup.py", "build_ext", "--inplace"],

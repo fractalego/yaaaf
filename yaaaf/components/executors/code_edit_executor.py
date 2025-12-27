@@ -52,16 +52,20 @@ class CodeEditExecutor(ToolExecutor):
     def extract_instruction(self, response: str) -> Optional[str]:
         """Extract code edit instruction from response.
 
-        Expected format:
-        ```code_edit
-        operation: view|create|str_replace
-        path: /path/to/file
-        content: (for create)
-        old_str: (for str_replace)
-        new_str: (for str_replace)
-        ```
+        Supports two formats:
+        1. Markdown code blocks (for qwen and similar models):
+           ```code_edit
+           operation: view|create|str_replace
+           path: /path/to/file
+           ```
+
+        2. Tool calls format (for devstral/mistral models):
+           [TOOL_CALLS]code_edit
+           operation: view|create|str_replace
+           path: /path/to/file
+           [/TOOL_CALLS]
         """
-        # Try to find code_edit block
+        # Try markdown code block format first
         pattern = r"```code_edit\s*(.*?)```"
         match = re.search(pattern, response, re.DOTALL)
         if match:
@@ -69,7 +73,29 @@ class CodeEditExecutor(ToolExecutor):
             _logger.info(f"Extracted code_edit instruction:\n{instruction}")
             return instruction
 
-        _logger.info(f"No ```code_edit block found in response: {response[:200]}...")
+        # Try [TOOL_CALLS] format (devstral/mistral)
+        tool_pattern = r"\[TOOL_CALLS\]code_edit\s*(.*?)(?:\[/TOOL_CALLS\]|$)"
+        match = re.search(tool_pattern, response, re.DOTALL)
+        if match:
+            instruction = match.group(1).strip()
+            _logger.info(f"Extracted code_edit instruction (TOOL_CALLS format):\n{instruction}")
+            return instruction
+
+        # Try variant without closing tag (model might not include it)
+        tool_pattern_open = r"\[TOOL_CALLS\]code_edit\s*(operation:.*?)(?:\[TOOL_CALLS\]|\[/TOOL_CALLS\]|$)"
+        match = re.search(tool_pattern_open, response, re.DOTALL)
+        if match:
+            instruction = match.group(1).strip()
+            _logger.info(f"Extracted code_edit instruction (TOOL_CALLS open format):\n{instruction}")
+            return instruction
+
+        # Check if model is trying to use wrong tool
+        if "[TOOL_CALLS]bash" in response:
+            _logger.warning("Model tried to use bash - not allowed in code_edit agent")
+            # Return a fake instruction that will produce helpful error
+            return "operation: invalid_bash_attempt"
+
+        _logger.info(f"No code_edit block found in response: {response[:200]}...")
         return None
 
     # Known keys for code_edit instructions
@@ -111,6 +137,16 @@ class CodeEditExecutor(ToolExecutor):
         try:
             params = self._parse_instruction(instruction)
             operation = params.get('operation', '').lower()
+
+            # Handle case where model tried to use bash
+            if operation == 'invalid_bash_attempt':
+                return None, (
+                    "ERROR: You tried to use [TOOL_CALLS]bash but this agent can ONLY use [TOOL_CALLS]code_edit. "
+                    "You cannot run shell commands like find, grep, ls. "
+                    "Use [TOOL_CALLS]code_edit with operation: view to read files. "
+                    "Example:\n[TOOL_CALLS]code_edit\noperation: view\npath: /path/to/file.py\n[/TOOL_CALLS]"
+                )
+
             file_path = params.get('path', '')
 
             if not file_path:
@@ -148,6 +184,13 @@ class CodeEditExecutor(ToolExecutor):
         """View file contents with line numbers."""
         if not os.path.exists(file_path):
             return None, f"File not found: {file_path}"
+
+        if os.path.isdir(file_path):
+            return None, (
+                f"ERROR: '{file_path}' is a directory, not a file. "
+                f"You must specify a FILE path, not a directory. "
+                f"Example: path: {file_path}/some_file.py"
+            )
 
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -276,6 +319,25 @@ class CodeEditExecutor(ToolExecutor):
     def validate_result(self, result: Any) -> bool:
         """Validate code edit result."""
         return result is not None and isinstance(result, str)
+
+    def get_success_feedback(self, result: str, instruction: str) -> str:
+        """Provide custom success feedback based on operation type.
+
+        For VIEW operations, strongly encourage using STR_REPLACE next.
+        """
+        params = self._parse_instruction(instruction)
+        operation = params.get('operation', '').lower()
+
+        result_summary = result[:500] + "..." if len(result) > 500 else result
+
+        if operation == 'view':
+            return (
+                f"FILE CONTENTS:\n{result_summary}\n\n"
+                f"You have now seen the file. DO NOT VIEW AGAIN.\n"
+                f"NOW use STR_REPLACE to fix the bug. Copy the exact buggy code from above as old_str."
+            )
+        else:
+            return f"Operation completed successfully. Result:\n{result_summary}"
 
     def is_mutation_operation(self, instruction: str) -> bool:
         """Check if the operation modifies files (vs read-only).

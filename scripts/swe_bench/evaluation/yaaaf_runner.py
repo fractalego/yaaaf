@@ -193,14 +193,18 @@ Focus on making minimal, targeted changes to fix the issue.
         artifact_ids = []
 
         try:
+            _logger.info(f"Starting stream for {stream_id} (timeout={self.timeout}s)")
             with httpx.stream(
                 "POST",
                 f"{self.base_url}/stream_utterances",
                 json={"stream_id": stream_id},
                 timeout=httpx.Timeout(float(self.timeout), connect=10.0),
             ) as response:
+                _logger.info(f"Stream connected, status={response.status_code}")
                 buffer = ""
+                chunk_count = 0
                 for chunk in response.iter_text():
+                    chunk_count += 1
                     buffer += chunk
                     while "\n" in buffer:
                         line, buffer = buffer.split("\n", 1)
@@ -220,12 +224,14 @@ Focus on making minimal, targeted changes to fix the issue.
                                 except json.JSONDecodeError:
                                     pass
 
+            _logger.info(f"Stream ended after {chunk_count} chunks, {len(collected_messages)} messages")
+
         except httpx.ReadTimeout:
             collected_messages.append("[Timeout waiting for response]")
             _logger.warning("Response timed out")
         except Exception as e:
             collected_messages.append(f"[Stream error: {e}]")
-            _logger.error(f"Stream error: {e}")
+            _logger.error(f"Stream error: {e}", exc_info=True)
 
         # Fetch artifacts
         for artifact_id in artifact_ids:

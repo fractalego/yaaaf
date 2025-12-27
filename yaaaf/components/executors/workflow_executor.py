@@ -190,7 +190,13 @@ class WorkflowExecutor:
                 )
 
                 # Execute agent
-                result = await agent.query(agent_messages)
+                _logger.info(f"Calling agent '{agent_name}' for asset '{asset_name}'")
+                try:
+                    result = await agent.query(agent_messages)
+                except Exception as e:
+                    _logger.error(f"Agent '{agent_name}' failed with exception: {e}")
+                    raise
+                _logger.info(f"Agent '{agent_name}' returned result (length={len(str(result))})")
                 result_string = str(result)
 
                 # Check if execution paused for user input
@@ -722,7 +728,13 @@ class WorkflowExecutor:
                 )
 
                 # Execute agent
-                result = await agent.query(agent_messages)
+                _logger.info(f"Calling agent '{agent_name}' for resumed asset '{asset_name}'")
+                try:
+                    result = await agent.query(agent_messages)
+                except Exception as e:
+                    _logger.error(f"Agent '{agent_name}' failed with exception: {e}")
+                    raise
+                _logger.info(f"Agent '{agent_name}' returned result (length={len(str(result))})")
                 result_string = str(result)
 
                 # Check for another pause (nested user input)

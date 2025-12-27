@@ -2,7 +2,7 @@ import logging
 
 from yaaaf.components.agents.base_agent import ToolBasedAgent
 from yaaaf.components.executors import CodeEditExecutor
-from yaaaf.components.agents.prompts import code_edit_agent_prompt_template
+from yaaaf.components.agents.prompts import get_code_edit_prompt_for_model
 from yaaaf.components.client import BaseClient
 
 _logger = logging.getLogger(__name__)
@@ -30,8 +30,17 @@ class CodeEditAgent(ToolBasedAgent):
                                 If None, defaults to current working directory.
         """
         super().__init__(client, CodeEditExecutor(allowed_directories))
-        self._system_prompt = code_edit_agent_prompt_template
-        self._output_tag = "```code_edit"
+
+        # Select prompt based on the model being used
+        model_name = getattr(client, 'model', '') or ''
+        self._system_prompt = get_code_edit_prompt_for_model(model_name)
+        _logger.info(f"CodeEditAgent using prompt for model: {model_name}")
+
+        # Set output tag based on model format
+        if "devstral" in model_name.lower() or "mistral" in model_name.lower():
+            self._output_tag = "[TOOL_CALLS]code_edit"
+        else:
+            self._output_tag = "```code_edit"
 
     @staticmethod
     def get_info() -> str:

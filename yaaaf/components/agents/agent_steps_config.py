@@ -27,7 +27,7 @@ AGENT_MAX_STEPS = {
     "visualizationagent": 2,
 
     # Multi-step agents (can do multiple operations before completing)
-    "codeeditagent": 5,  # VIEW + STR_REPLACE (reduced to prevent endless viewing)
+    "codeeditagent": 10,  # VIEW + STR_REPLACE
     "orchestratoragent": 15,  # Needs many steps to coordinate other agents
 }
 

@@ -1,0 +1,20 @@
+{
+  "client": {
+    "model": "qwen2.5:32b",
+    "temperature": 0.3,
+    "max_tokens": 4096,
+    "host": "http://localhost:11434"
+  },
+  "agents": [
+    "bash",
+    {"name": "code_edit", "model": "qwen2.5-coder:32b"},
+    "answerer"
+  ],
+  "safety_filter": {
+    "enabled": false
+  },
+  "generate_summary": false,
+  "disable_user_prompts": true,
+  "skip_bash_safety_check": true,
+  "max_replan_attempts": 5
+}

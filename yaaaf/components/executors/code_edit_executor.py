@@ -278,6 +278,27 @@ class CodeEditExecutor(ToolExecutor):
         except Exception as e:
             return None, f"Error creating file: {str(e)}"
 
+    def _parse_numbered_lines(self, text: str) -> Optional[Dict[int, str]]:
+        """Parse text with line numbers into a dict of {line_number: content}.
+
+        Detects patterns like "  97:    code" or "   97	code" or "   97   code" at start of lines.
+        Returns None if no line numbers detected, otherwise dict mapping line nums to content.
+        """
+        lines = text.split('\n')
+        numbered_lines = {}
+
+        for line in lines:
+            # Match patterns like "  97:" or "97:" or "   97\t" or "   97   "
+            # (line number followed by colon, tab, or 2+ spaces)
+            match = re.match(r'^\s*(\d+)(?::\s?|\t|\s{2,})', line)
+            if match:
+                line_num = int(match.group(1))
+                content = line[match.end():]
+                numbered_lines[line_num] = content
+
+        # Only return if we found numbered lines
+        return numbered_lines if numbered_lines else None
+
     def _str_replace(self, file_path: str, params: Dict[str, str]) -> Tuple[Any, Optional[str]]:
         """Replace exact string in file."""
         old_str = params.get('old_str', '')
@@ -293,7 +314,42 @@ class CodeEditExecutor(ToolExecutor):
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
 
-            # Check if old_str exists
+            file_lines = content.split('\n')
+
+            # Check if old_str contains line numbers - if so, use line-based replacement
+            old_numbered = self._parse_numbered_lines(old_str)
+            new_numbered = self._parse_numbered_lines(new_str)
+
+            if old_numbered and new_numbered:
+                # Line-number based replacement - replace the RANGE of old lines with new lines
+                _logger.info(f"Using line-number based replacement for lines: {list(old_numbered.keys())}")
+
+                # Get the range of lines to replace from old_str
+                old_line_nums = sorted(old_numbered.keys())
+                min_line = min(old_line_nums)
+                max_line = max(old_line_nums)
+
+                # Validate range
+                if min_line < 1 or max_line > len(file_lines):
+                    return None, f"Line range {min_line}-{max_line} is out of range (file has {len(file_lines)} lines)"
+
+                # Get new content lines in order (sorted by line number)
+                new_line_nums = sorted(new_numbered.keys())
+                new_content_lines = [new_numbered[ln] for ln in new_line_nums]
+
+                # Replace the range: remove old lines [min_line-1:max_line], insert new lines
+                file_lines[min_line - 1:max_line] = new_content_lines
+
+                # Write back
+                new_file_content = '\n'.join(file_lines)
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(new_file_content)
+
+                result = f"Replaced lines in file: {file_path}\n"
+                result += f"Replaced lines {min_line}-{max_line} ({max_line - min_line + 1} lines) with {len(new_content_lines)} new lines\n"
+                return result, None
+
+            # Standard string-based replacement
             if old_str not in content:
                 # Try to find the function/class the LLM is trying to modify
                 first_line = old_str.strip().split('\n')[0].strip()
@@ -301,13 +357,12 @@ class CodeEditExecutor(ToolExecutor):
                 error_msg += f"You tried to match: {first_line[:80]}...\n\n"
 
                 # Find lines that contain key identifiers from old_str
-                lines = content.split('\n')
-                for i, line in enumerate(lines):
+                for i, line in enumerate(file_lines):
                     if first_line[:30] in line or (len(first_line) > 10 and first_line[4:20] in line):
                         # Show more context around this line (30 lines after)
                         start = max(0, i - 2)
-                        end = min(len(lines), i + 30)
-                        context_lines = lines[start:end]
+                        end = min(len(file_lines), i + 30)
+                        context_lines = file_lines[start:end]
                         error_msg += f"ACTUAL FILE CONTENT (lines {start+1}-{end}):\n"
                         error_msg += "=" * 60 + "\n"
                         for j, ctx_line in enumerate(context_lines, start + 1):
@@ -319,7 +374,7 @@ class CodeEditExecutor(ToolExecutor):
                 # Fallback: show first part of file
                 error_msg += "Could not find similar content. First 50 lines of file:\n"
                 error_msg += "=" * 60 + "\n"
-                for i, line in enumerate(lines[:50], 1):
+                for i, line in enumerate(file_lines[:50], 1):
                     error_msg += f"{i:4d}: {line}\n"
                 error_msg += "=" * 60 + "\n"
                 return None, error_msg

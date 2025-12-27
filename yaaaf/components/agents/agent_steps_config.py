@@ -10,7 +10,7 @@ AGENT_MAX_STEPS = {
     "answereragent": 1,
     "bravesearchagent": 1,
     "documentretrieveragent": 1,
-    "planneragent": 1,  # Generates plan in one step
+    "planneragent": 3,  # Allow retries if YAML format is wrong
     "revieweragent": 1,
     "todoagent": 1,
     "urlagent": 1,
@@ -18,8 +18,8 @@ AGENT_MAX_STEPS = {
     "userinputagent": 1,
     "websearchagent": 1,
 
-    # Two-step agents (one reflection allowed)
-    "bashagent": 2,
+    # Multi-step agents (reflection allowed)
+    "bashagent": 3,
     "mleagent": 2,
     "numericalsequencesagent": 2,
     "sqlagent": 2,
@@ -27,7 +27,7 @@ AGENT_MAX_STEPS = {
     "visualizationagent": 2,
 
     # Multi-step agents (can do multiple operations before completing)
-    "codeeditagent": 15,  # May need multiple VIEW + STR_REPLACE attempts
+    "codeeditagent": 5,  # VIEW + STR_REPLACE (reduced to prevent endless viewing)
     "orchestratoragent": 15,  # Needs many steps to coordinate other agents
 }
 

@@ -92,8 +92,12 @@ class CodeEditExecutor(ToolExecutor):
         # Check if model is trying to use wrong tool
         if "[TOOL_CALLS]bash" in response:
             _logger.warning("Model tried to use bash - not allowed in code_edit agent")
-            # Return a fake instruction that will produce helpful error
             return "operation: invalid_bash_attempt"
+
+        # Check if model is outputting JSON format (e.g., nemotron with "thoughts")
+        if '"thoughts"' in response or '{"' in response:
+            _logger.warning("Model using JSON format instead of code_edit block")
+            return "operation: invalid_json_format"
 
         _logger.info(f"No code_edit block found in response: {response[:200]}...")
         return None
@@ -138,13 +142,43 @@ class CodeEditExecutor(ToolExecutor):
             params = self._parse_instruction(instruction)
             operation = params.get('operation', '').lower()
 
-            # Handle case where model tried to use bash
-            if operation == 'invalid_bash_attempt':
+            # Handle case where model tried to use bash (either via [TOOL_CALLS]bash or operation: bash)
+            if operation == 'invalid_bash_attempt' or operation == 'bash':
                 return None, (
-                    "ERROR: You tried to use [TOOL_CALLS]bash but this agent can ONLY use [TOOL_CALLS]code_edit. "
-                    "You cannot run shell commands like find, grep, ls. "
-                    "Use [TOOL_CALLS]code_edit with operation: view to read files. "
-                    "Example:\n[TOOL_CALLS]code_edit\noperation: view\npath: /path/to/file.py\n[/TOOL_CALLS]"
+                    "ERROR: 'bash' is NOT a valid operation. This agent can ONLY use: view, create, str_replace. "
+                    "You cannot run shell commands like find, grep, ls, cd. "
+                    "To explore files, use 'operation: view' with a specific FILE path. "
+                    "Example:\n```code_edit\noperation: view\npath: /path/to/file.py\n```"
+                )
+
+            # Handle case where model outputs JSON instead of code_edit block
+            if operation == 'invalid_json_format':
+                return None, (
+                    "WRONG FORMAT: Do NOT output JSON. You MUST use the code_edit block format.\n\n"
+                    "CORRECT FORMAT:\n"
+                    "```code_edit\n"
+                    "operation: view\n"
+                    "path: /path/to/file.py\n"
+                    "```\n\n"
+                    "Or for editing:\n"
+                    "```code_edit\n"
+                    "operation: str_replace\n"
+                    "path: /path/to/file.py\n"
+                    "old_str:\n"
+                    "<exact text from file>\n"
+                    "new_str:\n"
+                    "<your fixed version>\n"
+                    "```\n\n"
+                    "DO NOT use JSON. Use the ```code_edit block exactly as shown above."
+                )
+
+            # Check for valid operation BEFORE checking path
+            if operation not in ('view', 'create', 'str_replace'):
+                _logger.warning(f"Invalid operation '{operation}' requested. Only view/create/str_replace are supported.")
+                return None, (
+                    f"INVALID OPERATION: '{operation}' is not supported. "
+                    f"This agent ONLY supports: 'view', 'create', or 'str_replace'. "
+                    f"To FIX code, use 'str_replace' with old_str and new_str to replace the buggy code."
                 )
 
             file_path = params.get('path', '')
@@ -158,22 +192,19 @@ class CodeEditExecutor(ToolExecutor):
 
             # Security check
             if not self._is_path_allowed(file_path):
-                return None, f"Path not allowed: {file_path}. Allowed directories: {self._allowed_directories}"
+                working_dir = context.get("working_dir", self._allowed_directories[0])
+                return None, (
+                    f"Path not allowed: {file_path}\n"
+                    f"You MUST use paths starting with: {working_dir}\n"
+                    f"Check spelling carefully - do NOT change the directory names!"
+                )
 
             if operation == 'view':
                 return self._view_file(file_path, params)
             elif operation == 'create':
                 return self._create_file(file_path, params)
-            elif operation == 'str_replace':
+            else:  # str_replace (already validated above)
                 return self._str_replace(file_path, params)
-            else:
-                _logger.warning(f"Invalid operation '{operation}' requested. Only view/create/str_replace are supported.")
-                return None, (
-                    f"INVALID OPERATION: '{operation}' is not supported. "
-                    f"This agent ONLY supports: 'view', 'create', or 'str_replace'. "
-                    f"To FIX code, use 'str_replace' with old_str and new_str to replace the buggy code. "
-                    f"Do NOT try to use bash commands here - use the bash agent for that."
-                )
 
         except Exception as e:
             error_msg = f"Error executing code edit: {str(e)}"
@@ -273,20 +304,24 @@ class CodeEditExecutor(ToolExecutor):
                 lines = content.split('\n')
                 for i, line in enumerate(lines):
                     if first_line[:30] in line or (len(first_line) > 10 and first_line[4:20] in line):
-                        # Show context around this line
+                        # Show more context around this line (30 lines after)
                         start = max(0, i - 2)
-                        end = min(len(lines), i + 8)
+                        end = min(len(lines), i + 30)
                         context_lines = lines[start:end]
-                        error_msg += f"ACTUAL FILE CONTENT around line {i+1}:\n"
+                        error_msg += f"ACTUAL FILE CONTENT (lines {start+1}-{end}):\n"
+                        error_msg += "=" * 60 + "\n"
                         for j, ctx_line in enumerate(context_lines, start + 1):
-                            error_msg += f"  {j}: {ctx_line}\n"
-                        error_msg += "\nCopy the EXACT text from above for old_str."
+                            error_msg += f"{j:4d}: {ctx_line}\n"
+                        error_msg += "=" * 60 + "\n"
+                        error_msg += "\nYour old_str did NOT match. Copy the EXACT text from above (including whitespace and docstrings)."
                         return None, error_msg
 
                 # Fallback: show first part of file
-                error_msg += "Could not find similar content. First 30 lines of file:\n"
-                for i, line in enumerate(lines[:30], 1):
-                    error_msg += f"  {i}: {line}\n"
+                error_msg += "Could not find similar content. First 50 lines of file:\n"
+                error_msg += "=" * 60 + "\n"
+                for i, line in enumerate(lines[:50], 1):
+                    error_msg += f"{i:4d}: {line}\n"
+                error_msg += "=" * 60 + "\n"
                 return None, error_msg
 
             # Count occurrences
@@ -319,25 +354,6 @@ class CodeEditExecutor(ToolExecutor):
     def validate_result(self, result: Any) -> bool:
         """Validate code edit result."""
         return result is not None and isinstance(result, str)
-
-    def get_success_feedback(self, result: str, instruction: str) -> str:
-        """Provide custom success feedback based on operation type.
-
-        For VIEW operations, strongly encourage using STR_REPLACE next.
-        """
-        params = self._parse_instruction(instruction)
-        operation = params.get('operation', '').lower()
-
-        result_summary = result[:500] + "..." if len(result) > 500 else result
-
-        if operation == 'view':
-            return (
-                f"FILE CONTENTS:\n{result_summary}\n\n"
-                f"You have now seen the file. DO NOT VIEW AGAIN.\n"
-                f"NOW use STR_REPLACE to fix the bug. Copy the exact buggy code from above as old_str."
-            )
-        else:
-            return f"Operation completed successfully. Result:\n{result_summary}"
 
     def is_mutation_operation(self, instruction: str) -> bool:
         """Check if the operation modifies files (vs read-only).

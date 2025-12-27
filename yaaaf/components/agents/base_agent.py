@@ -152,12 +152,9 @@ class BaseAgent(ABC):
                     return self._create_combined_artifact(all_results, notes)
 
                 # Operation succeeded but task not complete - feed result back to LLM
-                # Use custom feedback from executor if available
-                if hasattr(self._executor, 'get_success_feedback'):
-                    feedback = self._executor.get_success_feedback(str(result), instruction)
-                else:
-                    result_summary = str(result)[:500] + "..." if len(str(result)) > 500 else str(result)
-                    feedback = f"Operation completed successfully. Result:\n{result_summary}\n\nContinue with next operation or say <taskcompleted/> if done."
+                # Use larger limit for file views to avoid hallucination
+                result_summary = str(result)[:8000] + "..." if len(str(result)) > 8000 else str(result)
+                feedback = f"Operation completed successfully. Result:\n{result_summary}\n\nContinue with next operation or say <taskcompleted/> if done."
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
             else:
@@ -176,7 +173,7 @@ class BaseAgent(ABC):
             notes,
             "Warning"
         )
-        return f"Could not complete task within allowed steps. Please try rephrasing. {task_completed_tag}"
+        return f"AGENT FAILED: Could not complete task within allowed steps. No valid output was produced. THIS ARTIFACT IS INVALID. {task_completed_tag}"
 
     def _create_combined_artifact(self, results: List[str], notes: Optional[List[Note]]) -> str:
         """Create a single artifact from accumulated results."""

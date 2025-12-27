@@ -104,8 +104,8 @@ AGENT_ARTIFACT_SPECS = {
     
     # Synthesizer agents
     "AnswererAgent": AgentArtifactSpec.transformer_agent(
-        [ArtifactType.TABLE, ArtifactType.TEXT, ArtifactType.MODEL], 
-        ArtifactType.TABLE
+        [ArtifactType.TABLE, ArtifactType.TEXT, ArtifactType.MODEL],
+        [ArtifactType.TEXT, ArtifactType.TABLE]  # Can produce both text and table
     ),
     "UrlRetrieverAgent": AgentArtifactSpec.transformer_agent(
         ArtifactType.TEXT, ArtifactType.TABLE
@@ -121,6 +121,9 @@ AGENT_ARTIFACT_SPECS = {
     ),
     "BashAgent": AgentArtifactSpec.transformer_agent(
         ArtifactType.TEXT, ArtifactType.TEXT
+    ),
+    "CodeEditAgent": AgentArtifactSpec.transformer_agent(
+        ArtifactType.TEXT, ArtifactType.TEXT  # Takes instructions, produces edit results
     ),
     "PlannerAgent": AgentArtifactSpec.transformer_agent(
         ArtifactType.TEXT, ArtifactType.PLAN

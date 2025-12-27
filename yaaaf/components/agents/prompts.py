@@ -539,15 +539,33 @@ Instructions for creating the workflow:
 5. Define dependencies through inputs field
 
 Workflow Format Rules:
-- Use YAML asset-based syntax inspired by Prefect/Dagster
-- Each asset has: name, agent, description, type, inputs (optional), conditions (optional)
-- Assets without inputs are source nodes
-- Dependencies are explicit through inputs field
-- CRITICAL: The "type" field MUST be copied EXACTLY from the agent's "Produces" field
-- Example: If agent shows "Produces: table" then use "type: table" (lowercase)
-- Example: If agent shows "Produces: image" then use "type: image" (lowercase)
-- FORBIDDEN: Never use types not listed in the agent's "Produces" field
-- Include validation and error handling where appropriate
+- Use YAML with an 'assets' dictionary at the top level
+- Each asset MUST have: agent, description, type
+- Optional fields: inputs, conditions, params
+
+REQUIRED YAML STRUCTURE (follow exactly):
+```yaml
+assets:
+  asset_name_1:
+    agent: bash
+    description: "What this step does"
+    type: text
+  asset_name_2:
+    agent: code_edit
+    description: "What this step does"
+    type: text
+    inputs:
+      - asset_name_1
+```
+
+CRITICAL FORMAT RULES:
+- 'assets:' MUST be the top-level key (not a list!)
+- Each asset is a key under 'assets' with its config as a dictionary
+- Every asset MUST have 'agent', 'description', and 'type' fields
+- The 'type' field MUST match the agent's "Produces" field exactly
+- Agent names MUST be lowercase: bash, code_edit, answerer (NOT BashAgent, CodeEditAgent)
+- DO NOT add extra fields like 'data', 'command', 'prompt', 'path', 'replace_target'
+- ONLY use: agent, description, type, inputs (optional)
 
 EXAMPLES showing correct type usage from agent specifications:
 
@@ -638,12 +656,16 @@ For replacing a string:
 operation: str_replace
 path: /path/to/file.py
 old_str:
-def old_function():
-    return None
+<the EXACT text currently in the file - copy from VIEW output>
 new_str:
-def new_function():
-    return "fixed"
+<your modified version with the fix applied>
 ```
+
+WHAT old_str AND new_str MEAN:
+- old_str = The EXACT text that EXISTS in the file RIGHT NOW (copy it from your VIEW output)
+- new_str = Your MODIFIED version with the bug fix or change applied
+- old_str is NOT "what the code used to be" - it's "what the file contains NOW"
+- The system will find old_str in the file and replace it with new_str
 
 CRITICAL for str_replace - READ THIS CAREFULLY:
 - The old_str must match EXACTLY what is in the file - character for character
@@ -729,16 +751,19 @@ For replacing a string:
 operation: str_replace
 path: /path/to/file.py
 old_str:
-def old_function():
-    return None
+<the EXACT text currently in the file - copy from VIEW output>
 new_str:
-def new_function():
-    return "fixed"
+<your modified version with the fix applied>
 [/TOOL_CALLS]
+
+WHAT old_str AND new_str MEAN:
+- old_str = The EXACT text that EXISTS in the file RIGHT NOW (copy from VIEW)
+- new_str = Your MODIFIED version with the bug fix applied
+- old_str is NOT "what the code used to be" - it's "what the file contains NOW"
 
 CRITICAL for str_replace:
 - old_str must match EXACTLY - copy from VIEW output
-- Include all whitespace and indentation exactly
+- Include all whitespace, docstrings, and indentation exactly
 
 WORKFLOW - DO THIS:
 1. VIEW the file ONCE (the whole file)

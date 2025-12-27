@@ -96,7 +96,11 @@ class BashExecutor(ToolExecutor):
             if result.stderr:
                 output += f"STDERR:\n{result.stderr}\n"
             output += f"Return code: {result.returncode}"
-            
+
+            # If command failed, return as error so reflection pattern can retry
+            if result.returncode != 0:
+                return None, f"Command failed with exit code {result.returncode}:\n{output}"
+
             return output, None
             
         except subprocess.TimeoutExpired:

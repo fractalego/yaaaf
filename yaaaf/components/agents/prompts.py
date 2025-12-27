@@ -687,17 +687,23 @@ Think step-by-step:
 4. COPY the exact text from the VIEW output (don't type from memory!)
 5. Use STR_REPLACE with that exact copied text as old_str
 
+MANDATORY COMPLETION TAG - READ THIS:
+You MUST ALWAYS include {task_completed_tag} in your response when the task is finished.
+
 WHEN TO OUTPUT {task_completed_tag}:
 - If your task is to VIEW/READ a file: output {task_completed_tag} immediately after the view operation
 - If your task is to CREATE a file: output {task_completed_tag} immediately after the create operation
 - If your task is to FIX/MODIFY code: output {task_completed_tag} immediately after the str_replace operation
+- If you believe the task is complete for ANY reason: you MUST include {task_completed_tag}
+
+CRITICAL: The {task_completed_tag} tag is REQUIRED. If you think "the task is done" or "viewing is complete" or "no further action needed", you MUST include {task_completed_tag} in that same response. Without this tag, the system cannot know you are finished.
 
 Examples:
 1. Task "view config.py" → VIEW → {task_completed_tag}
 2. Task "create utils.py" → CREATE → {task_completed_tag}
 3. Task "fix bug in main.py" → VIEW → STR_REPLACE → {task_completed_tag}
 
-IMPORTANT: Output {task_completed_tag} on the SAME response as your final operation. Do NOT do extra operations after the task is done.
+IMPORTANT: Output {task_completed_tag} on the SAME response as your final operation. Do NOT do extra operations after the task is done. Do NOT just say "the task is complete" - you MUST include the actual {task_completed_tag} tag.
 """
 )
 
@@ -777,6 +783,8 @@ Example workflow:
 - VIEW file → see buggy function at lines 50-60
 - STR_REPLACE with old_str copied exactly from view, new_str with fix
 - {task_completed_tag}
+
+MANDATORY: You MUST include {task_completed_tag} when the task is done. If you think "task complete" or "no further action needed", you MUST include the actual {task_completed_tag} tag in your response. Without this tag, the system cannot know you are finished.
 """
 )
 

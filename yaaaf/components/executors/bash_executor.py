@@ -1,5 +1,5 @@
 import logging
-import subprocess
+import asyncio
 import os
 from typing import Dict, Any, Optional, Tuple
 
@@ -74,39 +74,45 @@ class BashExecutor(ToolExecutor):
         return True
 
     async def execute_operation(self, instruction: str, context: Dict[str, Any]) -> Tuple[Any, Optional[str]]:
-        """Execute bash command."""
+        """Execute bash command asynchronously (non-blocking)."""
         try:
             # Change to working directory if specified
             working_dir = context.get("working_dir", os.getcwd())
-            
-            # Execute the command
-            result = subprocess.run(
+
+            # Execute the command asynchronously to avoid blocking the event loop
+            process = await asyncio.create_subprocess_shell(
                 instruction,
-                shell=True,
-                capture_output=True,
-                text=True,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
                 cwd=working_dir,
-                timeout=30  # 30 second timeout
             )
-            
+
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=30  # 30 second timeout
+                )
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                error_msg = f"Command timed out after 30 seconds: {instruction}"
+                _logger.error(error_msg)
+                return None, error_msg
+
             # Combine stdout and stderr for complete output
             output = ""
-            if result.stdout:
-                output += f"STDOUT:\n{result.stdout}\n"
-            if result.stderr:
-                output += f"STDERR:\n{result.stderr}\n"
-            output += f"Return code: {result.returncode}"
+            if stdout:
+                output += f"STDOUT:\n{stdout.decode('utf-8', errors='replace')}\n"
+            if stderr:
+                output += f"STDERR:\n{stderr.decode('utf-8', errors='replace')}\n"
+            output += f"Return code: {process.returncode}"
 
             # If command failed, return as error so reflection pattern can retry
-            if result.returncode != 0:
-                return None, f"Command failed with exit code {result.returncode}:\n{output}"
+            if process.returncode != 0:
+                return None, f"Command failed with exit code {process.returncode}:\n{output}"
 
             return output, None
-            
-        except subprocess.TimeoutExpired:
-            error_msg = f"Command timed out after 30 seconds: {instruction}"
-            _logger.error(error_msg)
-            return None, error_msg
+
         except Exception as e:
             error_msg = f"Error executing command '{instruction}': {str(e)}"
             _logger.error(error_msg)

@@ -651,33 +651,55 @@ def hello():
     print("Hello, World!")
 ```
 
-For replacing a string:
+For replacing a string (MUST INCLUDE LINE NUMBERS):
 ```code_edit
 operation: str_replace
 path: /path/to/file.py
 old_str:
-<the EXACT text currently in the file - copy from VIEW output>
+    42	    def buggy_function(self):
+    43	        return wrong_value
 new_str:
-<your modified version with the fix applied>
+    42	    def buggy_function(self):
+    43	        return correct_value
 ```
 
 WHAT old_str AND new_str MEAN:
-- old_str = The EXACT text that EXISTS in the file RIGHT NOW (copy it from your VIEW output)
-- new_str = Your MODIFIED version with the bug fix or change applied
-- old_str is NOT "what the code used to be" - it's "what the file contains NOW"
-- The system will find old_str in the file and replace it with new_str
+- old_str = The EXACT text from VIEW output INCLUDING LINE NUMBERS (e.g., "    42\tcode here")
+- new_str = Your MODIFIED version with the SAME LINE NUMBERS and your fix applied
+- The line numbers tell the system exactly which lines to replace
 
-CRITICAL for str_replace - READ THIS CAREFULLY:
-- The old_str must match EXACTLY what is in the file - character for character
-- DO NOT paraphrase, summarize, or guess what the code looks like
-- DO NOT invent or hallucinate code - only use text you have ACTUALLY SEEN in a VIEW result
-- COPY the exact text from the VIEW output - including all whitespace, docstrings, and comments
-- If you haven't viewed the specific lines containing the function, VIEW THEM FIRST
-- If your str_replace fails, look at the ACTUAL FILE CONTENT in the error and copy from there
+CRITICAL for str_replace - YOU MUST INCLUDE LINE NUMBERS:
+- COPY the lines EXACTLY as shown in VIEW output, INCLUDING the line number prefix
+- Each line MUST start with the line number, then a tab, then the code
+- Format: "    42\t    def my_function():" (number + tab + code)
+- The old_str and new_str MUST have matching line numbers
+- DO NOT strip the line numbers - they are REQUIRED for the replacement to work
+
+Example - if VIEW shows:
+```
+    97	    if transform.n_inputs == 1:
+    98	        return np.ones((transform.n_outputs,),
+    99	                       dtype=np.bool_)
+```
+
+Your str_replace MUST look like:
+```code_edit
+operation: str_replace
+path: /path/to/file.py
+old_str:
+    97	    if transform.n_inputs == 1:
+    98	        return np.ones((transform.n_outputs,),
+    99	                       dtype=np.bool_)
+new_str:
+    97	    if transform.n_inputs == 1:
+    98	        return np.zeros((transform.n_outputs,),
+    99	                        dtype=np.bool_)
+```
 
 COMMON MISTAKES TO AVOID:
+- Stripping line numbers from old_str/new_str (WRONG - keep them!)
 - Viewing lines 100-150 but trying to modify a function at line 290 (you never saw it!)
-- Making up what you think code should look like instead of copying from VIEW output
+- Making up what you think code looks like instead of copying from VIEW output
 - Guessing indentation or formatting
 
 Think step-by-step:
@@ -752,24 +774,27 @@ def hello():
     print("Hello, World!")
 [/TOOL_CALLS]
 
-For replacing a string:
+For replacing a string (MUST INCLUDE LINE NUMBERS):
 [TOOL_CALLS]code_edit
 operation: str_replace
 path: /path/to/file.py
 old_str:
-<the EXACT text currently in the file - copy from VIEW output>
+    42	    def buggy_function(self):
+    43	        return wrong_value
 new_str:
-<your modified version with the fix applied>
+    42	    def buggy_function(self):
+    43	        return correct_value
 [/TOOL_CALLS]
 
 WHAT old_str AND new_str MEAN:
-- old_str = The EXACT text that EXISTS in the file RIGHT NOW (copy from VIEW)
-- new_str = Your MODIFIED version with the bug fix applied
-- old_str is NOT "what the code used to be" - it's "what the file contains NOW"
+- old_str = EXACT text from VIEW INCLUDING LINE NUMBERS (e.g., "    42\tcode")
+- new_str = Your fix with the SAME LINE NUMBERS
+- Line numbers tell the system which lines to replace
 
-CRITICAL for str_replace:
-- old_str must match EXACTLY - copy from VIEW output
-- Include all whitespace, docstrings, and indentation exactly
+CRITICAL for str_replace - MUST INCLUDE LINE NUMBERS:
+- COPY lines EXACTLY from VIEW output INCLUDING the line number prefix
+- Format: "    42\t    code here" (number + tab + code)
+- DO NOT strip line numbers - they are REQUIRED
 
 WORKFLOW - DO THIS:
 1. VIEW the file ONCE (the whole file)

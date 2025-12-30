@@ -228,7 +228,18 @@ def generate_workflow_yaml(
     inputs: [{previous_asset}, problem_analysis]""")
         previous_asset = "code_fix"
 
-    # Step 5: Verification (if tests are run)
+    # Step 5: Test update (add or modify test cases to cover the fix)
+    if has_code_edit:
+        step_num += 1
+        yaml_parts.append(f"""
+  test_update:
+    agent: CodeEditAgent
+    description: "Add or update test cases in the test file to verify the fix covers the reported issue"
+    type: text
+    inputs: [{previous_asset}, problem_analysis]""")
+        previous_asset = "test_update"
+
+    # Step 6: Verification (if tests are run)
     if has_tests:
         step_num += 1
         yaml_parts.append(f"""

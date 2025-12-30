@@ -19,7 +19,6 @@ Usage:
 import argparse
 import csv
 import time
-from collections import defaultdict
 from typing import Optional
 
 import httpx
@@ -74,8 +73,10 @@ def call_ollama(
     model: str = "qwen2.5:32b",
     host: str = "http://localhost:11434",
     timeout: float = 120.0,
+    max_retries: int = 3,
+    retry_delay: float = 5.0,
 ) -> Optional[str]:
-    """Call Ollama API to generate a response.
+    """Call Ollama API to generate a response with retry on timeout.
 
     Args:
         prompt: The user prompt
@@ -83,6 +84,8 @@ def call_ollama(
         model: Model name
         host: Ollama host URL
         timeout: Request timeout in seconds
+        max_retries: Maximum number of retries on timeout
+        retry_delay: Delay between retries in seconds
 
     Returns:
         Generated response or None on error
@@ -100,17 +103,24 @@ def call_ollama(
         }
     }
 
-    try:
-        response = httpx.post(url, json=payload, timeout=timeout)
-        response.raise_for_status()
-        result = response.json()
-        return result.get("response", "")
-    except httpx.TimeoutException:
-        print("Timeout calling Ollama")
-        return None
-    except Exception as e:
-        print(f"Error calling Ollama: {e}")
-        return None
+    for attempt in range(max_retries):
+        try:
+            response = httpx.post(url, json=payload, timeout=timeout)
+            response.raise_for_status()
+            result = response.json()
+            return result.get("response", "")
+        except httpx.TimeoutException:
+            if attempt < max_retries - 1:
+                print(f"Timeout (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s... ", end="", flush=True)
+                time.sleep(retry_delay)
+            else:
+                print(f"Timeout after {max_retries} attempts")
+                return None
+        except Exception as e:
+            print(f"Error calling Ollama: {e}")
+            return None
+
+    return None
 
 
 def assemble_conversation_prompt(
@@ -284,10 +294,14 @@ def main():
 
     print(f"Loaded {len(rows)} rows")
 
-    # Group rows by trajectory_id
-    trajectories = defaultdict(list)
+    # Group rows by trajectory_id, preserving order from CSV
+    trajectories = {}
+    trajectory_order = []  # Track order of first appearance
     for row in rows:
         traj_id = row.get("trajectory_id", "unknown")
+        if traj_id not in trajectories:
+            trajectories[traj_id] = []
+            trajectory_order.append(traj_id)
         trajectories[traj_id].append(row)
 
     # Sort each trajectory by step_number
@@ -296,13 +310,13 @@ def main():
 
     print(f"Found {len(trajectories)} unique trajectories")
 
-    # Limit trajectories if requested
-    trajectory_ids = list(trajectories.keys())
+    # Use the order from the CSV file
+    trajectory_ids = trajectory_order
     if args.num_samples:
         trajectory_ids = trajectory_ids[:args.num_samples]
         print(f"Processing {len(trajectory_ids)} trajectories")
 
-    # Load existing results if skip_existing
+    # Handle existing output file
     existing_keys = set()
     if args.skip_existing:
         try:
@@ -314,6 +328,22 @@ def main():
             print(f"Found {len(existing_keys)} existing results to skip")
         except FileNotFoundError:
             pass
+    else:
+        # Create fresh output file with header
+        with open(args.output, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "trajectory_id",
+                    "step_number",
+                    "instruction",
+                    "bad_response",
+                    "command",
+                ],
+                quoting=csv.QUOTE_ALL,
+            )
+            writer.writeheader()
+        print(f"Created fresh output file: {args.output}")
 
     # Process trajectories
     results = []
@@ -371,15 +401,15 @@ def main():
             # Delay between requests
             time.sleep(args.delay)
 
-        # Save periodically (after each trajectory)
-        if len(results) >= 50 and len(results) % 50 < len(traj_steps):
-            print(f"  Saving checkpoint ({len(results)} results)...")
-            save_results(args.output, results, append=args.skip_existing)
-            results = []  # Clear after saving to avoid duplicates
+        # Save immediately after each trajectory completes
+        if results:
+            save_results(args.output, results, append=True)
+            print(f"  Saved {len(results)} steps to {args.output}")
+            results = []  # Clear after saving
 
-    # Final save
-    if results:
-        save_results(args.output, results, append=args.skip_existing)
+    # Reorder output file to match input CSV order
+    print(f"\nReordering output to match input CSV order...")
+    reorder_output_to_match_input(args.input, args.output)
 
     print(f"\nDone!")
     print(f"  Trajectories processed: {processed_trajectories}")
@@ -387,6 +417,48 @@ def main():
     print(f"  Successful: {processed_steps - errors}")
     print(f"  Errors: {errors}")
     print(f"  Output: {args.output}")
+
+
+def reorder_output_to_match_input(input_path: str, output_path: str):
+    """Reorder the output CSV to match the order of the input CSV.
+
+    Args:
+        input_path: Path to the input (good) CSV
+        output_path: Path to the output (bad) CSV to reorder
+    """
+    # Load input CSV to get the correct order
+    input_order = {}
+    with open(input_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for idx, row in enumerate(reader):
+            key = (row.get("trajectory_id", ""), row.get("step_number", ""))
+            input_order[key] = idx
+
+    # Load output CSV
+    output_rows = []
+    fieldnames = None
+    with open(output_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fieldnames = reader.fieldnames
+        output_rows = list(reader)
+
+    if not output_rows:
+        return
+
+    # Sort output rows to match input order
+    def sort_key(row):
+        key = (row.get("trajectory_id", ""), row.get("step_number", ""))
+        return input_order.get(key, 999999)
+
+    output_rows.sort(key=sort_key)
+
+    # Write back sorted
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, quoting=csv.QUOTE_ALL)
+        writer.writeheader()
+        writer.writerows(output_rows)
+
+    print(f"  Reordered {len(output_rows)} rows to match input order")
 
 
 def save_results(output_path: str, results: list[dict], append: bool = False):

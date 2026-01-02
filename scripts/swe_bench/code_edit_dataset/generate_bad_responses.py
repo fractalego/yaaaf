@@ -330,8 +330,11 @@ async def process_trajectory_async(
             if f"{traj_id}_{row.get('step_number', 0)}" not in existing_keys
         )
 
+        # Short trajectory ID for logging
+        short_id = traj_id[:20] + "..." if len(traj_id) > 20 else traj_id
+
         if steps_to_process > 0 and verbose:
-            print(f"  [{traj_id}] Processing {steps_to_process} steps...", flush=True)
+            print(f"  [{short_id}] Starting ({steps_to_process} steps)", flush=True)
 
         for step_idx, row in enumerate(traj_steps):
             step_num = row.get("step_number", step_idx + 1)
@@ -356,9 +359,6 @@ async def process_trajectory_async(
                 conversation_history=conversation_history,
             )
 
-            if verbose:
-                print(f"      Calling LLM for step {step_num}...", flush=True)
-
             bad_response = await call_llm_async(
                 client=client,
                 prompt=user_prompt,
@@ -382,11 +382,11 @@ async def process_trajectory_async(
                     "file_path": file_path,
                 })
                 if verbose:
-                    print(f"    Step {step_num}: OK ({len(bad_response)} chars)", flush=True)
+                    print(f"    [{short_id}] Step {step_num}/{steps_to_process}: OK ({len(bad_response)} chars)", flush=True)
             else:
                 errors += 1
                 if verbose:
-                    print(f"    Step {step_num}: ERROR", flush=True)
+                    print(f"    [{short_id}] Step {step_num}/{steps_to_process}: ERROR", flush=True)
 
             conversation_history.append({
                 "response": row.get("response", ""),
@@ -394,7 +394,7 @@ async def process_trajectory_async(
             })
 
         if steps_to_process > 0 and verbose:
-            print(f"  [{traj_id}] Done: {processed_steps - errors}/{steps_to_process} successful", flush=True)
+            print(f"  [{short_id}] Done: {processed_steps - errors}/{steps_to_process} successful", flush=True)
 
         return results, processed_steps, errors
 

@@ -502,13 +502,14 @@ def main():
         bnb_4bit_use_double_quant=True,
     )
 
-    # Load model
+    # Load model with Flash Attention 2 (requires PyTorch 2.5 + flash-attn wheel)
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         quantization_config=bnb_config,
         device_map="auto",
         trust_remote_code=True,
         torch_dtype=torch.bfloat16,
+        attn_implementation="flash_attention_2",
     )
 
     # Prepare model for k-bit training
@@ -578,7 +579,7 @@ def main():
         eval_strategy="steps",
         save_total_limit=3,
         bf16=True,
-        gradient_checkpointing=True,
+        gradient_checkpointing=True,  # Saves ~40% VRAM
         max_length=args.max_length,
         max_prompt_length=args.max_prompt_length,
         max_completion_length=args.max_completion_length,
@@ -588,6 +589,11 @@ def main():
         # With ref_model=None and LoRA, reference log probs are computed by
         # temporarily disabling adapters on the same quantized model - no extra VRAM
         precompute_ref_log_probs=False,
+        # Performance optimizations
+        optim="paged_adamw_8bit",  # 8-bit optimizer reduces memory, may allow larger batch
+        # torch_compile disabled - incompatible with transformers+PEFT+TRL+quantization stack
+        dataloader_num_workers=4,  # Parallel data loading
+        dataloader_pin_memory=True,  # Faster CPU->GPU transfer
     )
 
     # Initialize trainer

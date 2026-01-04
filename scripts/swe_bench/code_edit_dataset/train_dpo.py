@@ -30,8 +30,16 @@ import argparse
 import csv
 import gc
 import os
+import warnings
 from dataclasses import dataclass
 from typing import Optional
+
+# Suppress Mistral tokenizer warning about tokenize=False
+warnings.filterwarnings("ignore", message=".*tokenize=False.*")
+warnings.filterwarnings("ignore", category=UserWarning, module="transformers.tokenization_mistral_common")
+
+import logging
+logging.getLogger("transformers.tokenization_mistral_common").setLevel(logging.ERROR)
 
 import torch
 from datasets import Dataset
@@ -466,16 +474,25 @@ def examples_to_dataset(
     }
 
     for ex in examples:
-        # Format prompt with system message for Qwen
+        # Format prompt with system message
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": ex.prompt},
         ]
-        formatted_prompt = tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True
-        )
+
+        # Try with add_generation_prompt (Qwen, Llama), fall back without (Mistral)
+        try:
+            formatted_prompt = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+        except (ValueError, TypeError):
+            # Mistral tokenizer doesn't support add_generation_prompt
+            formatted_prompt = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False
+            )
 
         data["prompt"].append(formatted_prompt)
         data["chosen"].append(ex.chosen)
@@ -509,8 +526,8 @@ def main():
     parser.add_argument(
         "--model-name",
         type=str,
-        default="Qwen/Qwen2.5-32B-Instruct",
-        help="Base model name (default: Qwen/Qwen2.5-32B-Instruct)",
+        default="mistralai/Devstral-Small-2507",
+        help="Base model name (default: mistralai/Devstral-Small-2507)",
     )
     parser.add_argument(
         "--num-epochs",
@@ -621,7 +638,18 @@ def main():
 
     # Load tokenizer
     print(f"\n=== Loading Tokenizer ===")
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    # Try to load a compatible tokenizer (Mistral's MistralCommonTokenizer isn't compatible with TRL)
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=True)
+        # Check if it's a compatible type
+        from transformers import PreTrainedTokenizerBase
+        if not isinstance(tokenizer, PreTrainedTokenizerBase):
+            print("  Warning: Non-standard tokenizer detected, trying slow tokenizer...")
+            tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=False)
+    except Exception as e:
+        print(f"  Tokenizer load error: {e}, trying with trust_remote_code...")
+        tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -677,7 +705,7 @@ def main():
             quantization_config=bnb_config,
             device_map="auto",
             trust_remote_code=True,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
         )
         precompute_model = prepare_model_for_kbit_training(precompute_model)
@@ -712,7 +740,7 @@ def main():
         quantization_config=bnb_config,
         device_map="auto",
         trust_remote_code=True,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         attn_implementation="flash_attention_2",
     )
 

@@ -337,6 +337,9 @@ class CodeEditExecutor(ToolExecutor):
                 new_line_nums = sorted(new_numbered.keys())
                 new_content_lines = [new_numbered[ln] for ln in new_line_nums]
 
+                # Get the old content before replacing
+                old_content_lines = file_lines[min_line - 1:max_line]
+
                 # Replace the range: remove old lines [min_line-1:max_line], insert new lines
                 file_lines[min_line - 1:max_line] = new_content_lines
 
@@ -345,8 +348,11 @@ class CodeEditExecutor(ToolExecutor):
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(new_file_content)
 
-                result = f"Replaced lines in file: {file_path}\n"
-                result += f"Replaced lines {min_line}-{max_line} ({max_line - min_line + 1} lines) with {len(new_content_lines)} new lines\n"
+                # Build detailed result showing what changed (same format as string-based replacement)
+                result = f"Replaced in file: {file_path}\n"
+                result += f"Replaced lines {min_line}-{max_line} ({len(old_content_lines)} lines) with {len(new_content_lines)} new lines\n\n"
+                result += f"OLD:\n" + '\n'.join(old_content_lines) + "\n\n"
+                result += f"NEW:\n" + '\n'.join(new_content_lines)
                 return result, None
 
             # Standard string-based replacement

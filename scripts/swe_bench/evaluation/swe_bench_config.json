@@ -1,20 +1,14 @@
 {
   "client": {
     "type": "ollama",
-    "model": "qwen2.5:32b",
+    "model": "llama3.1:70b",
     "temperature": 0.3,
     "max_tokens": 4096,
-    "host": "http://192.168.1.171:11434"
+    "host": "http://localhost:11434"
   },
   "agents": [
     "bash",
-    {
-      "name": "code_edit",
-      "type": "vllm",
-      "model": "Qwen/Qwen2.5-14B-Instruct",
-      "host": "http://localhost:8000",
-      "adapter": "code_edit_agent"
-    },
+    "code_edit",
     "answerer"
   ],
   "safety_filter": {

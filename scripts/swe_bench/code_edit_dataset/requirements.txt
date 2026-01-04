@@ -1,0 +1,51 @@
+# Requirements for code_edit_dataset scripts
+#
+# For generating "good" datasets from SWE-smith trajectories:
+#   - generate_dataset.py (CodeEditAgent)
+#   - generate_bash_dataset.py (BashAgent)
+#
+# For generating "bad" responses for DPO training:
+#   - generate_bad_responses.py (CodeEditAgent)
+#   - generate_bad_bash_responses.py (BashAgent)
+#
+# For DPO training:
+#   - train_dpo.py
+
+# === Dataset Generation ===
+
+# HuggingFace datasets - for loading SWE-smith trajectories
+datasets>=2.14.0
+
+# OpenAI - for GPT-4o-mini instruction generation
+openai>=1.0.0
+
+# HTTP client - for Ollama/vLLM API calls
+httpx>=0.25.0
+
+# === DPO Training ===
+
+# Transformers - base library
+transformers>=4.40.0
+
+# TRL - for DPO training
+trl>=0.8.0
+
+# PEFT - for LoRA adapters
+peft>=0.10.0
+
+# BitsAndBytes - for 4-bit quantization
+bitsandbytes>=0.43.0
+
+# Accelerate - for distributed training
+accelerate>=0.28.0
+
+# PyTorch - required (install separately based on your CUDA version)
+# pip install torch --index-url https://download.pytorch.org/whl/cu121
+
+# === Optional ===
+
+# For running vLLM server with 4-bit quantization:
+# pip install vllm
+
+# For experiment tracking:
+# pip install wandb

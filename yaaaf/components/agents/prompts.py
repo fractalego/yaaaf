@@ -526,10 +526,12 @@ Available agents and their artifact handling:
 
 CRITICAL RULES:
 1. You MUST ONLY use the agent names listed above. DO NOT invent agent names.
-2. You MUST use the EXACT artifact types from each agent's "Produces" field. DO NOT guess types.
-3. If an agent "Produces: table" then you MUST use "type: table" in your plan.
-4. If an agent "Produces: image" then you MUST use "type: image" in your plan.
-5. NEVER use a type that is not in the agent's "Produces" list.
+2. The 'type' field in each asset MUST match what that asset's agent "Produces". NOT what it accepts.
+3. BraveSearchAgent Produces: TABLE → type: table (NEVER text)
+4. DuckDuckGoSearchAgent Produces: TABLE → type: table (NEVER text)
+5. AnswererAgent Produces: TEXT → type: text
+6. VisualizationAgent Produces: IMAGE → type: image
+7. NEVER use a type that is not in the agent's "Produces" list.
 
 Instructions for creating the workflow:
 1. Analyze the user's goal to identify the required FINAL ARTIFACT type
@@ -580,11 +582,12 @@ Optional features you can include:
 
 Important considerations:
 - Each agent has INPUT and OUTPUT artifact requirements listed in their description
-- NEVER guess artifact types - use EXACTLY what each agent "Produces" according to its specification
-- If an agent "Produces: table" then use "type: table" in your plan
-- If an agent "Produces: image" then use "type: image" in your plan
+- The 'type' field MUST match what the agent in that asset "Produces" (NOT what it accepts)
+- brave_search agent → type: table (always)
+- duckduckgo_search agent → type: table (always)
+- answerer agent → type: text (always)
+- visualization agent → type: image (always)
 - Ensure artifact type compatibility: what one agent produces must match what the next agent accepts
-- The final artifact must match what the sink agent expects
 - Use meaningful asset names that describe the data transformation
 
 Think step-by-step:

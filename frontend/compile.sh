@@ -91,19 +91,36 @@ rsync -av --exclude='webpack' --exclude='terser' --exclude='sass' --exclude='pos
 
 cp $NEXT_SRC/package.json .next/standalone/node_modules/next/
 
-# Copy minimal React (just what's needed)
+# Copy minimal React (find dynamically)
 mkdir -p .next/standalone/node_modules/react
-cp -r ../../node_modules/.pnpm/react@18.2.0/node_modules/react/{index.js,package.json,cjs,jsx-runtime.js,jsx-dev-runtime.js} .next/standalone/node_modules/react/ 2>/dev/null || true
-
-# Copy minimal React DOM
-mkdir -p .next/standalone/node_modules/react-dom
-if [ -d "../../node_modules/.pnpm/react-dom@18.2.0_react@18.2.0/node_modules/react-dom" ]; then
-    cp -r ../../node_modules/.pnpm/react-dom@18.2.0_react@18.2.0/node_modules/react-dom/{index.js,package.json,server.js,client.js} .next/standalone/node_modules/react-dom/ 2>/dev/null || true
+REACT_SRC=$(find ../../node_modules/.pnpm -type d -path "*react@18*/node_modules/react" ! -path "*react-dom*" | head -1)
+if [ -n "$REACT_SRC" ]; then
+    echo "📍 Using React from: $REACT_SRC"
+    cp -r $REACT_SRC/* .next/standalone/node_modules/react/ 2>/dev/null || true
+else
+    cp -r ../../node_modules/react/* .next/standalone/node_modules/react/ 2>/dev/null || true
 fi
 
-# Copy minimal styled-jsx
+# Copy minimal React DOM (find dynamically)
+mkdir -p .next/standalone/node_modules/react-dom
+REACT_DOM_SRC=$(find ../../node_modules/.pnpm -type d -path "*react-dom@18*/node_modules/react-dom" | head -1)
+if [ -n "$REACT_DOM_SRC" ]; then
+    echo "📍 Using React DOM from: $REACT_DOM_SRC"
+    cp -r $REACT_DOM_SRC/* .next/standalone/node_modules/react-dom/ 2>/dev/null || true
+else
+    cp -r ../../node_modules/react-dom/* .next/standalone/node_modules/react-dom/ 2>/dev/null || true
+fi
+
+# Copy minimal styled-jsx (find dynamically)
 mkdir -p .next/standalone/node_modules/styled-jsx
-cp -r ../../node_modules/.pnpm/styled-jsx@5.1.7_@babel+core@7.24.6_react@18.2.0/node_modules/styled-jsx/{package.json,index.js,style.js} .next/standalone/node_modules/styled-jsx/ 2>/dev/null || true
+STYLED_JSX_SRC=$(find ../../node_modules/.pnpm -type d -path "*styled-jsx@5*/node_modules/styled-jsx" | head -1)
+if [ -n "$STYLED_JSX_SRC" ]; then
+    echo "📍 Using styled-jsx from: $STYLED_JSX_SRC"
+    cp -r $STYLED_JSX_SRC/* .next/standalone/node_modules/styled-jsx/ 2>/dev/null || true
+else
+    echo "⚠️  Could not find styled-jsx, trying fallback..."
+    cp -r ../../node_modules/styled-jsx/* .next/standalone/node_modules/styled-jsx/ 2>/dev/null || true
+fi
 
 # Copy only essential @next/env files
 mkdir -p .next/standalone/node_modules/@next/env

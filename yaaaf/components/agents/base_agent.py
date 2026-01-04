@@ -133,8 +133,8 @@ class BaseAgent(ABC):
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
             elif self._executor.validate_result(result):
-                # Accumulate the result
-                all_results.append(str(result))
+                # Accumulate the result - store tuple of (raw_result, instruction) for artifact transformation
+                all_results.append((result, instruction))
 
                 self._add_internal_message(
                     f"Step {step_idx + 1} completed: {str(result)[:100]}...",
@@ -153,7 +153,8 @@ class BaseAgent(ABC):
 
                 # Operation succeeded but task not complete - feed result back to LLM
                 # Use larger limit for file views to avoid hallucination
-                result_summary = str(result)[:8000] + "..." if len(str(result)) > 8000 else str(result)
+                result_str = str(result)
+                result_summary = result_str[:8000] + "..." if len(result_str) > 8000 else result_str
                 feedback = f"Operation completed successfully. Result:\n{result_summary}\n\nContinue with next operation or say <taskcompleted/> if done."
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
@@ -175,9 +176,37 @@ class BaseAgent(ABC):
         )
         return f"AGENT FAILED: Could not complete task within allowed steps. No valid output was produced. THIS ARTIFACT IS INVALID. {task_completed_tag}"
 
-    def _create_combined_artifact(self, results: List[str], notes: Optional[List[Note]]) -> str:
-        """Create a single artifact from accumulated results."""
-        combined_content = "\n\n---\n\n".join(results)
+    def _create_combined_artifact(self, results: List[tuple], notes: Optional[List[Note]]) -> str:
+        """Create artifact from accumulated results.
+
+        Args:
+            results: List of (raw_result, instruction) tuples
+            notes: Optional notes list
+
+        Returns:
+            Completion message with artifact reference
+        """
+        # For single result, try to use executor's transform_to_artifact if available
+        if len(results) == 1 and hasattr(self._executor, 'transform_to_artifact'):
+            raw_result, instruction = results[0]
+            artifact_id = create_hash(str(raw_result) + instruction)
+            try:
+                artifact = self._executor.transform_to_artifact(raw_result, instruction, artifact_id)
+                self._storage.store_artefact(artifact_id, artifact)
+                artifact_type = artifact.type.value.lower() if hasattr(artifact.type, 'value') else str(artifact.type).lower()
+
+                self._add_internal_message(
+                    f"Created {artifact_type} artifact: {artifact_id}",
+                    notes,
+                    "Artifact"
+                )
+
+                return f"Operations completed. Result: <artefact type='{artifact_type}'>{artifact_id}</artefact> {task_completed_tag}"
+            except Exception as e:
+                _logger.warning(f"Failed to transform artifact: {e}, falling back to text")
+
+        # Fall back to combined text artifact for multiple results or when transform fails
+        combined_content = "\n\n---\n\n".join(str(r[0]) for r in results)
         artifact_id = create_hash(combined_content)
 
         artifact = Artefact(

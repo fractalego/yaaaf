@@ -55,15 +55,17 @@ class PlannerAgent(ToolBasedAgent):
         
         for agent_info in available_agents:
             name = agent_info.get("name", "Unknown")
+            class_name = agent_info.get("class_name", name)  # Use class name for spec lookup
             description = agent_info.get("description", "No description")
             taxonomy = agent_info.get("taxonomy")
-            
+
             desc_parts = [f"{name}:"]
             desc_parts.append(f"  {description}")
-            
+
             # Get artifact specification from the centralized definitions
+            # Use class_name (e.g., "BraveSearchAgent") not name (e.g., "brave_search")
             try:
-                artifact_spec = AGENT_ARTIFACT_SPECS.get(name)
+                artifact_spec = AGENT_ARTIFACT_SPECS.get(class_name)
                 if artifact_spec:
                     # Format accepts
                     if not artifact_spec.accepts:
@@ -80,7 +82,7 @@ class PlannerAgent(ToolBasedAgent):
                     desc_parts.append(f"  - Accepts: Unknown")
                     desc_parts.append(f"  - Produces: Unknown")
             except Exception as e:
-                _logger.warning(f"Could not get artifact spec for {name}: {e}")
+                _logger.warning(f"Could not get artifact spec for {class_name}: {e}")
                 desc_parts.append(f"  - Accepts: Unknown")
                 desc_parts.append(f"  - Produces: Unknown")
             

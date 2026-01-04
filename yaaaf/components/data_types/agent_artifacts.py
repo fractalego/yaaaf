@@ -105,7 +105,7 @@ AGENT_ARTIFACT_SPECS = {
     # Synthesizer agents
     "AnswererAgent": AgentArtifactSpec.transformer_agent(
         [ArtifactType.TABLE, ArtifactType.TEXT, ArtifactType.MODEL],
-        [ArtifactType.TEXT, ArtifactType.TABLE]  # Can produce both text and table
+        ArtifactType.TEXT  # Produces text summaries/answers
     ),
     "UrlRetrieverAgent": AgentArtifactSpec.transformer_agent(
         ArtifactType.TEXT, ArtifactType.TABLE

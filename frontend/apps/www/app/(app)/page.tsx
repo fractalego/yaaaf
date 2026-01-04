@@ -15,7 +15,6 @@ import {
   info_button_message,
   info_button_title,
   query_suggestions,
-  submit_user_response_url,
 } from "@/app/settings"
 
 import {
@@ -124,7 +123,7 @@ export default function ChatDemo() {
   useEffect(() => {
     const checkAgents = async () => {
       try {
-        const response = await fetch("http://localhost:4000/get_agents_config")
+        const response = await fetch("/api/agents-config")
         if (response.ok) {
           const agents = await response.json()
           console.log("Received agents config:", agents)
@@ -193,7 +192,7 @@ export default function ChatDemo() {
       }
       setMessages([...messages, userMessage])
 
-      const response = await fetch(submit_user_response_url, {
+      const response = await fetch("/api/submit-response", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -233,18 +232,15 @@ export default function ChatDemo() {
     // First, get the current note count to know where we're starting from
     let lastNoteCount = 0
     try {
-      const initialResponse = await fetch(
-        "http://localhost:4000/get_utterances",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            stream_id: streamId,
-          }),
-        }
-      )
+      const initialResponse = await fetch("/api/utterances", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stream_id: streamId,
+        }),
+      })
       if (initialResponse.ok) {
         const initialNotes = await initialResponse.json()
         lastNoteCount = initialNotes.length
@@ -260,7 +256,7 @@ export default function ChatDemo() {
 
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch("http://localhost:4000/get_utterances", {
+        const response = await fetch("/api/utterances", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

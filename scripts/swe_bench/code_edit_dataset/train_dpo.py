@@ -28,6 +28,7 @@ Requirements:
 
 import argparse
 import csv
+import gc
 import os
 from dataclasses import dataclass
 from typing import Optional
@@ -39,9 +40,136 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
+    TrainerCallback,
     TrainingArguments,
 )
 from trl import DPOConfig, DPOTrainer
+
+
+def clear_memory():
+    """Aggressively clear GPU and CPU memory."""
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+
+
+def compute_log_probs_on_cpu(
+    model,
+    tokenizer,
+    dataset,
+    max_length: int,
+    max_prompt_length: int = 1024,
+    batch_size: int = 1,
+):
+    """
+    Compute reference log probs and store on CPU.
+
+    Matches TRL's DPO format: computes log probs only for completion tokens (not prompt).
+    Returns dataset with 'reference_chosen_logps' and 'reference_rejected_logps' columns.
+    """
+    from tqdm import tqdm
+
+    print("\n=== Computing Reference Log Probs (GPU->CPU) ===")
+
+    model.eval()
+    chosen_logps = []
+    rejected_logps = []
+
+    # Disable LoRA for reference model computation
+    model.disable_adapter_layers()
+
+    def compute_completion_logprobs(prompt_text, completion_text):
+        """Compute log probs for completion tokens only."""
+        # Tokenize prompt to get its length
+        prompt_ids = tokenizer(
+            prompt_text,
+            return_tensors="pt",
+            truncation=True,
+            max_length=max_prompt_length,
+            add_special_tokens=True,
+        )["input_ids"]
+        prompt_len = prompt_ids.shape[1]
+
+        # Tokenize full sequence
+        full_text = prompt_text + completion_text
+        inputs = tokenizer(
+            full_text,
+            return_tensors="pt",
+            truncation=True,
+            max_length=max_length,
+            add_special_tokens=True,
+        ).to(model.device)
+
+        # Forward pass
+        outputs = model(**inputs)
+        logits = outputs.logits
+
+        # Shift for next-token prediction
+        shift_logits = logits[:, :-1, :]
+        shift_labels = inputs["input_ids"][:, 1:]
+
+        # Compute per-token log probs
+        log_probs = torch.nn.functional.log_softmax(shift_logits, dim=-1)
+        token_log_probs = torch.gather(
+            log_probs, 2, shift_labels.unsqueeze(-1)
+        ).squeeze(-1)
+
+        # Only sum log probs for completion tokens (after prompt)
+        # prompt_len-1 because of the shift
+        completion_start = max(0, prompt_len - 1)
+        completion_log_probs = token_log_probs[:, completion_start:]
+        total_logp = completion_log_probs.sum().cpu().item()
+
+        # Cleanup
+        del inputs, outputs, logits, log_probs, token_log_probs
+        return total_logp
+
+    with torch.no_grad():
+        for i in tqdm(range(len(dataset)), desc="Computing ref log probs"):
+            example = dataset[i]
+            prompt = example["prompt"]
+
+            # Compute log probs for chosen completion
+            chosen_logp = compute_completion_logprobs(prompt, example["chosen"])
+            chosen_logps.append(chosen_logp)
+
+            # Compute log probs for rejected completion
+            rejected_logp = compute_completion_logprobs(prompt, example["rejected"])
+            rejected_logps.append(rejected_logp)
+
+            # Clear GPU memory periodically
+            if i % 5 == 0:
+                clear_memory()
+
+    # Re-enable LoRA
+    model.enable_adapter_layers()
+
+    # Add to dataset (TRL expects these exact column names in the batch)
+    dataset = dataset.add_column("ref_chosen_logps", chosen_logps)
+    dataset = dataset.add_column("ref_rejected_logps", rejected_logps)
+
+    print(f"  Computed {len(chosen_logps)} reference log probs")
+
+    return dataset
+
+
+class MemoryCleanupCallback(TrainerCallback):
+    """Callback to clear memory at key points during training."""
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        """Clear memory after precomputation and before training loop starts."""
+        print("\n=== Clearing memory before training loop ===")
+        clear_memory()
+        if torch.cuda.is_available():
+            allocated = torch.cuda.memory_allocated() / 1024**3
+            reserved = torch.cuda.memory_reserved() / 1024**3
+            print(f"  GPU memory: {allocated:.2f} GiB allocated, {reserved:.2f} GiB reserved")
+
+    def on_step_end(self, args, state, control, **kwargs):
+        """Periodically clear memory during training."""
+        if state.global_step % 50 == 0:
+            clear_memory()
 
 
 # Task completion marker - appended to the last step of each trajectory
@@ -381,8 +509,8 @@ def main():
     parser.add_argument(
         "--model-name",
         type=str,
-        default="Qwen/Qwen2.5-14B",
-        help="Base model name (default: Qwen/Qwen2.5-14B)",
+        default="Qwen/Qwen2.5-32B-Instruct",
+        help="Base model name (default: Qwen/Qwen2.5-32B-Instruct)",
     )
     parser.add_argument(
         "--num-epochs",
@@ -461,6 +589,21 @@ def main():
         default=True,
         help="Merge LoRA weights and save full model (default: True)",
     )
+    parser.add_argument(
+        "--minimal-lora",
+        action="store_true",
+        help="Use minimal LoRA targets (q_proj, v_proj only) to save memory",
+    )
+    parser.add_argument(
+        "--cpu-offload",
+        action="store_true",
+        help="Offload optimizer states to CPU (slower but saves VRAM)",
+    )
+    parser.add_argument(
+        "--precompute-on-cpu",
+        action="store_true",
+        help="Compute reference log probs on CPU to save GPU memory for training",
+    )
 
     args = parser.parse_args()
 
@@ -494,7 +637,6 @@ def main():
     print(f"Train size: {len(train_dataset)}, Eval size: {len(eval_dataset)}")
 
     # Configure 4-bit quantization
-    print(f"\n=== Loading Model with 4-bit Quantization ===")
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
@@ -502,7 +644,69 @@ def main():
         bnb_4bit_use_double_quant=True,
     )
 
-    # Load model with Flash Attention 2 (requires PyTorch 2.5 + flash-attn wheel)
+    # Configure LoRA
+    if args.minimal_lora:
+        target_modules = ["q_proj", "v_proj"]
+        lora_mode_str = "MINIMAL"
+    else:
+        target_modules = [
+            "q_proj", "k_proj", "v_proj", "o_proj",
+            "gate_proj", "up_proj", "down_proj",
+        ]
+        lora_mode_str = "FULL"
+
+    lora_config = LoraConfig(
+        r=args.lora_rank,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=0.05,
+        bias="none",
+        task_type="CAUSAL_LM",
+        target_modules=target_modules,
+    )
+
+    # Flag to track if we did our own precomputation
+    did_manual_precompute = False
+
+    # If precompute-on-cpu is set, load model, compute log probs, then fully unload
+    if args.precompute_on_cpu:
+        print(f"\n=== Phase 1: Precompute Reference Log Probs ===")
+        print(f"Loading model for precomputation...")
+
+        precompute_model = AutoModelForCausalLM.from_pretrained(
+            args.model_name,
+            quantization_config=bnb_config,
+            device_map="auto",
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16,
+            attn_implementation="flash_attention_2",
+        )
+        precompute_model = prepare_model_for_kbit_training(precompute_model)
+        precompute_model = get_peft_model(precompute_model, lora_config)
+
+        # Compute log probs for train and eval datasets
+        train_dataset = compute_log_probs_on_cpu(
+            precompute_model, tokenizer, train_dataset,
+            args.max_length, args.max_prompt_length
+        )
+        eval_dataset = compute_log_probs_on_cpu(
+            precompute_model, tokenizer, eval_dataset,
+            args.max_length, args.max_prompt_length
+        )
+
+        # Completely unload model to free GPU memory
+        print("\n=== Unloading precomputation model ===")
+        del precompute_model
+        clear_memory()
+
+        if torch.cuda.is_available():
+            allocated = torch.cuda.memory_allocated() / 1024**3
+            reserved = torch.cuda.memory_reserved() / 1024**3
+            print(f"  GPU memory after unload: {allocated:.2f} GiB allocated, {reserved:.2f} GiB reserved")
+
+        did_manual_precompute = True
+
+    # Load fresh model for training
+    print(f"\n=== Loading Model for Training (4-bit Quantization) ===")
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         quantization_config=bnb_config,
@@ -515,42 +719,12 @@ def main():
     # Prepare model for k-bit training
     model = prepare_model_for_kbit_training(model)
 
-    # Configure LoRA
-    print(f"\n=== Configuring LoRA (rank={args.lora_rank}, alpha={args.lora_alpha}) ===")
-    lora_config = LoraConfig(
-        r=args.lora_rank,
-        lora_alpha=args.lora_alpha,
-        lora_dropout=0.05,
-        bias="none",
-        task_type="CAUSAL_LM",
-        target_modules=[
-            "q_proj",
-            "k_proj",
-            "v_proj",
-            "o_proj",
-            "gate_proj",
-            "up_proj",
-            "down_proj",
-        ],
-    )
+    print(f"\n=== Configuring LoRA (rank={args.lora_rank}, alpha={args.lora_alpha}, {lora_mode_str} mode) ===")
 
     # Apply LoRA
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
 
-    # For DPO, we need a reference model (the original model)
-    # With PEFT/LoRA, we set ref_model=None which makes DPOTrainer use the frozen
-    # base weights as reference (avoiding loading a second full model copy).
-    # Combined with precompute_ref_log_probs=True in DPOConfig, this significantly
-    # reduces VRAM usage by:
-    # 1. Not keeping a separate reference model in memory during training
-    # 2. Computing reference log probs once at start instead of during each batch
-    #
-    # Memory layout:
-    # - Base model: 4-bit quantized (~7GB for 14B params), shared & frozen
-    # - LoRA adapters: bfloat16 (~50-100MB), trainable
-    # - Reference = base model with adapters disabled (no extra memory)
-    # - Policy = base model + LoRA adapters
     ref_model = None
 
     # Verify quantization is active
@@ -561,9 +735,24 @@ def main():
         print(f"  Attention weights quantized: {hasattr(w, 'quant_state')}")
     print("  Reference model: using frozen quantized base (no separate copy)")
     print("  LoRA adapters: bfloat16 (trainable)")
+    if did_manual_precompute:
+        print("  Reference log probs: precomputed and stored on CPU")
 
     # Configure training
     print(f"\n=== Configuring Training ===")
+
+    # Adjust settings based on memory constraints
+    if args.cpu_offload:
+        print("  Using CPU offloading for optimizer states")
+        # Use paged optimizer which can spill to CPU when needed
+        optim = "paged_adamw_8bit"
+        dataloader_num_workers = 0  # Reduce memory pressure
+        dataloader_pin_memory = False
+    else:
+        optim = "paged_adamw_8bit"
+        dataloader_num_workers = 4
+        dataloader_pin_memory = True
+
     training_args = DPOConfig(
         output_dir=args.output_dir,
         num_train_epochs=args.num_epochs,
@@ -580,23 +769,24 @@ def main():
         save_total_limit=3,
         bf16=True,
         gradient_checkpointing=True,  # Saves ~40% VRAM
+        gradient_checkpointing_kwargs={"use_reentrant": False},  # More memory-efficient
         max_length=args.max_length,
         max_prompt_length=args.max_prompt_length,
         max_completion_length=args.max_completion_length,
         beta=args.beta,
         remove_unused_columns=False,
         report_to="none",  # Set to "wandb" if you want W&B logging
-        # With ref_model=None and LoRA, reference log probs are computed by
-        # temporarily disabling adapters on the same quantized model - no extra VRAM
-        precompute_ref_log_probs=False,
+        # Always set to True - if we did manual precomputation, TRL will find
+        # the ref_chosen_logps/ref_rejected_logps columns and skip recomputing
+        precompute_ref_log_probs=True,
         # Performance optimizations
-        optim="paged_adamw_8bit",  # 8-bit optimizer reduces memory, may allow larger batch
+        optim=optim,
         # torch_compile disabled - incompatible with transformers+PEFT+TRL+quantization stack
-        dataloader_num_workers=4,  # Parallel data loading
-        dataloader_pin_memory=True,  # Faster CPU->GPU transfer
+        dataloader_num_workers=dataloader_num_workers,
+        dataloader_pin_memory=dataloader_pin_memory,
     )
 
-    # Initialize trainer
+    # Initialize trainer with memory cleanup callback
     print(f"\n=== Initializing DPO Trainer ===")
     trainer = DPOTrainer(
         model=model,
@@ -605,7 +795,28 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         processing_class=tokenizer,  # renamed from 'tokenizer' in newer TRL versions
+        callbacks=[MemoryCleanupCallback()],
     )
+
+    # If we did manual precomputation, tell TRL to skip its own precomputation
+    if did_manual_precompute:
+        print("  Skipping TRL precomputation (already done manually)")
+        trainer._precomputed_train_ref_log_probs = True
+        trainer._precomputed_eval_ref_log_probs = True
+
+        # Verify columns survived TRL's processing
+        train_cols = trainer.train_dataset.column_names
+        print(f"  Train dataset columns: {train_cols}")
+        if "ref_chosen_logps" not in train_cols:
+            print("  WARNING: ref_chosen_logps column missing after TRL processing!")
+
+    # Clear memory before training to free any allocation from setup
+    print("\n=== Clearing memory before starting training ===")
+    clear_memory()
+    if torch.cuda.is_available():
+        allocated = torch.cuda.memory_allocated() / 1024**3
+        reserved = torch.cuda.memory_reserved() / 1024**3
+        print(f"  GPU memory: {allocated:.2f} GiB allocated, {reserved:.2f} GiB reserved")
 
     # Train
     print(f"\n=== Starting Training ===")

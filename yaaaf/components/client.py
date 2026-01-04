@@ -3,6 +3,7 @@ import json
 import logging
 from pathlib import Path
 from requests.exceptions import ConnectionError, Timeout, RequestException
+from enum import Enum
 
 from typing import Optional, List, TYPE_CHECKING
 
@@ -304,3 +305,260 @@ class OllamaClient(BaseClient):
             raise OllamaResponseError(
                 self.host, self.model, response.status_code, error_text
             )
+
+
+class VLLMConnectionError(Exception):
+    """Exception raised when there's a connection error to vLLM."""
+
+    def __init__(self, host: str, model: str, original_error: Exception):
+        self.host = host
+        self.model = model
+        self.original_error = original_error
+
+        if "Connection refused" in str(original_error) or "ConnectionRefusedError" in str(type(original_error)):
+            user_message = f"🔌 vLLM server is not running at {host}.\n\nTo fix this:\n1. Start vLLM: 'python -m vllm.entrypoints.openai.api_server --model <model> --enable-lora'\n2. Try again"
+        else:
+            user_message = f"❌ Cannot connect to vLLM at {host} for model '{model}': {original_error}"
+
+        super().__init__(user_message)
+
+
+class VLLMResponseError(Exception):
+    """Exception raised when vLLM returns an error response."""
+
+    def __init__(self, host: str, model: str, status_code: int, response_text: str):
+        self.host = host
+        self.model = model
+        self.status_code = status_code
+        self.response_text = response_text
+
+        if status_code == 404 or "not found" in response_text.lower():
+            user_message = f"🤖 Model/adapter '{model}' not found in vLLM.\n\nTo fix this:\n1. Check --lora-modules when starting vLLM server\n2. Ensure the adapter name matches"
+        else:
+            user_message = f"❌ vLLM error: {response_text}"
+
+        super().__init__(user_message)
+
+
+class VLLMClient(BaseClient):
+    """Client for vLLM OpenAI-compatible API with LoRA adapter support."""
+
+    def __init__(
+        self,
+        model: str,
+        temperature: float = 0.4,
+        max_tokens: int = 2048,
+        host: str = "http://localhost:8000",
+        adapter: Optional[str] = None,
+        disable_thinking: bool = True,
+    ):
+        """
+        Initialize vLLM client.
+
+        Args:
+            model: Base model name (used if adapter is None)
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+            host: vLLM server URL (default: http://localhost:8000)
+            adapter: LoRA adapter name to use (if None, uses base model)
+            disable_thinking: Whether to disable thinking content extraction
+        """
+        self.base_model = model
+        self.adapter = adapter
+        # Use adapter name as model if specified, otherwise use base model
+        self.model = adapter if adapter else model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.host = host.rstrip("/")
+        self.disable_thinking = disable_thinking
+
+        _logger.info(
+            f"Initializing VLLMClient for model '{self.base_model}' "
+            f"with adapter '{self.adapter}' on host '{self.host}'"
+        )
+
+        self._test_vllm_connection()
+
+    def _test_vllm_connection(self) -> None:
+        """Test connection to vLLM server at startup."""
+        try:
+            response = requests.get(f"{self.host}/v1/models", timeout=5)
+            if response.status_code == 200:
+                _logger.info(f"✅ Successfully connected to vLLM at {self.host}")
+
+                models_data = response.json()
+                available_models = [m["id"] for m in models_data.get("data", [])]
+                if self.model in available_models:
+                    _logger.info(f"✅ Model/adapter '{self.model}' is available")
+                else:
+                    _logger.warning(
+                        f"⚠️ Model/adapter '{self.model}' not found. "
+                        f"Available: {', '.join(available_models)}"
+                    )
+            else:
+                _logger.warning(f"⚠️ vLLM responded with status {response.status_code}")
+        except ConnectionError:
+            _logger.error(
+                f"❌ Cannot connect to vLLM at {self.host}. "
+                "Please start vLLM with 'python -m vllm.entrypoints.openai.api_server'"
+            )
+        except Exception as e:
+            _logger.warning(f"⚠️ Could not verify vLLM connection: {e}")
+
+    async def predict(
+        self,
+        messages: "Messages",
+        stop_sequences: Optional[List[str]] = None,
+        tools: Optional[List["Tool"]] = None,
+    ) -> "ClientResponse":
+        _logger.debug(
+            f"Making request to vLLM at {self.host} with model '{self.model}'"
+        )
+
+        headers = {"Content-Type": "application/json"}
+
+        # Convert messages to OpenAI format
+        openai_messages = []
+        for utterance in messages.model_dump()["utterances"]:
+            openai_messages.append({
+                "role": utterance["role"],
+                "content": utterance["content"],
+            })
+
+        # Build request data (OpenAI-compatible format)
+        data = {
+            "model": self.model,
+            "messages": openai_messages,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "stream": False,
+        }
+
+        if stop_sequences:
+            data["stop"] = stop_sequences
+
+        # Add tools if provided
+        if tools:
+            data["tools"] = [
+                {
+                    "type": "function",
+                    "function": tool.model_dump()["function"],
+                }
+                for tool in tools
+            ]
+
+        try:
+            response = requests.post(
+                f"{self.host}/v1/chat/completions",
+                headers=headers,
+                data=json.dumps(data),
+                timeout=600,
+            )
+        except ConnectionError as e:
+            _logger.error(f"❌ vLLM server not running at {self.host}")
+            raise VLLMConnectionError(self.host, self.model, e)
+        except Timeout as e:
+            _logger.error(f"Timeout connecting to vLLM at {self.host}")
+            raise VLLMConnectionError(self.host, self.model, e)
+        except RequestException as e:
+            _logger.error(f"Network error connecting to vLLM at {self.host}: {e}")
+            raise VLLMConnectionError(self.host, self.model, e)
+
+        if response.status_code == 200:
+            _logger.debug(f"Successfully received response from vLLM at {self.host}")
+            try:
+                response_data = response.json()
+
+                from yaaaf.components.data_types import ClientResponse, ToolCall
+
+                # Extract message content
+                choice = response_data["choices"][0]
+                message = choice["message"]
+                content = message.get("content", "")
+
+                # Extract thinking content
+                thinking_content, message_content = extract_thinking_content(content)
+
+                if self.disable_thinking:
+                    thinking_content = None
+
+                # Extract tool calls if present
+                tool_calls = None
+                if "tool_calls" in message and message["tool_calls"]:
+                    tool_calls = []
+                    for tc in message["tool_calls"]:
+                        tool_call = ToolCall(
+                            id=tc.get("id", ""),
+                            type=tc.get("type", "function"),
+                            function=tc.get("function", {}),
+                        )
+                        tool_calls.append(tool_call)
+
+                return ClientResponse(
+                    message=message_content,
+                    tool_calls=tool_calls,
+                    thinking_content=thinking_content if thinking_content else None,
+                )
+            except (json.JSONDecodeError, KeyError) as e:
+                _logger.error(f"Invalid response format from vLLM: {e}")
+                raise VLLMResponseError(
+                    self.host, self.model, response.status_code, str(e)
+                )
+        else:
+            error_text = response.text
+            _logger.error(
+                f"Error response from vLLM: {response.status_code}, {error_text}"
+            )
+            raise VLLMResponseError(
+                self.host, self.model, response.status_code, error_text
+            )
+
+
+class ClientType(str, Enum):
+    """Supported client types."""
+    OLLAMA = "ollama"
+    VLLM = "vllm"
+
+
+def create_client(
+    client_type: ClientType,
+    model: str,
+    temperature: float = 0.4,
+    max_tokens: int = 2048,
+    host: str = "http://localhost:11434",
+    adapter: Optional[str] = None,
+    disable_thinking: bool = True,
+) -> BaseClient:
+    """
+    Factory function to create the appropriate client based on type.
+
+    Args:
+        client_type: Type of client (ollama or vllm)
+        model: Model name
+        temperature: Sampling temperature
+        max_tokens: Maximum tokens
+        host: Server host URL
+        adapter: LoRA adapter name (vLLM only)
+        disable_thinking: Whether to disable thinking extraction
+
+    Returns:
+        Appropriate client instance
+    """
+    if client_type == ClientType.VLLM:
+        return VLLMClient(
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            host=host,
+            adapter=adapter,
+            disable_thinking=disable_thinking,
+        )
+    else:
+        # Default to Ollama
+        return OllamaClient(
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            host=host,
+            disable_thinking=disable_thinking,
+        )

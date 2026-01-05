@@ -142,6 +142,7 @@ class OrchestratorAgent(CustomAgent):
                         notes.append(plan_note)
 
                     # Create new executor with notes for streaming and status updates
+                    # Pass partial_results as cached_results to reuse successfully completed assets
                     self.plan_executor = WorkflowExecutor(
                         yaml_plan=self.current_plan,
                         agents=self.agents,
@@ -151,6 +152,7 @@ class OrchestratorAgent(CustomAgent):
                         validation_agent=self._validation_agent,
                         original_goal=self._original_goal,
                         disable_user_prompts=self._disable_user_prompts,
+                        cached_results=partial_results if partial_results else None,
                     )
 
                 # Execute plan
@@ -300,6 +302,10 @@ class OrchestratorAgent(CustomAgent):
         # Build planning request
         if error_context:
             # Replanning with context (partial_results may be empty if first asset failed)
+            # Format list of successful asset names for reuse
+            successful_assets = list(partial_results.keys()) if partial_results else []
+            successful_assets_list = "\n".join(f"  - {name}" for name in successful_assets) if successful_assets else "  None"
+
             planning_request = f"""
 The following plan failed during execution:
 
@@ -312,12 +318,23 @@ The following plan failed during execution:
 Completed assets so far:
 {self._format_partial_results(partial_results) if partial_results else "None (failed on first step)"}
 
+**IMPORTANT - ASSET REUSE INSTRUCTIONS**:
+The following assets have already been executed successfully and their results are cached:
+{successful_assets_list}
+
+When creating the revised plan:
+1. **KEEP THE EXACT SAME NAMES** for any assets you want to reuse from the list above
+2. These cached assets will NOT be re-executed, saving time and resources
+3. Only rename assets if you need them to be re-executed with different parameters
+4. New assets can have any unique name
+
 Please create a revised plan that:
 1. ADDRESSES THE VALIDATION FEEDBACK above - this is critical
-2. Uses any already completed assets where possible
-3. Works around the error condition
-4. Still achieves the goal: {goal}
-5. Produces a final artifact of type: {target_type}
+2. **REUSES cached assets by keeping their exact names** (they will be skipped during execution)
+3. Only adds or modifies assets that need different behavior
+4. Works around the error condition
+5. Still achieves the goal: {goal}
+6. Produces a final artifact of type: {target_type}
 
 Original user request: {messages.utterances[-1].content}
 """

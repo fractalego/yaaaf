@@ -59,6 +59,7 @@ class WorkflowExecutor:
         validation_agent: Optional["ValidationAgent"] = None,
         original_goal: Optional[str] = None,
         disable_user_prompts: bool = False,
+        cached_results: Optional[Dict[str, str]] = None,
     ):
         """Initialize workflow executor.
 
@@ -71,11 +72,14 @@ class WorkflowExecutor:
             validation_agent: Optional validation agent for artifact validation
             original_goal: Original user goal for validation context
             disable_user_prompts: If True, skip user prompts on validation failure and replan instead
+            cached_results: Optional dict of asset_name -> result_string from previous execution
+                           Assets with cached results will be skipped (reused)
         """
         self.yaml_plan = yaml_plan  # Store raw YAML for state persistence
         self.plan = yaml.safe_load(yaml_plan)
         self.agents = agents
-        self.asset_results = {}  # Store result strings by asset name
+        # Pre-populate with cached results if provided
+        self.asset_results = cached_results.copy() if cached_results else {}
         self.artefact_storage = ArtefactStorage()
         self._execution_order = []
         self._notes = notes if notes is not None else []
@@ -148,6 +152,20 @@ class WorkflowExecutor:
         # Execute each asset in order
         for asset_name in self._execution_order:
             asset_config = self.plan["assets"][asset_name]
+
+            # Check if asset is already cached (from previous execution)
+            if asset_name in self.asset_results:
+                _logger.info(f"Reusing cached result for asset '{asset_name}'")
+                # Add note about reusing cached asset
+                if self._notes is not None:
+                    from yaaaf.components.data_types import Note
+                    reuse_note = Note(
+                        message=f"♻️ Reusing cached result for '{asset_name}'",
+                        artefact_id=None,
+                        agent_name="workflow",
+                    )
+                    self._notes.append(reuse_note)
+                continue
 
             # Check conditions
             if not self._evaluate_conditions(asset_name, asset_config):
@@ -684,6 +702,19 @@ class WorkflowExecutor:
         for i in range(state.next_asset_index + 1, len(self._execution_order)):
             asset_name = self._execution_order[i]
             asset_config = self.plan["assets"][asset_name]
+
+            # Check if asset is already cached (from previous execution)
+            if asset_name in self.asset_results:
+                _logger.info(f"Reusing cached result for asset '{asset_name}'")
+                if self._notes is not None:
+                    from yaaaf.components.data_types import Note
+                    reuse_note = Note(
+                        message=f"♻️ Reusing cached result for '{asset_name}'",
+                        artefact_id=None,
+                        agent_name="workflow",
+                    )
+                    self._notes.append(reuse_note)
+                continue
 
             # Check conditions
             if not self._evaluate_conditions(asset_name, asset_config):

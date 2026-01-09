@@ -33,6 +33,8 @@ class YaaafRunner:
         """
         self.base_url = f"http://{host}:{port}"
         self.timeout = timeout
+        # Conversation history for multi-turn dialogue
+        self._conversation_history: List[dict] = []
 
     def check_server(self) -> bool:
         """Check if the YAAAF backend is running.
@@ -137,6 +139,62 @@ Focus on making minimal, targeted changes to fix the issue.
 
         return prompt
 
+    def reset_conversation(self):
+        """Reset the conversation history for a new instance."""
+        self._conversation_history = []
+
+    def build_feedback_message(
+        self,
+        test_output: str,
+        test_passed: int,
+        test_failed: int,
+        test_errors: int,
+        attempt: int,
+        max_attempts: int,
+    ) -> str:
+        """Build a feedback message based on test results.
+
+        Args:
+            test_output: Raw output from pytest
+            test_passed: Number of passed tests
+            test_failed: Number of failed tests
+            test_errors: Number of test errors
+            attempt: Current attempt number
+            max_attempts: Maximum number of attempts
+
+        Returns:
+            Formatted feedback message
+        """
+        remaining = max_attempts - attempt
+
+        feedback = f"""## Test Results After Your Changes (Attempt {attempt}/{max_attempts})
+
+The tests did not pass. Here are the results:
+- Passed: {test_passed}
+- Failed: {test_failed}
+- Errors: {test_errors}
+
+### Test Output
+```
+{test_output[-3000:] if len(test_output) > 3000 else test_output}
+```
+
+### What to do next
+You have {remaining} attempt(s) remaining. Please:
+1. Analyze the error messages above carefully
+2. Identify what went wrong with your previous fix
+3. Make the necessary corrections
+
+Common issues to check:
+- Did you modify the correct file?
+- Did you add the required test cases to the test file?
+- Did your changes break any existing functionality?
+- Are there syntax errors in your changes?
+
+Please try again with a corrected approach.
+"""
+        return feedback
+
     def run(
         self,
         problem_statement: str,
@@ -146,7 +204,7 @@ Focus on making minimal, targeted changes to fix the issue.
         fail_to_pass: Optional[List[str]] = None,
         pass_to_pass: Optional[List[str]] = None,
     ) -> dict:
-        """Run YAAAF on a problem instance.
+        """Run YAAAF on a problem instance (first turn of conversation).
 
         Args:
             problem_statement: The GitHub issue description
@@ -159,6 +217,9 @@ Focus on making minimal, targeted changes to fix the issue.
         Returns:
             Dict with 'success', 'response', 'prompt'
         """
+        # Reset conversation for new instance
+        self.reset_conversation()
+
         # Check server first
         if not self.check_server():
             return {
@@ -170,17 +231,66 @@ Focus on making minimal, targeted changes to fix the issue.
         # Build the prompt
         prompt = self.build_prompt(problem_statement, repo_path, hints, fail_to_pass, pass_to_pass)
 
-        # Create conversation
-        messages = [{"role": "user", "content": prompt}]
+        # Store env_path for subsequent turns
+        self._env_path = env_path
+
+        # Add to conversation history
+        self._conversation_history.append({"role": "user", "content": prompt})
+
+        # Send conversation
+        return self._send_conversation(prompt)
+
+    def continue_with_feedback(self, feedback: str) -> dict:
+        """Continue the conversation with feedback about test results.
+
+        Args:
+            feedback: Feedback message about test failures
+
+        Returns:
+            Dict with 'success', 'response', 'prompt'
+        """
+        if not self._conversation_history:
+            return {
+                "success": False,
+                "response": "No conversation to continue",
+                "prompt": feedback,
+            }
+
+        # Check server
+        if not self.check_server():
+            return {
+                "success": False,
+                "response": "YAAAF server not available",
+                "prompt": feedback,
+            }
+
+        # Add assistant's previous response (summarized) and new user feedback
+        # Note: We don't have the full assistant response stored, so we just add the feedback
+        self._conversation_history.append({"role": "user", "content": feedback})
+
+        return self._send_conversation(feedback)
+
+    def _send_conversation(self, latest_prompt: str) -> dict:
+        """Send the current conversation to YAAAF.
+
+        Args:
+            latest_prompt: The latest prompt (for logging/return purposes)
+
+        Returns:
+            Dict with 'success', 'response', 'prompt'
+        """
         stream_id = f"eval_{uuid.uuid4().hex[:8]}"
 
         try:
-            # Create stream with optional env_path
-            _logger.info("Sending query to YAAAF...")
-            request_body = {"stream_id": stream_id, "messages": messages}
-            if env_path:
-                request_body["env_path"] = env_path
-                _logger.info(f"Using environment: {env_path}")
+            # Create stream with full conversation history
+            _logger.info(f"Sending conversation ({len(self._conversation_history)} messages) to YAAAF...")
+            request_body = {
+                "stream_id": stream_id,
+                "messages": self._conversation_history,
+            }
+            if hasattr(self, '_env_path') and self._env_path:
+                request_body["env_path"] = self._env_path
+                _logger.info(f"Using environment: {self._env_path}")
 
             create_resp = httpx.post(
                 f"{self.base_url}/create_stream",
@@ -192,7 +302,7 @@ Focus on making minimal, targeted changes to fix the issue.
                 return {
                     "success": False,
                     "response": f"Server returned {create_resp.status_code}",
-                    "prompt": prompt,
+                    "prompt": latest_prompt,
                 }
 
             # Stream the response
@@ -201,7 +311,7 @@ Focus on making minimal, targeted changes to fix the issue.
             return {
                 "success": True,
                 "response": response,
-                "prompt": prompt,
+                "prompt": latest_prompt,
             }
 
         except httpx.RequestError as e:
@@ -209,14 +319,14 @@ Focus on making minimal, targeted changes to fix the issue.
             return {
                 "success": False,
                 "response": str(e),
-                "prompt": prompt,
+                "prompt": latest_prompt,
             }
         except Exception as e:
             _logger.error(f"YAAAF execution failed: {e}")
             return {
                 "success": False,
                 "response": str(e),
-                "prompt": prompt,
+                "prompt": latest_prompt,
             }
 
     def _stream_response(self, stream_id: str) -> str:

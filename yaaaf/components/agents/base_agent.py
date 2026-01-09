@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Optional, List, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
@@ -10,6 +11,7 @@ from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.decorators import handle_exceptions
 from yaaaf.components.agents.agent_steps_config import AGENT_MAX_STEPS, DEFAULT_MAX_STEPS
 from yaaaf.components.agents.artefact_utils import create_prompt_from_artefacts
+from yaaaf.components.client import VLLMResponseError
 
 if TYPE_CHECKING:
     from yaaaf.components.data_types import ClientResponse
@@ -89,12 +91,52 @@ class BaseAgent(ABC):
         all_results = []
 
         # Multi-step execution loop - abstracted reflection pattern
+        context_length_retries = 0
+        max_context_retries = 2
+
         for step_idx in range(self._max_steps):
             _logger.debug(f"{self.get_name()}: Starting step {step_idx + 1}/{self._max_steps}")
             try:
                 response = await self._client.predict(
                     messages, stop_sequences=self._stop_sequences
                 )
+            except VLLMResponseError as e:
+                error_str = str(e)
+                # Check if this is a context length error
+                if "maximum context length" in error_str or "input tokens" in error_str:
+                    context_length_retries += 1
+                    _logger.warning(f"{self.get_name()}: Context length exceeded (attempt {context_length_retries}/{max_context_retries})")
+
+                    # Extract token counts from error message
+                    token_match = re.search(r'(\d+)\s*input tokens', error_str)
+                    max_match = re.search(r'maximum context length is (\d+)', error_str)
+                    input_tokens = token_match.group(1) if token_match else "unknown"
+                    max_tokens = max_match.group(1) if max_match else "unknown"
+
+                    if context_length_retries >= max_context_retries:
+                        _logger.error(f"{self.get_name()}: Max context length retries exceeded")
+                        raise
+
+                    # Truncate conversation history - keep system prompt and last few exchanges
+                    messages = self._truncate_messages_for_context(messages)
+
+                    # Add feedback asking model to be more concise
+                    feedback = (
+                        f"⚠️ CONTEXT LENGTH ERROR: Your request used {input_tokens} tokens but the model limit is {max_tokens} tokens.\n\n"
+                        f"Please be MORE CONCISE:\n"
+                        f"- Use shorter old_str/new_str blocks (only include lines that need to change)\n"
+                        f"- Don't repeat entire files or functions\n"
+                        f"- Focus on the minimal change needed\n"
+                        f"- If viewing a file, use start_line/end_line to view only relevant sections\n\n"
+                        f"Continue with a more concise approach."
+                    )
+                    messages = messages.add_user_utterance(feedback)
+                    _logger.info(f"{self.get_name()}: Added context length feedback, retrying...")
+                    continue
+                else:
+                    # Not a context length error, re-raise
+                    _logger.error(f"{self.get_name()}: predict() failed with error: {e}")
+                    raise
             except Exception as e:
                 _logger.error(f"{self.get_name()}: predict() failed with error: {e}")
                 raise
@@ -333,7 +375,50 @@ class BaseAgent(ABC):
         return prompt
     
     # === Utility Methods ===
-    
+
+    def _truncate_messages_for_context(self, messages: Messages) -> Messages:
+        """Truncate messages to fit within context limits.
+
+        Keeps the system prompt (if any) and the most recent exchanges,
+        removing middle conversation history to reduce token count.
+        """
+        utterances = messages.utterances
+        if len(utterances) <= 4:
+            # Too few messages to truncate meaningfully
+            return messages
+
+        # Find system prompt if present
+        system_prompt = None
+        non_system_utterances = []
+        for u in utterances:
+            if u.role == "system":
+                system_prompt = u
+            else:
+                non_system_utterances.append(u)
+
+        # Keep only the first user message and last 2 exchanges (4 messages)
+        if len(non_system_utterances) > 5:
+            first_user = non_system_utterances[0] if non_system_utterances else None
+            last_messages = non_system_utterances[-4:]  # Last 2 exchanges
+
+            truncated = []
+            if system_prompt:
+                truncated.append(system_prompt)
+            if first_user:
+                truncated.append(first_user)
+            # Add truncation marker
+            from yaaaf.components.data_types import Utterance
+            truncated.append(Utterance(
+                role="user",
+                content="[Previous conversation history truncated due to context length limits. Continue from here.]"
+            ))
+            truncated.extend(last_messages)
+
+            _logger.info(f"Truncated messages from {len(utterances)} to {len(truncated)} utterances")
+            return Messages(utterances=truncated)
+
+        return messages
+
     def _add_internal_message(
         self, message: str, notes: Optional[List[Note]], prefix: str = "Message"
     ):

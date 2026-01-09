@@ -497,7 +497,6 @@ User Context: {messages.utterances[-1].content}
                 "IMAGE": ["image", "IMAGE", "chart", "plot"],
                 "TEXT": ["text", "TEXT", "string", "table", "TABLE"],  # Allow TABLE as valid for TEXT
                 "MODEL": ["model", "MODEL", "sklearn"],
-                "TODO_LIST": ["todo-list", "TODO_LIST", "todo_list"],
                 "PLAN": ["plan", "PLAN"],
             }
 

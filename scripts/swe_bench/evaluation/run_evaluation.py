@@ -155,6 +155,8 @@ def evaluate_instance(
             repo_path=str(repo_path),
             hints=hints if hints else None,
             env_path=str(env_path),
+            fail_to_pass=fail_to_pass,
+            pass_to_pass=pass_to_pass,
         )
         result["yaaaf_response"] = yaaaf_result["response"]
         result["yaaaf_success"] = yaaaf_result["success"]

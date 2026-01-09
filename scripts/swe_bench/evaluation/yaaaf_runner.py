@@ -8,7 +8,7 @@ Requires the YAAAF backend to be running:
 import json
 import logging
 import uuid
-from typing import Optional
+from typing import Optional, List
 
 import httpx
 
@@ -65,7 +65,9 @@ class YaaafRunner:
         self,
         problem_statement: str,
         repo_path: str,
-        hints: Optional[str] = None
+        hints: Optional[str] = None,
+        fail_to_pass: Optional[List[str]] = None,
+        pass_to_pass: Optional[List[str]] = None,
     ) -> str:
         """Build a prompt for YAAAF from a SWE-bench instance.
 
@@ -73,6 +75,8 @@ class YaaafRunner:
             problem_statement: The GitHub issue description
             repo_path: Path to the repository
             hints: Optional hints from issue comments
+            fail_to_pass: List of test names that should pass after the fix
+            pass_to_pass: List of test names that must not regress
 
         Returns:
             Formatted prompt for YAAAF
@@ -92,16 +96,40 @@ The repository is located at: {repo_path}
 {hints}
 """
 
+        # Add test information - this is critical for the agent to know what to fix
+        if fail_to_pass:
+            prompt += f"""
+## Tests That Must Pass After Your Fix
+The following tests currently FAIL and must PASS after your fix:
+"""
+            for test in fail_to_pass:
+                prompt += f"- `{test}`\n"
+            prompt += """
+These test names indicate exactly what functionality needs to be fixed.
+You may need to add new test cases to the test file with these specific parameter names.
+"""
+
+        if pass_to_pass:
+            prompt += f"""
+## Tests That Must Not Regress
+The following tests currently pass and must continue to pass (sample of {len(pass_to_pass)} tests):
+"""
+            for test in pass_to_pass[:5]:  # Show first 5 only
+                prompt += f"- `{test}`\n"
+            if len(pass_to_pass) > 5:
+                prompt += f"- ... and {len(pass_to_pass) - 5} more\n"
+
         prompt += """
 ## Instructions
 1. First, explore the repository to understand its structure
 2. Find the relevant files mentioned in the issue
 3. Understand the bug by reading the code
 4. Implement a fix using code editing
-5. Verify your changes make sense
+5. Run the specific failing tests to verify your fix works
+6. Ensure you don't break existing tests
 
 Use the available tools:
-- BashAgent: For exploring files (find, grep, ls, cat)
+- BashAgent: For exploring files (find, grep, ls, cat) and running tests (pytest)
 - CodeEditAgent: For viewing and modifying source files
 
 Focus on making minimal, targeted changes to fix the issue.
@@ -115,6 +143,8 @@ Focus on making minimal, targeted changes to fix the issue.
         repo_path: str,
         hints: Optional[str] = None,
         env_path: Optional[str] = None,
+        fail_to_pass: Optional[List[str]] = None,
+        pass_to_pass: Optional[List[str]] = None,
     ) -> dict:
         """Run YAAAF on a problem instance.
 
@@ -123,6 +153,8 @@ Focus on making minimal, targeted changes to fix the issue.
             repo_path: Path to the repository
             hints: Optional hints from issue comments
             env_path: Optional path to Python virtual environment (for running tests)
+            fail_to_pass: List of test names that should pass after the fix
+            pass_to_pass: List of test names that must not regress
 
         Returns:
             Dict with 'success', 'response', 'prompt'
@@ -136,7 +168,7 @@ Focus on making minimal, targeted changes to fix the issue.
             }
 
         # Build the prompt
-        prompt = self.build_prompt(problem_statement, repo_path, hints)
+        prompt = self.build_prompt(problem_statement, repo_path, hints, fail_to_pass, pass_to_pass)
 
         # Create conversation
         messages = [{"role": "user", "content": prompt}]

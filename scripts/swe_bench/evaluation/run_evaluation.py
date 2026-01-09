@@ -149,10 +149,12 @@ def evaluate_instance(
 
         # Step 4: Run YAAAF
         _logger.info("Step 4: Running YAAAF...")
+        env_path = repo_manager.get_env_path(repo)
         yaaaf_result = yaaaf_runner.run(
             problem_statement=problem_statement,
             repo_path=str(repo_path),
             hints=hints if hints else None,
+            env_path=str(env_path),
         )
         result["yaaaf_response"] = yaaaf_result["response"]
         result["yaaaf_success"] = yaaaf_result["success"]

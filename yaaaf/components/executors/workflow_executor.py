@@ -60,6 +60,7 @@ class WorkflowExecutor:
         original_goal: Optional[str] = None,
         disable_user_prompts: bool = False,
         cached_results: Optional[Dict[str, str]] = None,
+        env_path: Optional[str] = None,
     ):
         """Initialize workflow executor.
 
@@ -74,6 +75,7 @@ class WorkflowExecutor:
             disable_user_prompts: If True, skip user prompts on validation failure and replan instead
             cached_results: Optional dict of asset_name -> result_string from previous execution
                            Assets with cached results will be skipped (reused)
+            env_path: Optional path to Python virtual environment for bash commands
         """
         self.yaml_plan = yaml_plan  # Store raw YAML for state persistence
         self.plan = yaml.safe_load(yaml_plan)
@@ -88,6 +90,7 @@ class WorkflowExecutor:
         self._validation_agent = validation_agent
         self._original_goal = original_goal
         self._disable_user_prompts = disable_user_prompts
+        self._env_path = env_path
         self._build_execution_graph()
 
     def _build_execution_graph(self):
@@ -210,7 +213,7 @@ class WorkflowExecutor:
                 # Execute agent
                 _logger.info(f"Calling agent '{agent_name}' for asset '{asset_name}'")
                 try:
-                    result = await agent.query(agent_messages)
+                    result = await agent.query(agent_messages, env_path=self._env_path)
                 except Exception as e:
                     _logger.error(f"Agent '{agent_name}' failed with exception: {e}")
                     raise
@@ -761,7 +764,7 @@ class WorkflowExecutor:
                 # Execute agent
                 _logger.info(f"Calling agent '{agent_name}' for resumed asset '{asset_name}'")
                 try:
-                    result = await agent.query(agent_messages)
+                    result = await agent.query(agent_messages, env_path=self._env_path)
                 except Exception as e:
                     _logger.error(f"Agent '{agent_name}' failed with exception: {e}")
                     raise

@@ -79,12 +79,22 @@ class BashExecutor(ToolExecutor):
             # Change to working directory if specified
             working_dir = context.get("working_dir", os.getcwd())
 
+            # Set up environment with optional virtual environment PATH
+            env = os.environ.copy()
+            env_path = context.get("env_path")
+            if env_path:
+                # Prepend venv bin directory to PATH so tools like pytest are found
+                env["PATH"] = f"{env_path}/bin:{env['PATH']}"
+                env["VIRTUAL_ENV"] = env_path
+                _logger.info(f"Using virtual environment: {env_path}")
+
             # Execute the command asynchronously to avoid blocking the event loop
             process = await asyncio.create_subprocess_shell(
                 instruction,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=working_dir,
+                env=env,
             )
 
             try:

@@ -28,7 +28,7 @@ class StreamStatus:
 _stream_id_to_status: Dict[str, StreamStatus] = {}
 
 
-async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
+async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent, env_path: Optional[str] = None):
     try:
         notes: List[Note] = []
         _stream_id_to_messages[stream_id] = notes
@@ -54,7 +54,7 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
             _logger.info(f"Query blocked by safety filter for stream {stream_id}")
             return
 
-        result = await orchestrator.query(messages=messages, notes=notes, stream_id=stream_id)
+        result = await orchestrator.query(messages=messages, notes=notes, stream_id=stream_id, env_path=env_path)
 
         if result:
             import re

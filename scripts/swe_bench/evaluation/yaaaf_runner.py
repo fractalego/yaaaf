@@ -114,6 +114,7 @@ Focus on making minimal, targeted changes to fix the issue.
         problem_statement: str,
         repo_path: str,
         hints: Optional[str] = None,
+        env_path: Optional[str] = None,
     ) -> dict:
         """Run YAAAF on a problem instance.
 
@@ -121,6 +122,7 @@ Focus on making minimal, targeted changes to fix the issue.
             problem_statement: The GitHub issue description
             repo_path: Path to the repository
             hints: Optional hints from issue comments
+            env_path: Optional path to Python virtual environment (for running tests)
 
         Returns:
             Dict with 'success', 'response', 'prompt'
@@ -141,11 +143,16 @@ Focus on making minimal, targeted changes to fix the issue.
         stream_id = f"eval_{uuid.uuid4().hex[:8]}"
 
         try:
-            # Create stream
+            # Create stream with optional env_path
             _logger.info("Sending query to YAAAF...")
+            request_body = {"stream_id": stream_id, "messages": messages}
+            if env_path:
+                request_body["env_path"] = env_path
+                _logger.info(f"Using environment: {env_path}")
+
             create_resp = httpx.post(
                 f"{self.base_url}/create_stream",
-                json={"stream_id": stream_id, "messages": messages},
+                json=request_body,
                 timeout=10.0,
             )
 

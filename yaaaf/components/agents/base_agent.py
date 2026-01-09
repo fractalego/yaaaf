@@ -51,17 +51,23 @@ class BaseAgent(ABC):
         self._max_steps = AGENT_MAX_STEPS.get(agent_name, DEFAULT_MAX_STEPS)
     
     async def query(
-        self, messages: Messages, notes: Optional[List[Note]] = None
+        self, messages: Messages, notes: Optional[List[Note]] = None, env_path: Optional[str] = None
     ) -> str:
-        """Execute query using ToolExecutor or custom implementation."""
+        """Execute query using ToolExecutor or custom implementation.
+
+        Args:
+            messages: User messages
+            notes: Optional notes for streaming updates
+            env_path: Optional path to Python virtual environment for bash commands
+        """
         if self._executor:
-            return await self._query_with_executor(messages, notes)
+            return await self._query_with_executor(messages, notes, env_path)
         else:
             return await self._query_custom(messages, notes)
-    
+
     @handle_exceptions
     async def _query_with_executor(
-        self, messages: Messages, notes: Optional[List[Note]] = None
+        self, messages: Messages, notes: Optional[List[Note]] = None, env_path: Optional[str] = None
     ) -> str:
         """Standard query implementation using ToolExecutor pattern."""
         if not self._client:
@@ -69,6 +75,9 @@ class BaseAgent(ABC):
 
         # Prepare context using executor
         context = await self._executor.prepare_context(messages, notes)
+        # Add env_path to context if provided (used by BashExecutor)
+        if env_path:
+            context["env_path"] = env_path
 
         # Add system prompt if available
         if self._system_prompt:

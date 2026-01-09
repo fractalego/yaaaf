@@ -1,14 +1,21 @@
 {
   "client": {
     "type": "ollama",
-    "model": "llama3.1:70b",
+    "model": "qwen2.5:32b",
     "temperature": 0.3,
     "max_tokens": 4096,
-    "host": "http://localhost:11434"
+    "host": "http://aragorn:11434"
   },
   "agents": [
     "bash",
-    "code_edit",
+    {
+      "name": "code_edit",
+      "type": "vllm",
+      "model": "code_edit_agent",
+      "host": "http://localhost:8000",
+      "adapter": "code_edit_agent",
+      "max_tokens": 2048
+    },
     "answerer"
   ],
   "safety_filter": {

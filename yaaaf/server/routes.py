@@ -29,6 +29,7 @@ _logger = logging.getLogger(__name__)
 class CreateStreamArguments(BaseModel):
     stream_id: str
     messages: List[Utterance]
+    env_path: Optional[str] = None  # Optional Python venv path for bash commands
 
 
 class NewUtteranceArguments(BaseModel):
@@ -82,10 +83,11 @@ def create_stream(arguments: CreateStreamArguments):
     try:
         stream_id = arguments.stream_id
         messages = Messages(utterances=arguments.messages)
+        env_path = arguments.env_path
 
         async def build_and_compute():
             orchestrator = await OrchestratorBuilder(get_config()).build()
-            await do_compute(stream_id, messages, orchestrator)
+            await do_compute(stream_id, messages, orchestrator, env_path=env_path)
 
         t = threading.Thread(target=asyncio.run, args=(build_and_compute(),))
         t.start()

@@ -64,26 +64,28 @@ class OrchestratorAgent(CustomAgent):
         if not self.planner:
             raise ValueError("PlannerAgent not found in available agents")
 
-    async def query(self, messages: Messages, notes=None, stream_id=None) -> str:
+    async def query(self, messages: Messages, notes=None, stream_id=None, env_path=None) -> str:
         """Override query to accept stream_id parameter.
-        
+
         Args:
             messages: User messages
             notes: Optional notes (not used)
             stream_id: Stream ID for tracking and real-time updates
-            
+            env_path: Optional path to Python virtual environment for bash commands
+
         Returns:
             String representation of final result
         """
-        return await self._query_custom(messages, notes, stream_id)
+        return await self._query_custom(messages, notes, stream_id, env_path)
 
-    async def _query_custom(self, messages: Messages, notes=None, stream_id=None) -> str:
+    async def _query_custom(self, messages: Messages, notes=None, stream_id=None, env_path=None) -> str:
         """Process messages using plan-driven approach.
 
         Args:
             messages: User messages
             notes: Optional notes (not used)
             stream_id: Stream ID for tracking and real-time updates
+            env_path: Optional path to Python virtual environment for bash commands
 
         Returns:
             String representation of final result
@@ -153,6 +155,7 @@ class OrchestratorAgent(CustomAgent):
                         original_goal=self._original_goal,
                         disable_user_prompts=self._disable_user_prompts,
                         cached_results=partial_results if partial_results else None,
+                        env_path=env_path,
                     )
 
                 # Execute plan

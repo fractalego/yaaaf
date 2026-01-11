@@ -93,6 +93,12 @@ class OrchestratorAgent(CustomAgent):
         Returns:
             String representation of final result
         """
+        # CRITICAL: Reset plan state at the start of each query to prevent stale plan reuse
+        # This ensures each query generates a fresh plan, even if orchestrator instance is reused
+        _logger.info(f"Starting new query (stream_id={stream_id}), resetting plan state...")
+        self.current_plan = None
+        self.plan_executor = None
+
         # Step 1: Extract goal and target artifact type
         goal_info = await self._extract_goal_and_type(messages)
         _logger.info(
@@ -118,7 +124,11 @@ class OrchestratorAgent(CustomAgent):
         for attempt in range(self._max_replan_attempts):
             try:
                 # Generate or regenerate plan
+                _logger.info(f"Attempt {attempt + 1}/{self._max_replan_attempts}: current_plan={bool(self.current_plan)}, last_error={bool(last_error)}, plan_executor={bool(self.plan_executor)}")
+
+                # ALWAYS generate plan if we don't have one or there was an error
                 if not self.current_plan or last_error:
+                    _logger.info(">>> GENERATING NEW PLAN via PlannerAgent (this MUST complete before any agent executes)...")
                     self.current_plan = await self._generate_plan(
                         goal=goal_info["goal"],
                         target_type=goal_info["artifact_type"],
@@ -126,6 +136,7 @@ class OrchestratorAgent(CustomAgent):
                         error_context=last_error,
                         partial_results=partial_results,
                     )
+                    _logger.info(f">>> PLAN GENERATION COMPLETE. Plan:\n{self.current_plan[:500]}...")
 
                     # Store plan as artifact
                     plan_artifact = PlanArtifact(
@@ -150,6 +161,7 @@ class OrchestratorAgent(CustomAgent):
 
                     # Create new executor with notes for streaming and status updates
                     # Pass partial_results as cached_results to reuse successfully completed assets
+                    _logger.info(">>> CREATING WorkflowExecutor...")
                     self.plan_executor = WorkflowExecutor(
                         yaml_plan=self.current_plan,
                         agents=self.agents,
@@ -163,8 +175,14 @@ class OrchestratorAgent(CustomAgent):
                         env_path=env_path,
                         working_dir=working_dir,
                     )
+                    _logger.info(">>> WorkflowExecutor created, ready to execute plan")
+
+                # Safety check: ensure we have a plan executor before executing
+                if not self.plan_executor:
+                    raise ValueError("CRITICAL: No plan executor available - this should never happen!")
 
                 # Execute plan
+                _logger.info(">>> STARTING PLAN EXECUTION (agents will now be invoked)...")
                 result = await self.plan_executor.execute(messages)
 
                 # Verify result matches expected type

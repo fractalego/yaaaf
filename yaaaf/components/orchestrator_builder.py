@@ -452,6 +452,12 @@ class OrchestratorBuilder:
                     client=agent_client,
                     skip_safety_check=self.config.skip_bash_safety_check,
                 )
+            elif agent_name == "code_edit":
+                # CodeEditAgent can optionally allow overwriting files
+                return self._agents_map[agent_name](
+                    client=agent_client,
+                    allow_overwrite=self.config.allow_code_edit_overwrite,
+                )
             else:
                 return self._agents_map[agent_name](client=agent_client)
         return None

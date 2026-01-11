@@ -264,14 +264,15 @@ class CodeEditExecutor(ToolExecutor):
             return None, f"Error reading file: {str(e)}"
 
     def _create_file(self, file_path: str, params: Dict[str, str]) -> Tuple[Any, Optional[str]]:
-        """Create a new file with content."""
+        """Create a new file with content (or overwrite if allow_overwrite=True)."""
         content = params.get('content', '')
 
         if not content:
             return None, "No content specified for file creation"
 
         # Check if file already exists
-        if os.path.exists(file_path):
+        file_existed = os.path.exists(file_path)
+        if file_existed and not self._allow_overwrite:
             return None, f"File already exists: {file_path}. Use str_replace to modify it."
 
         try:
@@ -284,7 +285,8 @@ class CodeEditExecutor(ToolExecutor):
                 f.write(content)
 
             line_count = content.count('\n') + 1
-            result = f"Created file: {file_path}\n"
+            action = "Overwrote" if file_existed else "Created"
+            result = f"{action} file: {file_path}\n"
             result += f"Lines written: {line_count}\n"
             result += f"Size: {len(content)} bytes"
 

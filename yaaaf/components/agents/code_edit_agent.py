@@ -21,15 +21,17 @@ class CodeEditAgent(ToolBasedAgent):
     - str_replace: Replace exact strings in files
     """
 
-    def __init__(self, client: BaseClient, allowed_directories: list[str] | None = None):
+    def __init__(self, client: BaseClient, allowed_directories: list[str] | None = None, allow_overwrite: bool = True):
         """Initialize code edit agent.
 
         Args:
             client: The LLM client to use
             allowed_directories: List of directories where editing is allowed.
                                 If None, defaults to current working directory.
+            allow_overwrite: If True, the 'create' operation can overwrite existing files.
+                            Defaults to True for convenience.
         """
-        super().__init__(client, CodeEditExecutor(allowed_directories))
+        super().__init__(client, CodeEditExecutor(allowed_directories, allow_overwrite=allow_overwrite))
 
         # Select prompt based on the model being used
         model_name = getattr(client, 'model', '') or ''

@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     disable_user_prompts: bool = False  # If True, skip user prompts on validation failure and replan instead
     skip_bash_safety_check: bool = False  # If True, allow all bash commands without safety filtering
     max_replan_attempts: int = 3  # Maximum number of replan attempts before giving up
+    allow_code_edit_overwrite: bool = True  # If True, code_edit 'create' can overwrite existing files
 
 
 def _get_simple_config() -> Settings:

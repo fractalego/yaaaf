@@ -889,14 +889,19 @@ WORKFLOW STEP DESCRIPTION:
 
 EXPECTED ARTIFACT TYPE: {expected_type}
 
-ARTIFACT CONTENT:
+INPUT ARTIFACTS (what was provided to this step):
+{input_context}
+
+OUTPUT ARTIFACT (what this step produced):
 {artifact_content}
 
 Evaluate the artifact by answering these questions:
-1. Does this artifact help achieve the user's original goal?
+1. Does this step's output appropriately build upon its inputs?
 2. Does it match what the step description promised to produce?
-3. Is the data reasonable, complete, and useful?
-4. Are there any obvious errors or problems?
+3. Is this step's contribution to the overall workflow reasonable? (Note: this step may be just one part of a larger workflow)
+4. Are there any obvious errors or problems in the output?
+
+IMPORTANT: Consider this step's role in the workflow. It may not directly solve the user's original goal - it may be a building block. Validate whether it correctly does what THIS STEP was supposed to do, given its inputs.
 
 Based on your evaluation, provide a JSON response with EXACTLY this structure:
 ```json
@@ -910,7 +915,7 @@ Based on your evaluation, provide a JSON response with EXACTLY this structure:
 ```
 
 Confidence scale:
-- 0.9-1.0: Perfect, exactly what was needed
+- 0.9-1.0: Perfect, exactly what was needed for this step
 - 0.7-0.9: Good, minor issues but usable
 - 0.5-0.7: Acceptable but has notable problems
 - 0.3-0.5: Problematic, should try a different approach

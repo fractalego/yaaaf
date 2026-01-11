@@ -39,6 +39,7 @@ class ValidationAgent(CustomAgent):
         step_description: str,
         expected_type: str,
         asset_name: str = None,
+        input_context: str = None,
     ) -> ValidationResult:
         """Validate an artifact against expectations.
 
@@ -48,6 +49,7 @@ class ValidationAgent(CustomAgent):
             step_description: What this step was supposed to do
             expected_type: Expected artifact type
             asset_name: Name of the asset being validated
+            input_context: Summary of input artifacts that were fed into this step
 
         Returns:
             ValidationResult with confidence and recommendations
@@ -55,12 +57,13 @@ class ValidationAgent(CustomAgent):
         # Inspect the artifact
         artifact_content = inspect_artifact(artifact)
 
-        # Build the prompt
+        # Build the prompt with input context if available
         prompt = validation_agent_prompt_template.complete(
             user_goal=user_goal,
             step_description=step_description,
             expected_type=expected_type,
             artifact_content=artifact_content,
+            input_context=input_context or "No input artifacts (this is a source step)",
         )
 
         # Query the LLM
@@ -86,6 +89,7 @@ class ValidationAgent(CustomAgent):
         step_description: str,
         expected_type: str,
         asset_name: str = None,
+        input_artifacts: dict = None,
     ) -> ValidationResult:
         """Validate an artifact from an agent result string.
 
@@ -95,6 +99,7 @@ class ValidationAgent(CustomAgent):
             step_description: What this step was supposed to do
             expected_type: Expected artifact type
             asset_name: Name of the asset being validated
+            input_artifacts: Dict of input asset names to their result strings
 
         Returns:
             ValidationResult with confidence and recommendations
@@ -110,6 +115,30 @@ class ValidationAgent(CustomAgent):
 
         artifact_id = match.group(1)
 
+        # Build input context from input artifacts
+        input_context = None
+        if input_artifacts:
+            context_parts = []
+            for input_name, input_result in input_artifacts.items():
+                # Extract artifact content from input result
+                input_match = re.search(r"<artefact[^>]*>([^<]+)</artefact>", input_result)
+                if input_match:
+                    input_artifact_id = input_match.group(1)
+                    try:
+                        input_artifact = self._storage.retrieve_from_id(input_artifact_id)
+                        input_content = inspect_artifact(input_artifact)
+                        # Truncate long content
+                        if len(input_content) > 500:
+                            input_content = input_content[:500] + "..."
+                        context_parts.append(f"Input '{input_name}':\n{input_content}")
+                    except Exception as e:
+                        context_parts.append(f"Input '{input_name}': (could not retrieve: {e})")
+                else:
+                    # No artifact wrapper, use raw content (truncated)
+                    truncated = input_result[:500] + "..." if len(input_result) > 500 else input_result
+                    context_parts.append(f"Input '{input_name}':\n{truncated}")
+            input_context = "\n\n".join(context_parts)
+
         try:
             artifact = self._storage.retrieve_from_id(artifact_id)
             return await self.validate(
@@ -118,6 +147,7 @@ class ValidationAgent(CustomAgent):
                 step_description=step_description,
                 expected_type=expected_type,
                 asset_name=asset_name,
+                input_context=input_context,
             )
         except Exception as e:
             _logger.error(f"Failed to retrieve artifact {artifact_id}: {e}")

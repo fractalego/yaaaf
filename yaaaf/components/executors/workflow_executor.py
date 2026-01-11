@@ -267,6 +267,7 @@ class WorkflowExecutor:
                         asset_name=asset_name,
                         result_string=result_string,
                         asset_config=asset_config,
+                        inputs=inputs,  # Pass input artifacts for context
                     )
 
                     if not validation_result.is_valid:
@@ -607,7 +608,7 @@ class WorkflowExecutor:
         return self.asset_results.copy()
 
     async def _validate_artifact(
-        self, asset_name: str, result_string: str, asset_config: Dict
+        self, asset_name: str, result_string: str, asset_config: Dict, inputs: Dict[str, str] = None
     ) -> ValidationResult:
         """Validate an artifact produced by an agent.
 
@@ -615,6 +616,7 @@ class WorkflowExecutor:
             asset_name: Name of the asset being validated
             result_string: Agent result string containing artifact
             asset_config: Asset configuration from the plan
+            inputs: Dict of input asset names to their result strings (context for validation)
 
         Returns:
             ValidationResult with validation status and recommendations
@@ -626,7 +628,7 @@ class WorkflowExecutor:
         step_description = asset_config.get("description", f"Execute {asset_name}")
         expected_type = asset_config.get("type", "TEXT")
 
-        _logger.info(f"Validating artifact for asset '{asset_name}'")
+        _logger.info(f"Validating artifact for asset '{asset_name}' with {len(inputs) if inputs else 0} input artifacts")
 
         try:
             result = await self._validation_agent.validate_from_result_string(
@@ -635,6 +637,7 @@ class WorkflowExecutor:
                 step_description=step_description,
                 expected_type=expected_type,
                 asset_name=asset_name,
+                input_artifacts=inputs,
             )
 
             _logger.info(

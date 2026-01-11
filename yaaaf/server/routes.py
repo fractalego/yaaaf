@@ -731,10 +731,11 @@ async def stream_utterances(arguments: NewUtteranceArguments):
                         yield f"data: {json.dumps(note_data)}\n\n"
 
                         # Check for completion or paused state AFTER sending the message
-                        # Only end stream when ORCHESTRATOR completes (not individual agents)
+                        # End stream when ORCHESTRATOR or SYSTEM (error) sends completion
                         agent_name = getattr(note, "agent_name", "") or ""
-                        is_orchestrator = agent_name.lower() == "orchestrator"
-                        if is_orchestrator and (
+                        agent_lower = agent_name.lower()
+                        is_terminal_agent = agent_lower in ("orchestrator", "system")
+                        if is_terminal_agent and (
                             "<taskcompleted/>" in note.message.lower()
                             or "<taskpaused/>" in note.message.lower()
                         ):

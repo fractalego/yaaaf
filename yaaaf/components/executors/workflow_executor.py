@@ -271,6 +271,11 @@ class WorkflowExecutor:
                         artifact_preview = result_string[:1000] + "..." if len(result_string) > 1000 else result_string
                         _logger.warning(f"Validation failed artifact content for {asset_name}:\n{artifact_preview}")
 
+                        # IMPORTANT: Remove the failed asset from results before replanning
+                        # Otherwise the invalid result gets cached and reused!
+                        valid_results = {k: v for k, v in self.asset_results.items() if k != asset_name}
+                        _logger.info(f"Excluding failed asset '{asset_name}' from cached results for replan")
+
                         if validation_result.should_ask_user:
                             if self._disable_user_prompts:
                                 # User prompts disabled - go straight to replanning
@@ -278,7 +283,7 @@ class WorkflowExecutor:
                                     f"Validation failed for {asset_name}, user prompts disabled, replanning: {validation_result.reason}"
                                 )
                                 raise ReplanRequiredException(
-                                    validation_result, self.asset_results.copy()
+                                    validation_result, valid_results
                                 )
                             else:
                                 # Need user decision
@@ -286,7 +291,7 @@ class WorkflowExecutor:
                                     f"Validation failed for {asset_name}, asking user: {validation_result.reason}"
                                 )
                                 raise UserDecisionRequiredException(
-                                    validation_result, self.asset_results.copy()
+                                    validation_result, valid_results
                                 )
                         elif validation_result.should_replan:
                             # Trigger replanning
@@ -294,7 +299,7 @@ class WorkflowExecutor:
                                 f"Validation failed for {asset_name}, replanning: {validation_result.reason}"
                             )
                             raise ReplanRequiredException(
-                                validation_result, self.asset_results.copy()
+                                validation_result, valid_results
                             )
                         else:
                             # Low confidence but not low enough to ask user

@@ -5,6 +5,7 @@ from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaaf.components.data_types import Note
 from yaaaf.components.safety_filter import SafetyFilter
 from yaaaf.components.client import OllamaConnectionError, OllamaResponseError
+from yaaaf.components.exceptions import PlanExecutionError
 from yaaaf.components.executors.paused_execution import (
     PausedExecutionException,
     PausedExecutionState,
@@ -182,6 +183,30 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent, env_p
         _logger.error(f"Accessories: Ollama response error for stream {stream_id}: {e}")
 
         # Create user-friendly error note for frontend
+        error_note = Note(
+            message=error_message,
+            artefact_id=None,
+            agent_name="system",
+            model_name=None,
+        )
+        if stream_id in _stream_id_to_messages:
+            _stream_id_to_messages[stream_id].append(error_note)
+
+        # Mark stream as completed
+        if stream_id in _stream_id_to_status:
+            _stream_id_to_status[stream_id].is_active = False
+            _stream_id_to_status[stream_id].current_agent = ""
+
+    except PlanExecutionError as e:
+        # Use the structured failure information for clear error messages
+        error_message = e.failure.get_user_message()
+        _logger.warning(
+            f"Accessories: Plan execution failed for stream {stream_id}: "
+            f"mode={e.failure.mode.value}, attempts={e.failure.attempts}, "
+            f"asset={e.failure.asset_name}, error={e.failure.last_error}"
+        )
+
+        # Store error message in notes for frontend
         error_note = Note(
             message=error_message,
             artefact_id=None,

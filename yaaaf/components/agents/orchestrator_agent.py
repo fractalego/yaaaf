@@ -17,6 +17,7 @@ from yaaaf.components.executors.workflow_executor import (
     UserDecisionRequiredException,
 )
 from yaaaf.components.executors.paused_execution import PausedExecutionException
+from yaaaf.components.exceptions import PlanExecutionError, FailureMode
 from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.client import BaseClient
 
@@ -109,6 +110,8 @@ class OrchestratorAgent(CustomAgent):
         # Step 2: Execute with replanning on failure
         last_error = None
         partial_results = {}
+        failure_mode = FailureMode.UNEXPECTED_ERROR  # Default, will be set by exception handlers
+        failed_asset_name = None  # Track which asset failed for better error messages
 
         for attempt in range(self._max_replan_attempts):
             try:
@@ -207,6 +210,10 @@ class OrchestratorAgent(CustomAgent):
                     f"reason={e.validation_result.reason}"
                 )
 
+                # Track failure mode for final exception
+                failure_mode = FailureMode.VALIDATION_FAILED
+                failed_asset_name = e.validation_result.asset_name
+
                 # Include suggested fix in error context for better replanning
                 if e.validation_result.suggested_fix:
                     last_error = (
@@ -240,6 +247,10 @@ class OrchestratorAgent(CustomAgent):
                     f"{e.validation_result.reason}"
                 )
 
+                # Track failure mode for final exception
+                failure_mode = FailureMode.USER_DECISION_REQUIRED
+                failed_asset_name = e.validation_result.asset_name
+
                 # Add note requesting user decision
                 if notes is not None:
                     from yaaaf.components.data_types import Note
@@ -265,6 +276,11 @@ class OrchestratorAgent(CustomAgent):
 
             except (ValidationError, ConditionError) as e:
                 _logger.warning(f"Plan execution failed (attempt {attempt + 1}): {e}")
+                # Track failure mode based on exception type
+                if isinstance(e, ConditionError):
+                    failure_mode = FailureMode.CONDITION_FAILED
+                else:
+                    failure_mode = FailureMode.PLAN_EXECUTION_FAILED
                 last_error = str(e)
                 partial_results = (
                     self.plan_executor.get_completed_assets()
@@ -275,6 +291,7 @@ class OrchestratorAgent(CustomAgent):
 
             except Exception as e:
                 _logger.error(f"Unexpected error in plan execution: {e}")
+                failure_mode = FailureMode.UNEXPECTED_ERROR
                 last_error = f"Unexpected error: {str(e)}"
                 partial_results = (
                     self.plan_executor.get_completed_assets()
@@ -283,10 +300,39 @@ class OrchestratorAgent(CustomAgent):
                 )
                 self.current_plan = None
 
-        # All attempts failed
-        raise RuntimeError(
-            f"Failed to execute plan after {self._max_replan_attempts} attempts. Last error: {last_error}"
-        )
+        # All attempts failed - raise structured exception based on failure mode
+        if failure_mode == FailureMode.VALIDATION_FAILED:
+            raise PlanExecutionError.validation_failed(
+                attempts=self._max_replan_attempts,
+                last_error=last_error,
+                asset_name=failed_asset_name,
+                partial_results=partial_results,
+            )
+        elif failure_mode == FailureMode.USER_DECISION_REQUIRED:
+            raise PlanExecutionError.user_decision_required(
+                attempts=self._max_replan_attempts,
+                last_error=last_error,
+                asset_name=failed_asset_name,
+                partial_results=partial_results,
+            )
+        elif failure_mode == FailureMode.CONDITION_FAILED:
+            raise PlanExecutionError.condition_failed(
+                attempts=self._max_replan_attempts,
+                last_error=last_error,
+                partial_results=partial_results,
+            )
+        elif failure_mode == FailureMode.UNEXPECTED_ERROR:
+            raise PlanExecutionError.unexpected_error(
+                attempts=self._max_replan_attempts,
+                last_error=last_error,
+                partial_results=partial_results,
+            )
+        else:
+            raise PlanExecutionError.plan_failed(
+                attempts=self._max_replan_attempts,
+                last_error=last_error,
+                partial_results=partial_results,
+            )
 
     async def _extract_goal_and_type(self, messages: Messages) -> Dict[str, str]:
         """Extract goal and target artifact type from messages."""

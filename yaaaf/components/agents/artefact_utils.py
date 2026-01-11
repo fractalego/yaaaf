@@ -171,9 +171,9 @@ def _generate_artifact_list(artefact_list: List[Artefact], max_table_rows: int =
             try:
                 df = artifact.data
                 if len(df) > max_table_rows:
-                    content = f"Table ({len(df)} rows, showing first {max_table_rows}):\n"
+                    content = f"⚠️ TABLE TRUNCATED: Showing {max_table_rows} of {len(df)} total rows.\n"
                     content += df.head(max_table_rows).to_markdown(index=False)
-                    content += f"\n... ({len(df) - max_table_rows} more rows)"
+                    content += f"\n⚠️ {len(df) - max_table_rows} rows not shown. The full data exists but is too large to display here."
                 else:
                     content = df.to_markdown(index=False)
             except Exception as e:
@@ -183,8 +183,10 @@ def _generate_artifact_list(artefact_list: List[Artefact], max_table_rows: int =
         elif artifact.code:
             # For text/code artifacts - truncate if too long
             code = artifact.code
-            if len(code) > 2000:
-                content = f"{code[:2000]}...\n(truncated, {len(code)} chars total)"
+            if len(code) > 10000:
+                content = f"⚠️ TEXT TRUNCATED: Showing first 10000 of {len(code)} total characters.\n"
+                content += code[:10000]
+                content += f"\n⚠️ Content truncated. The full text exists but is too large to display here."
             else:
                 content = code
         else:

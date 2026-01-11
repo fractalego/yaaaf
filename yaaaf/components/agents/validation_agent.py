@@ -5,7 +5,7 @@ import logging
 import re
 
 from yaaaf.components.agents.base_agent import CustomAgent
-from yaaaf.components.agents.prompts import validation_agent_prompt_template
+from yaaaf.components.agents.prompts import validation_agent_prompt_template, get_validation_prompt_for_agent
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.validators.validation_result import ValidationResult
@@ -40,6 +40,7 @@ class ValidationAgent(CustomAgent):
         expected_type: str,
         asset_name: str = None,
         input_context: str = None,
+        agent_name: str = None,
     ) -> ValidationResult:
         """Validate an artifact against expectations.
 
@@ -50,6 +51,7 @@ class ValidationAgent(CustomAgent):
             expected_type: Expected artifact type
             asset_name: Name of the asset being validated
             input_context: Summary of input artifacts that were fed into this step
+            agent_name: Name of the agent that produced this artifact (for specialized prompts)
 
         Returns:
             ValidationResult with confidence and recommendations
@@ -58,8 +60,11 @@ class ValidationAgent(CustomAgent):
         artifact_content = inspect_artifact(artifact)
         _logger.debug(f"Validation artifact content preview (first 500 chars): {artifact_content[:500] if artifact_content else 'EMPTY'}")
 
+        # Get the appropriate prompt template for this agent
+        prompt_template = get_validation_prompt_for_agent(agent_name)
+
         # Build the prompt with input context if available
-        prompt = validation_agent_prompt_template.complete(
+        prompt = prompt_template.complete(
             user_goal=user_goal,
             step_description=step_description,
             expected_type=expected_type,
@@ -91,6 +96,7 @@ class ValidationAgent(CustomAgent):
         expected_type: str,
         asset_name: str = None,
         input_artifacts: dict = None,
+        agent_name: str = None,
     ) -> ValidationResult:
         """Validate an artifact from an agent result string.
 
@@ -101,6 +107,7 @@ class ValidationAgent(CustomAgent):
             expected_type: Expected artifact type
             asset_name: Name of the asset being validated
             input_artifacts: Dict of input asset names to their result strings
+            agent_name: Name of the agent that produced this artifact (for specialized prompts)
 
         Returns:
             ValidationResult with confidence and recommendations
@@ -152,6 +159,7 @@ class ValidationAgent(CustomAgent):
                 expected_type=expected_type,
                 asset_name=asset_name,
                 input_context=input_context,
+                agent_name=agent_name,
             )
         except Exception as e:
             _logger.error(f"Failed to retrieve artifact {artifact_id}: {e}")

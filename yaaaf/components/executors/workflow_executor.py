@@ -627,8 +627,9 @@ class WorkflowExecutor:
 
         step_description = asset_config.get("description", f"Execute {asset_name}")
         expected_type = asset_config.get("type", "TEXT")
+        agent_name = asset_config.get("agent", "unknown")
 
-        _logger.info(f"Validating artifact for asset '{asset_name}' with {len(inputs) if inputs else 0} input artifacts")
+        _logger.info(f"Validating artifact for asset '{asset_name}' (agent={agent_name}) with {len(inputs) if inputs else 0} input artifacts")
 
         try:
             result = await self._validation_agent.validate_from_result_string(
@@ -638,6 +639,7 @@ class WorkflowExecutor:
                 expected_type=expected_type,
                 asset_name=asset_name,
                 input_artifacts=inputs,
+                agent_name=agent_name,
             )
 
             _logger.info(

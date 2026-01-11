@@ -886,8 +886,8 @@ def get_code_edit_prompt_for_model(model_name: str) -> PromptTemplate:
     return code_edit_agent_prompt_template
 
 
-validation_agent_prompt_template = PromptTemplate(
-    prompt="""You are a validation agent. Your job is to evaluate whether an artifact produced by a workflow step matches what was expected.
+code_edit_validation_prompt_template = PromptTemplate(
+    prompt="""You are a validation agent specialized for code editing operations.
 
 ORIGINAL USER GOAL:
 {user_goal}
@@ -903,13 +903,75 @@ INPUT ARTIFACTS (what was provided to this step):
 OUTPUT ARTIFACT (what this step produced):
 {artifact_content}
 
-Evaluate the artifact by answering these questions:
-1. Does this step's output appropriately build upon its inputs?
-2. Does it match what the step description promised to produce?
-3. Is this step's contribution to the overall workflow reasonable? (Note: this step may be just one part of a larger workflow)
-4. Are there any obvious errors or problems in the output?
+VALIDATION RULES FOR CODE EDIT OPERATIONS:
 
-IMPORTANT: Consider this step's role in the workflow. It may not directly solve the user's original goal - it may be a building block. Validate whether it correctly does what THIS STEP was supposed to do, given its inputs.
+1. ACCEPT if the output shows ANY of these:
+   - "str_replace operation completed successfully" - code was modified
+   - "File:" with "BEFORE" and "AFTER" sections - changes were made
+   - "Created file:" or "Overwrote file:" - file was created/updated
+   - File content was viewed (for view operations)
+
+2. ACCEPT if the agent did MORE than asked:
+   - Step said "view file" but agent also fixed bugs - VALID
+   - Step said "find issue" but agent also applied fix - VALID
+   - Any additional helpful work beyond minimum - VALID
+
+3. REJECT only if:
+   - Output contains "ERROR:" or "not found" indicating failure
+   - Output shows the operation completely failed
+   - No meaningful output was produced at all
+
+Based on your evaluation, provide a JSON response:
+```json
+{{
+  "is_valid": true or false,
+  "confidence": 0.0 to 1.0,
+  "reason": "Brief explanation",
+  "should_ask_user": false,
+  "suggested_fix": null
+}}
+```
+
+Be LENIENT - if code changes were made successfully, mark as valid.
+Output ONLY the JSON block, no other text.
+    """
+)
+
+
+validation_agent_prompt_template = PromptTemplate(
+    prompt="""You are a validation agent. Your job is to evaluate whether an artifact produced by a workflow step achieves AT MINIMUM what was expected.
+
+ORIGINAL USER GOAL:
+{user_goal}
+
+WORKFLOW STEP DESCRIPTION:
+{step_description}
+
+EXPECTED ARTIFACT TYPE: {expected_type}
+
+INPUT ARTIFACTS (what was provided to this step):
+{input_context}
+
+OUTPUT ARTIFACT (what this step produced):
+{artifact_content}
+
+CRITICAL VALIDATION PRINCIPLE:
+Doing MORE than requested is ALWAYS acceptable. If the step description says "view file" but the agent also modified it, that's FINE - it exceeded expectations. Only reject if the MINIMUM requirements were NOT met.
+
+Evaluate the artifact by answering these questions:
+1. Did this step accomplish AT LEAST what it was supposed to do? (More is fine!)
+2. Does the output appropriately build upon its inputs?
+3. Are there any obvious errors or failures in the output?
+
+ACCEPT if:
+- The step did what was asked, even if it also did more
+- A "view" step that also made edits - VALID (exceeds expectations)
+- A step that accomplished the goal through a different but valid approach
+
+REJECT only if:
+- The step completely failed to accomplish its minimum goal
+- There are clear errors or exceptions in the output
+- The output is completely unrelated to what was asked
 
 Based on your evaluation, provide a JSON response with EXACTLY this structure:
 ```json
@@ -923,17 +985,38 @@ Based on your evaluation, provide a JSON response with EXACTLY this structure:
 ```
 
 Confidence scale:
-- 0.9-1.0: Perfect, exactly what was needed for this step
-- 0.7-0.9: Good, minor issues but usable
-- 0.5-0.7: Acceptable but has notable problems
-- 0.3-0.5: Problematic, should try a different approach
-- 0.0-0.3: Completely wrong, need user guidance
+- 0.9-1.0: Accomplished the goal (possibly exceeded it)
+- 0.7-0.9: Good, minor issues but goal achieved
+- 0.5-0.7: Acceptable, goal partially achieved
+- 0.3-0.5: Problematic, goal mostly not achieved
+- 0.0-0.3: Failed, goal not achieved at all
 
 Set should_ask_user=true ONLY if:
 - The result is completely unexpected and you cannot suggest a fix
 - The user's intent is ambiguous
-- Multiple valid interpretations exist
 
 Output ONLY the JSON block, no other text.
     """
 )
+
+
+def get_validation_prompt_for_agent(agent_name: str) -> PromptTemplate:
+    """Get the appropriate validation prompt template for a given agent.
+
+    Args:
+        agent_name: Name of the agent that produced the artifact
+
+    Returns:
+        PromptTemplate for validation
+    """
+    if agent_name is None:
+        return validation_agent_prompt_template
+
+    agent_lower = agent_name.lower()
+
+    # Specialized prompts for specific agents
+    if "code_edit" in agent_lower or "codeedit" in agent_lower:
+        return code_edit_validation_prompt_template
+
+    # Default prompt for all other agents
+    return validation_agent_prompt_template

@@ -21,15 +21,18 @@ class CodeEditExecutor(ToolExecutor):
     This executor mimics the str_replace_editor tool used in SWE-bench.
     """
 
-    def __init__(self, allowed_directories: Optional[list[str]] = None):
+    def __init__(self, allowed_directories: Optional[list[str]] = None, allow_overwrite: bool = True):
         """Initialize code edit executor.
 
         Args:
             allowed_directories: List of directories where editing is allowed.
                                 If None, defaults to current working directory.
+            allow_overwrite: If True, the 'create' operation can overwrite existing files.
+                            Defaults to True for convenience. Set to False for safer behavior.
         """
         self._storage = ArtefactStorage()
         self._allowed_directories = allowed_directories or [os.getcwd()]
+        self._allow_overwrite = allow_overwrite
 
     def _is_path_allowed(self, file_path: str) -> bool:
         """Check if the file path is within allowed directories."""
@@ -319,6 +322,26 @@ class CodeEditExecutor(ToolExecutor):
         if not old_str:
             return None, "No old_str specified for replacement"
 
+        # Check for empty/malformed new_str - likely due to token limit truncation
+        if not new_str or not new_str.strip():
+            return None, (
+                "ERROR: new_str is EMPTY. Your response was likely TRUNCATED due to token limits.\n\n"
+                "To fix this, BE MORE CONCISE:\n"
+                "1. Use SMALLER old_str - only include the specific lines you need to change, not entire functions\n"
+                "2. Do NOT include line numbers in old_str or new_str\n"
+                "3. Make one small, focused change at a time\n"
+                "4. If you need to change multiple parts, do them in separate str_replace operations\n\n"
+                "Example of a CONCISE replacement:\n"
+                "```code_edit\n"
+                "operation: str_replace\n"
+                "path: /path/to/file.py\n"
+                "old_str:\n"
+                "    return old_value\n"
+                "new_str:\n"
+                "    return new_value\n"
+                "```"
+            )
+
         if not os.path.exists(file_path):
             return None, f"File not found: {file_path}"
 
@@ -331,6 +354,17 @@ class CodeEditExecutor(ToolExecutor):
             # Check if old_str contains line numbers - if so, use line-based replacement
             old_numbered = self._parse_numbered_lines(old_str)
             new_numbered = self._parse_numbered_lines(new_str)
+
+            # If old_str has line numbers but new_str doesn't, strip line numbers from old_str
+            # This handles the common case where the model copies line numbers from view output
+            if old_numbered and not new_numbered:
+                _logger.info("Detected line numbers in old_str but not new_str - stripping line numbers from old_str")
+                # Reconstruct old_str without line numbers
+                sorted_lines = sorted(old_numbered.keys())
+                old_str = '\n'.join(old_numbered[ln] for ln in sorted_lines)
+                _logger.info(f"Stripped old_str (first 200 chars): {old_str[:200]}...")
+                # Re-check for numbered lines (should be None now)
+                old_numbered = None
 
             if old_numbered and new_numbered:
                 # Line-number based replacement - replace the RANGE of old lines with new lines

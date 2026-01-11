@@ -33,17 +33,28 @@ class CodeEditExecutor(ToolExecutor):
 
     def _is_path_allowed(self, file_path: str) -> bool:
         """Check if the file path is within allowed directories."""
+        return self._is_path_allowed_in(file_path, self._allowed_directories)
+
+    def _is_path_allowed_in(self, file_path: str, allowed_dirs: list) -> bool:
+        """Check if the file path is within any of the specified directories."""
         abs_path = os.path.abspath(file_path)
-        for allowed_dir in self._allowed_directories:
-            abs_allowed = os.path.abspath(allowed_dir)
-            if abs_path.startswith(abs_allowed):
-                return True
+        for allowed_dir in allowed_dirs:
+            if allowed_dir:
+                abs_allowed = os.path.abspath(allowed_dir)
+                if abs_path.startswith(abs_allowed):
+                    return True
         return False
 
     async def prepare_context(self, messages: Messages, notes: Optional[list[Note]] = None) -> Dict[str, Any]:
-        """Prepare context for code editing with artifact resolution."""
+        """Prepare context for code editing with artifact resolution.
+
+        Note: working_dir is set by base_agent from the working_dir parameter passed to query().
+        If not set, defaults to os.getcwd().
+        """
         context = await super().prepare_context(messages, notes)
-        context["working_dir"] = os.getcwd()
+        # working_dir may be overridden by base_agent if passed to query()
+        if "working_dir" not in context:
+            context["working_dir"] = os.getcwd()
         context["allowed_directories"] = self._allowed_directories
         return context
 
@@ -186,11 +197,14 @@ class CodeEditExecutor(ToolExecutor):
 
             # Resolve path relative to working directory if not absolute
             if not os.path.isabs(file_path):
-                file_path = os.path.join(context.get("working_dir", os.getcwd()), file_path)
+                working_dir = context.get("working_dir", os.getcwd())
+                _logger.info(f"Resolving relative path '{file_path}' against working_dir: {working_dir}")
+                file_path = os.path.join(working_dir, file_path)
 
-            # Security check
-            if not self._is_path_allowed(file_path):
-                working_dir = context.get("working_dir", self._allowed_directories[0])
+            # Security check - allow paths within working_dir OR allowed_directories
+            working_dir = context.get("working_dir", self._allowed_directories[0] if self._allowed_directories else os.getcwd())
+            allowed_dirs = list(self._allowed_directories) + ([working_dir] if working_dir else [])
+            if not self._is_path_allowed_in(file_path, allowed_dirs):
                 return None, (
                     f"Path not allowed: {file_path}\n"
                     f"You MUST use paths starting with: {working_dir}\n"

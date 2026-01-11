@@ -65,7 +65,7 @@ class OrchestratorAgent(CustomAgent):
         if not self.planner:
             raise ValueError("PlannerAgent not found in available agents")
 
-    async def query(self, messages: Messages, notes=None, stream_id=None, env_path=None) -> str:
+    async def query(self, messages: Messages, notes=None, stream_id=None, env_path=None, working_dir=None) -> str:
         """Override query to accept stream_id parameter.
 
         Args:
@@ -73,13 +73,14 @@ class OrchestratorAgent(CustomAgent):
             notes: Optional notes (not used)
             stream_id: Stream ID for tracking and real-time updates
             env_path: Optional path to Python virtual environment for bash commands
+            working_dir: Optional working directory for file operations
 
         Returns:
             String representation of final result
         """
-        return await self._query_custom(messages, notes, stream_id, env_path)
+        return await self._query_custom(messages, notes, stream_id, env_path, working_dir)
 
-    async def _query_custom(self, messages: Messages, notes=None, stream_id=None, env_path=None) -> str:
+    async def _query_custom(self, messages: Messages, notes=None, stream_id=None, env_path=None, working_dir=None) -> str:
         """Process messages using plan-driven approach.
 
         Args:
@@ -87,6 +88,7 @@ class OrchestratorAgent(CustomAgent):
             notes: Optional notes (not used)
             stream_id: Stream ID for tracking and real-time updates
             env_path: Optional path to Python virtual environment for bash commands
+            working_dir: Optional working directory for file operations
 
         Returns:
             String representation of final result
@@ -159,6 +161,7 @@ class OrchestratorAgent(CustomAgent):
                         disable_user_prompts=self._disable_user_prompts,
                         cached_results=partial_results if partial_results else None,
                         env_path=env_path,
+                        working_dir=working_dir,
                     )
 
                 # Execute plan

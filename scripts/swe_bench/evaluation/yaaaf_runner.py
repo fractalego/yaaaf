@@ -231,8 +231,9 @@ Please try again with a corrected approach.
         # Build the prompt
         prompt = self.build_prompt(problem_statement, repo_path, hints, fail_to_pass, pass_to_pass)
 
-        # Store env_path for subsequent turns
+        # Store env_path and repo_path for subsequent turns
         self._env_path = env_path
+        self._working_dir = repo_path  # Use repo_path as working directory for file operations
 
         # Add to conversation history
         self._conversation_history.append({"role": "user", "content": prompt})
@@ -291,6 +292,9 @@ Please try again with a corrected approach.
             if hasattr(self, '_env_path') and self._env_path:
                 request_body["env_path"] = self._env_path
                 _logger.info(f"Using environment: {self._env_path}")
+            if hasattr(self, '_working_dir') and self._working_dir:
+                request_body["working_dir"] = self._working_dir
+                _logger.info(f"Using working directory: {self._working_dir}")
 
             create_resp = httpx.post(
                 f"{self.base_url}/create_stream",

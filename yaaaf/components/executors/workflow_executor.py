@@ -61,6 +61,7 @@ class WorkflowExecutor:
         disable_user_prompts: bool = False,
         cached_results: Optional[Dict[str, str]] = None,
         env_path: Optional[str] = None,
+        working_dir: Optional[str] = None,
     ):
         """Initialize workflow executor.
 
@@ -76,6 +77,7 @@ class WorkflowExecutor:
             cached_results: Optional dict of asset_name -> result_string from previous execution
                            Assets with cached results will be skipped (reused)
             env_path: Optional path to Python virtual environment for bash commands
+            working_dir: Optional working directory for file operations (code_edit)
         """
         self.yaml_plan = yaml_plan  # Store raw YAML for state persistence
         self.plan = yaml.safe_load(yaml_plan)
@@ -91,6 +93,7 @@ class WorkflowExecutor:
         self._original_goal = original_goal
         self._disable_user_prompts = disable_user_prompts
         self._env_path = env_path
+        self._working_dir = working_dir
         self._build_execution_graph()
 
     def _build_execution_graph(self):
@@ -213,7 +216,7 @@ class WorkflowExecutor:
                 # Execute agent
                 _logger.info(f"Calling agent '{agent_name}' for asset '{asset_name}'")
                 try:
-                    result = await agent.query(agent_messages, env_path=self._env_path)
+                    result = await agent.query(agent_messages, env_path=self._env_path, working_dir=self._working_dir)
                 except Exception as e:
                     _logger.error(f"Agent '{agent_name}' failed with exception: {e}")
                     raise
@@ -791,7 +794,7 @@ class WorkflowExecutor:
                 # Execute agent
                 _logger.info(f"Calling agent '{agent_name}' for resumed asset '{asset_name}'")
                 try:
-                    result = await agent.query(agent_messages, env_path=self._env_path)
+                    result = await agent.query(agent_messages, env_path=self._env_path, working_dir=self._working_dir)
                 except Exception as e:
                     _logger.error(f"Agent '{agent_name}' failed with exception: {e}")
                     raise

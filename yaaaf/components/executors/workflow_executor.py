@@ -706,11 +706,27 @@ class WorkflowExecutor:
         # The user has provided their answer, so we just use it directly
         _logger.info(f"Using user response directly: {user_response[:100]}")
 
-        # Format the user's response as the completed result with task completed tag
+        # Create a proper artifact for the user's response so downstream agents can extract it
+        # Include both the question and response for full context
         from yaaaf.components.agents.settings import task_completed_tag
-        final_result_string = f"User response: {user_response}\n\n{task_completed_tag}"
+        from yaaaf.components.agents.hash_utils import create_hash
 
-        _logger.info(f"User input completed with: {user_response}")
+        question = state.question_asked or "unknown question"
+        artifact_content = f'When queried "{question}" the user replied "{user_response}"'
+
+        artifact_id = create_hash(f"user_input_{artifact_content}")
+        user_artifact = Artefact(
+            id=artifact_id,
+            type="text",
+            code=artifact_content,
+            description="User input with question context"
+        )
+        self.artefact_storage.store_artefact(artifact_id, user_artifact)
+
+        # Format with proper artifact wrapper so downstream agents can extract it
+        final_result_string = f"User provided input: <artefact type='text'>{artifact_id}</artefact> {task_completed_tag}"
+
+        _logger.info(f"User input completed with artifact {artifact_id}: {user_response[:100]}")
 
         # Step 2: Restore completed assets and add the user input result
         self.asset_results = state.completed_assets.copy()
@@ -721,8 +737,8 @@ class WorkflowExecutor:
             from yaaaf.components.data_types import Note
 
             completion_note = Note(
-                message=f"✅ User provided input: {user_response}",
-                artefact_id=None,
+                message=f"✅ User provided input: {user_response[:200]}{'...' if len(user_response) > 200 else ''}",
+                artefact_id=artifact_id,
                 agent_name="workflow",
             )
             self._notes.append(completion_note)

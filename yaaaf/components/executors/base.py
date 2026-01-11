@@ -16,24 +16,27 @@ class ToolExecutor(ABC):
     like SQL queries, web searches, code execution, etc.
     """
 
-    @abstractmethod
     async def prepare_context(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> Dict[str, Any]:
-        """Prepare execution context.
+        """Prepare execution context with artifact resolution.
 
-        This method sets up any necessary context for the execution,
-        such as loading schemas, extracting artifacts, or setting up
-        environment variables.
+        Default implementation extracts and resolves artifacts from messages.
+        Subclasses can override to add additional context, calling super() first.
 
         Args:
             messages: The conversation messages
             notes: Optional list of notes containing artifacts
 
         Returns:
-            A dictionary containing the prepared context
+            A dictionary containing the prepared context with 'artifacts' key
         """
-        pass
+        artifacts = self.extract_artifacts_from_messages(messages, notes)
+        return {
+            "artifacts": artifacts,
+            "messages": messages,
+            "notes": notes or [],
+        }
 
     @abstractmethod
     def extract_instruction(self, response: str) -> Optional[str]:

@@ -23,11 +23,8 @@ class WebSearchExecutor(ToolExecutor):
     async def prepare_context(
         self, messages: Messages, notes: Optional[List[Note]] = None
     ) -> Dict[str, Any]:
-        """Prepare context for web search.
-
-        Web search doesn't need special context preparation.
-        """
-        return {}
+        """Prepare context for web search with artifact resolution."""
+        return await super().prepare_context(messages, notes)
 
     def extract_instruction(self, response: str) -> Optional[str]:
         """Extract search query from response.

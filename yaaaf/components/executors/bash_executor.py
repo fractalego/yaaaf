@@ -25,12 +25,10 @@ class BashExecutor(ToolExecutor):
         self._skip_safety_check = skip_safety_check
         
     async def prepare_context(self, messages: Messages, notes: Optional[list[Note]] = None) -> Dict[str, Any]:
-        """Prepare context for bash execution."""
-        return {
-            "messages": messages,
-            "notes": notes or [],
-            "working_dir": os.getcwd()
-        }
+        """Prepare context for bash execution with artifact resolution."""
+        context = await super().prepare_context(messages, notes)
+        context["working_dir"] = os.getcwd()
+        return context
 
     def extract_instruction(self, response: str) -> Optional[str]:
         """Extract bash command from response."""

@@ -3,7 +3,12 @@ from yaaaf.components.data_types import PromptTemplate
 
 sql_agent_prompt_template = PromptTemplate(
     prompt="""
-Your task is to write an SQL query according the schema below and the user's instructions
+Your task is to write an SQL query according the schema below and the user's instructions.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 <schema>
 {schema}
 </schema>
@@ -22,6 +27,11 @@ Only give one SQL instruction string per answer.
 visualization_agent_prompt_template_without_model = PromptTemplate(
     prompt="""
 Your task is to create a Python code that visualises a table as give in the instructions.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 The code needs to be written in python between the tags ```python ... ```
 The goal of the code is generating and image in matplotlib that explains the data.
 This image must be saved in a file named {filename}.
@@ -42,6 +52,11 @@ When you are done output the tag {task_completed_tag}.
 visualization_agent_prompt_template_with_model = PromptTemplate(
     prompt="""
 Your task is to create a Python code that visualises a table as give in the instructions.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 The code needs to be written in python between the tags ```python ... ```
 The goal of the code is generating and image in matplotlib that explains the data.
 This image must be saved in a file named {filename}.
@@ -72,7 +87,12 @@ When you are done output the tag {task_completed_tag}.
 
 document_retriever_agent_prompt_template = PromptTemplate(
     prompt="""
-Your task is to retrieve relevant information from document collections organized in folders. 
+Your task is to retrieve relevant information from document collections organized in folders.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 The available document sources with their descriptions are listed below.
 <folders>
 {folders}
@@ -194,6 +214,11 @@ When you are done output the tag {task_completed_tag}.
 duckduckgo_search_agent_prompt_template = PromptTemplate(
     prompt="""
 Your task is to search the web using DuckDuckGo and find the relevant information.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 The query needs to be written in python between the tags ```text ... ```
 The goal of this query is to find the relevant information in the web.
 DO NOT OUTPUT THE ANSWER YOURSELF. DO NOT WRITE CODE TO CALL THE API.
@@ -205,6 +230,11 @@ JUST OUTPUT THE QUERY BETWEEN THE TAGS.
 brave_search_agent_prompt_template = PromptTemplate(
     prompt="""
 Your task is to search the web using Brave Search and find the relevant information.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 The query needs to be written in python between the tags ```text ... ```
 The goal of this query is to find the relevant information in the web.
 DO NOT OUTPUT THE ANSWER YOURSELF. DO NOT WRITE CODE TO CALL THE API.
@@ -311,6 +341,10 @@ bash_agent_prompt_template = PromptTemplate(
 Your task is to create bash commands for filesystem operations based on the user's instructions.
 
 CURRENT WORKING DIRECTORY: {working_dir}
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
 
 You can help with:
 - Listing directory contents (ls, find)
@@ -609,6 +643,10 @@ Your task is to perform code editing operations on files. You can:
 2. CREATE new files with specified content
 3. STR_REPLACE to make precise string replacements in existing files
 
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 IMPORTANT RULES:
 - If the task asks you to FIX, MODIFY, CHANGE, or APPLY something, you MUST use STR_REPLACE
 - VIEW alone is NOT a fix - it only reads the file
@@ -737,6 +775,10 @@ IMPORTANT: Output {task_completed_tag} on the SAME response as your final operat
 code_edit_agent_prompt_template_devstral = PromptTemplate(
     prompt="""
 You are a CODE EDIT agent that FIXES BUGS. Your job is to MODIFY code, not just read it.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
 
 Available operations:
 1. VIEW - read file contents (do this ONCE to find the bug)

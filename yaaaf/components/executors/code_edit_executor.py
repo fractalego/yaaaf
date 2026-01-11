@@ -41,13 +41,11 @@ class CodeEditExecutor(ToolExecutor):
         return False
 
     async def prepare_context(self, messages: Messages, notes: Optional[list[Note]] = None) -> Dict[str, Any]:
-        """Prepare context for code editing."""
-        return {
-            "messages": messages,
-            "notes": notes or [],
-            "working_dir": os.getcwd(),
-            "allowed_directories": self._allowed_directories
-        }
+        """Prepare context for code editing with artifact resolution."""
+        context = await super().prepare_context(messages, notes)
+        context["working_dir"] = os.getcwd()
+        context["allowed_directories"] = self._allowed_directories
+        return context
 
     def extract_instruction(self, response: str) -> Optional[str]:
         """Extract code edit instruction from response.

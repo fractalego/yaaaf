@@ -149,29 +149,47 @@ def create_prompt_from_artefacts(
     )
 
 
-def _generate_artifact_list(artefact_list: List[Artefact]) -> str:
-    """Generate a formatted list of artifacts for inclusion in prompts."""
+def _generate_artifact_list(artefact_list: List[Artefact], max_table_rows: int = 20) -> str:
+    """Generate a formatted list of artifacts for inclusion in prompts.
+
+    Args:
+        artefact_list: List of artifacts to format
+        max_table_rows: Maximum rows to show for table artifacts (default: 20)
+
+    Returns:
+        Formatted string of artifacts
+    """
     if not artefact_list:
-        return ""
-    
+        return "No artifacts from previous steps."
+
     artifact_strings = []
     for artifact in artefact_list:
         content = ""
-        
+
         if artifact.type == Artefact.Types.TABLE and hasattr(artifact.data, 'to_markdown'):
-            # Convert DataFrame to markdown
+            # Convert DataFrame to markdown, truncated to max_table_rows
             try:
-                content = artifact.data.to_markdown(index=False)
+                df = artifact.data
+                if len(df) > max_table_rows:
+                    content = f"Table ({len(df)} rows, showing first {max_table_rows}):\n"
+                    content += df.head(max_table_rows).to_markdown(index=False)
+                    content += f"\n... ({len(df) - max_table_rows} more rows)"
+                else:
+                    content = df.to_markdown(index=False)
             except Exception as e:
                 content = f"Table artifact: {artifact.description or 'Unable to display table'}"
         elif artifact.type == Artefact.Types.IMAGE:
             content = f"Image artifact: {artifact.description or 'Image data'}"
         elif artifact.code:
-            # For artifacts with code (like models)
-            content = f"{artifact.type} artifact:\n{artifact.code[:500]}..." if len(artifact.code) > 500 else artifact.code
+            # For text/code artifacts - truncate if too long
+            code = artifact.code
+            if len(code) > 2000:
+                content = f"{code[:2000]}...\n(truncated, {len(code)} chars total)"
+            else:
+                content = code
         else:
             content = artifact.description or f"{artifact.type} artifact"
-        
-        artifact_strings.append(f'<item source="{artifact.id}">\n{content}\n</item>')
-    
+
+        artifact_strings.append(f'<artifact type="{artifact.type}" id="{artifact.id}">\n{content}\n</artifact>')
+
     return "\n\n".join(artifact_strings)

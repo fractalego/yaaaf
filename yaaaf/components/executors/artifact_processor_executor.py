@@ -40,16 +40,9 @@ class ArtifactProcessorExecutor(ToolExecutor):
         
     async def prepare_context(self, messages: Messages, notes: Optional[list[Note]] = None) -> Dict[str, Any]:
         """Prepare context for artifact processing."""
-        # Use the common artifact extraction method from base class
-        artefact_list = self.extract_artifacts_from_messages(messages, notes)
-        last_utterance = messages.utterances[-1] if messages.utterances else None
-        
-        return {
-            "messages": messages,
-            "notes": notes or [],
-            "artifacts": artefact_list,
-            "last_utterance": last_utterance
-        }
+        context = await super().prepare_context(messages, notes)
+        context["last_utterance"] = messages.utterances[-1] if messages.utterances else None
+        return context
 
     def extract_instruction(self, response: str) -> Optional[str]:
         """Extract table specification from response."""

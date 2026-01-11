@@ -19,7 +19,7 @@ AGENT_MAX_STEPS = {
     "websearchagent": 1,
 
     # Multi-step agents (reflection allowed)
-    "bashagent": 3,
+    "bashagent": 10,
     "mleagent": 2,
     "numericalsequencesagent": 2,
     "sqlagent": 2,

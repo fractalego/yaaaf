@@ -56,6 +56,7 @@ class ValidationAgent(CustomAgent):
         """
         # Inspect the artifact
         artifact_content = inspect_artifact(artifact)
+        _logger.debug(f"Validation artifact content preview (first 500 chars): {artifact_content[:500] if artifact_content else 'EMPTY'}")
 
         # Build the prompt with input context if available
         prompt = validation_agent_prompt_template.complete(
@@ -141,6 +142,9 @@ class ValidationAgent(CustomAgent):
 
         try:
             artifact = self._storage.retrieve_from_id(artifact_id)
+            _logger.info(f"Retrieved artifact {artifact_id}: type={artifact.type}, "
+                        f"code_len={len(artifact.code) if artifact.code else 0}, "
+                        f"desc={artifact.description[:50] if artifact.description else 'none'}...")
             return await self.validate(
                 artifact=artifact,
                 user_goal=user_goal,

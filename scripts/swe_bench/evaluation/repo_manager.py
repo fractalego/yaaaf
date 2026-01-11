@@ -13,6 +13,119 @@ from typing import Optional
 _logger = logging.getLogger(__name__)
 
 
+def convert_unittest_to_pytest(test_id: str, repo_path: Path) -> str:
+    """Convert unittest-style test ID to pytest format.
+
+    SWE-bench uses unittest-style test IDs like:
+        test_custom_test_name (backends.sqlite.test_creation.TestDbSignatureTests)
+
+    pytest expects:
+        tests/backends/sqlite/test_creation.py::TestDbSignatureTests::test_custom_test_name
+
+    Args:
+        test_id: Unittest-style test identifier
+        repo_path: Path to the repository (to find actual test files)
+
+    Returns:
+        pytest-compatible test identifier
+    """
+    import re
+
+    # Check if already in pytest format (contains :: or ends with .py)
+    if "::" in test_id or test_id.endswith(".py"):
+        return test_id
+
+    # Parse unittest format: "test_method (module.path.ClassName)"
+    # or "test_method (module.path.ClassName.submethod)"
+    match = re.match(r'^(\w+)\s+\(([^)]+)\)$', test_id.strip())
+    if not match:
+        # Doesn't match expected format, return as-is
+        _logger.warning(f"Test ID doesn't match unittest format: {test_id}")
+        return test_id
+
+    test_method = match.group(1)
+    full_path = match.group(2)
+
+    # Split the path - last component is the class, rest is module path
+    parts = full_path.split('.')
+
+    # Find where the class name starts (classes are CamelCase or start with Test)
+    class_idx = None
+    for i, part in enumerate(parts):
+        if part[0].isupper() or part.startswith('Test'):
+            class_idx = i
+            break
+
+    if class_idx is None:
+        # No obvious class name found, assume last component is class
+        class_idx = len(parts) - 1
+
+    module_parts = parts[:class_idx]
+    class_name = parts[class_idx]
+
+    # Try to find the test file
+    # Common patterns:
+    # 1. tests/module/path/test_file.py
+    # 2. test/module/path/test_file.py
+    # 3. module/path/tests/test_file.py
+    # 4. module/path/test_file.py
+
+    # For Django, tests are typically in tests/ directory
+    possible_paths = []
+
+    # Build module path with different prefixes
+    module_path = '/'.join(module_parts)
+    last_module = module_parts[-1] if module_parts else ''
+
+    # Django-style: tests/backends/sqlite/test_creation.py
+    if module_parts:
+        possible_paths.append(f"tests/{module_path}.py")
+        # Also try without 'test_' prefix in filename
+        if last_module.startswith('test_'):
+            alt_path = '/'.join(module_parts[:-1] + [last_module])
+            possible_paths.append(f"tests/{alt_path}.py")
+        else:
+            # Try adding test_ prefix
+            alt_parts = module_parts[:-1] + [f"test_{last_module}"]
+            possible_paths.append(f"tests/{'/'.join(alt_parts)}.py")
+
+    # Try test/ instead of tests/
+    for p in list(possible_paths):
+        if p.startswith("tests/"):
+            possible_paths.append("test/" + p[6:])
+
+    # Try without tests/ prefix
+    possible_paths.append(f"{module_path}.py")
+
+    # Find which file actually exists
+    test_file = None
+    for path in possible_paths:
+        full_path_check = repo_path / path
+        if full_path_check.exists():
+            test_file = path
+            break
+
+    if test_file is None:
+        # Try glob to find the file
+        import glob as glob_module
+        pattern = f"**/{module_parts[-1]}.py" if module_parts else "**/*.py"
+        matches = glob_module.glob(str(repo_path / pattern), recursive=True)
+        for m in matches:
+            if 'test' in m.lower():
+                test_file = str(Path(m).relative_to(repo_path))
+                break
+
+    if test_file is None:
+        _logger.warning(f"Could not find test file for: {test_id}, tried: {possible_paths[:3]}")
+        # Fall back to best guess
+        test_file = f"tests/{module_path}.py"
+
+    # Build pytest format
+    pytest_id = f"{test_file}::{class_name}::{test_method}"
+    _logger.debug(f"Converted '{test_id}' -> '{pytest_id}'")
+    return pytest_id
+
+
 class RepoManager:
     """Manages git repositories and Python environments for SWE-bench instances."""
 
@@ -437,6 +550,7 @@ class RepoManager:
         Args:
             repo: Repository name
             test_list: List of test identifiers (e.g., ["test/test_foo.py::test_bar"])
+                       Also accepts unittest-style IDs which will be converted automatically.
             timeout: Timeout in seconds
 
         Returns:
@@ -444,9 +558,17 @@ class RepoManager:
         """
         repo_path = self.get_repo_path(repo)
 
+        # Convert unittest-style test IDs to pytest format
+        converted_tests = []
+        for test_id in test_list:
+            converted = convert_unittest_to_pytest(test_id, repo_path)
+            converted_tests.append(converted)
+            if converted != test_id:
+                _logger.info(f"Converted test ID: {test_id} -> {converted}")
+
         # Build pytest command
         # -p no:warnings disables pytest's warnings plugin to avoid conflict with astropy's logger
-        command = ["python", "-m", "pytest", "-xvs", "-p", "no:warnings"] + test_list
+        command = ["python", "-m", "pytest", "-xvs", "-p", "no:warnings"] + converted_tests
 
         _logger.info(f"Running pytest with {len(test_list)} test(s) in {repo_path}")
 

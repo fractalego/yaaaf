@@ -107,8 +107,11 @@ The following tests currently FAIL and must PASS after your fix:
             for test in fail_to_pass:
                 prompt += f"- `{test}`\n"
             prompt += """
-These test names indicate exactly what functionality needs to be fixed.
-You may need to add new test cases to the test file with these specific parameter names.
+These test IDs are in unittest format: `test_method (module.path.ClassName)`.
+To run them with pytest, convert to: `tests/module/path.py::ClassName::test_method`
+For example: `test_foo (bar.baz.TestClass)` becomes `tests/bar/baz.py::TestClass::test_foo`
+
+Focus on understanding what functionality the test is checking and fix the relevant code.
 """
 
         if pass_to_pass:

@@ -108,12 +108,16 @@ def inspect_text(artifact: Artefact) -> str:
 
     if artifact.code:
         text = artifact.code
+        _logger.debug(f"inspect_text: using artifact.code (length={len(text)})")
     elif artifact.summary:
         text = artifact.summary
+        _logger.debug(f"inspect_text: using artifact.summary (length={len(text)})")
     elif artifact.description:
         text = artifact.description
+        _logger.debug(f"inspect_text: using artifact.description (length={len(text)})")
 
     if text is None:
+        _logger.warning(f"inspect_text: artifact has no content! id={artifact.id}, type={artifact.type}")
         return "Text artifact has no content"
 
     # Truncate to max characters

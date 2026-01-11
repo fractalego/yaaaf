@@ -81,9 +81,12 @@ class BaseAgent(ABC):
         # Add env_path to context if provided (used by BashExecutor)
         if env_path:
             context["env_path"] = env_path
-        # Add working_dir to context if provided (used by CodeEditExecutor)
+        # Add working_dir to context if provided (used by BashExecutor and CodeEditExecutor)
         if working_dir:
+            _logger.debug(f"{self.get_name()}: Setting working_dir in context: {working_dir}")
             context["working_dir"] = working_dir
+        else:
+            _logger.debug(f"{self.get_name()}: No working_dir provided, using default: {context.get('working_dir', 'not set')}")
 
         # Add system prompt if available
         if self._system_prompt:

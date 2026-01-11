@@ -76,6 +76,7 @@ class BashExecutor(ToolExecutor):
         try:
             # Change to working directory if specified
             working_dir = context.get("working_dir", os.getcwd())
+            _logger.info(f"Bash executing in working_dir: {working_dir}")
 
             # Set up environment with optional virtual environment PATH
             env = os.environ.copy()

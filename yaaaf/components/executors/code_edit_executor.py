@@ -397,10 +397,11 @@ class CodeEditExecutor(ToolExecutor):
                     f.write(new_file_content)
 
                 # Build detailed result showing what changed (same format as string-based replacement)
-                result = f"Replaced in file: {file_path}\n"
-                result += f"Replaced lines {min_line}-{max_line} ({len(old_content_lines)} lines) with {len(new_content_lines)} new lines\n\n"
-                result += f"OLD:\n" + '\n'.join(old_content_lines) + "\n\n"
-                result += f"NEW:\n" + '\n'.join(new_content_lines)
+                result = f"str_replace operation completed successfully.\n"
+                result += f"File: {file_path}\n"
+                result += f"Changed lines {min_line}-{max_line} ({len(old_content_lines)} lines replaced with {len(new_content_lines)} lines)\n\n"
+                result += f"BEFORE (old code):\n" + '\n'.join(old_content_lines) + "\n\n"
+                result += f"AFTER (new code):\n" + '\n'.join(new_content_lines)
                 return result, None
 
             # Standard string-based replacement
@@ -448,10 +449,11 @@ class CodeEditExecutor(ToolExecutor):
             old_lines = old_str.count('\n') + 1
             new_lines = new_str.count('\n') + 1
 
-            result = f"Replaced in file: {file_path}\n"
-            result += f"Removed {old_lines} lines, Added {new_lines} lines\n\n"
-            result += f"OLD:\n{old_str}\n\n"
-            result += f"NEW:\n{new_str}"
+            result = f"str_replace operation completed successfully.\n"
+            result += f"File: {file_path}\n"
+            result += f"Changed {old_lines} lines to {new_lines} lines\n\n"
+            result += f"BEFORE (old code):\n{old_str}\n\n"
+            result += f"AFTER (new code):\n{new_str}"
 
             return result, None
 

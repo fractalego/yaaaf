@@ -214,7 +214,7 @@ class WorkflowExecutor:
                 )
 
                 # Execute agent
-                _logger.info(f"Calling agent '{agent_name}' for asset '{asset_name}'")
+                _logger.info(f"Calling agent '{agent_name}' for asset '{asset_name}' (working_dir={self._working_dir})")
                 try:
                     result = await agent.query(agent_messages, env_path=self._env_path, working_dir=self._working_dir)
                 except Exception as e:

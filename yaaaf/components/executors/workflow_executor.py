@@ -403,16 +403,38 @@ class WorkflowExecutor:
     def _prepare_agent_messages(
         self, messages: Messages, inputs: Dict[str, str], asset_config: Dict
     ) -> Messages:
-        """Prepare messages for agent execution."""
-        # Start with original messages
-        agent_messages = Messages(utterances=messages.utterances.copy())
+        """Prepare messages for agent execution.
+
+        Only includes user messages from original context to prevent artifact
+        confusion. DAG input artifacts are added as assistant utterances so
+        agents receive exactly the artifacts specified in their inputs.
+        """
+        # Only copy USER messages from original - exclude assistant messages
+        # to prevent agents from seeing artifacts from unrelated workflow steps
+        user_utterances = [
+            u for u in messages.utterances if u.role == "user"
+        ]
+        agent_messages = Messages(utterances=user_utterances.copy())
 
         # Add input results as assistant utterances so agents can extract artifacts naturally
+        # These are the ONLY artifacts the agent should see (from its DAG inputs)
         if inputs:
-            for input_name, result_string in inputs.items():
+            # Calculate the starting index for assistant messages (after user messages)
+            start_idx = len(agent_messages.utterances)
+            for idx, (input_name, result_string) in enumerate(inputs.items()):
+                msg_idx = start_idx + idx
+                # Extract artifact info for logging
+                import re
+                artifact_matches = re.findall(r"<artefact type='([^']+)'>([^<]+)</artefact>", result_string)
+                if artifact_matches:
+                    for art_type, art_id in artifact_matches:
+                        _logger.info(f"DAG input #{msg_idx} '{input_name}' -> artifact type={art_type}, id={art_id[:8]}...")
+                else:
+                    _logger.info(f"DAG input #{msg_idx} '{input_name}' -> no artifacts found in result")
+
                 agent_messages.utterances.append(
                     Utterance(
-                        role="assistant", 
+                        role="assistant",
                         content=result_string
                     )
                 )

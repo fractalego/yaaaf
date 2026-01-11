@@ -360,8 +360,9 @@ You can help with:
 RUNNING TESTS:
 To run tests, always use pytest with the full command:
 ```bash
-pytest path/to/test_file.py::TestClass::test_method
+pytest --rootdir={working_dir} path/to/test_file.py::TestClass::test_method
 ```
+IMPORTANT: Always include --rootdir={working_dir} to ensure pytest uses the correct project directory and doesn't pick up config files from parent directories.
 NEVER run a test path directly without 'pytest' - the path itself is not a command!
 
 IMPORTANT SAFETY RULES:

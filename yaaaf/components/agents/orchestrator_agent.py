@@ -120,6 +120,7 @@ class OrchestratorAgent(CustomAgent):
         partial_results = {}
         failure_mode = FailureMode.UNEXPECTED_ERROR  # Default, will be set by exception handlers
         failed_asset_name = None  # Track which asset failed for better error messages
+        replan_context = None  # Track replan context for continuation planning
 
         for attempt in range(self._max_replan_attempts):
             try:
@@ -128,15 +129,25 @@ class OrchestratorAgent(CustomAgent):
 
                 # ALWAYS generate plan if we don't have one or there was an error
                 if not self.current_plan or last_error:
-                    _logger.info(">>> GENERATING NEW PLAN via PlannerAgent (this MUST complete before any agent executes)...")
-                    self.current_plan = await self._generate_plan(
-                        goal=goal_info["goal"],
-                        target_type=goal_info["artifact_type"],
-                        messages=messages,
-                        error_context=last_error,
-                        partial_results=partial_results,
-                    )
-                    _logger.info(f">>> PLAN GENERATION COMPLETE. Plan:\n{self.current_plan[:500]}...")
+                    # Check if we should use continuation planning (replan after validation failure)
+                    if replan_context is not None:
+                        _logger.info(f">>> GENERATING CONTINUATION PLAN (iteration {replan_context.iteration})...")
+                        result_string = await self.planner.plan_continuation(
+                            replan_context=replan_context,
+                            notes=notes,
+                        )
+                        self.current_plan = self._extract_yaml_from_artifact(result_string)
+                        _logger.info(f">>> CONTINUATION PLAN GENERATED. Plan:\n{self.current_plan[:500]}...")
+                    else:
+                        _logger.info(">>> GENERATING NEW PLAN via PlannerAgent (this MUST complete before any agent executes)...")
+                        self.current_plan = await self._generate_plan(
+                            goal=goal_info["goal"],
+                            target_type=goal_info["artifact_type"],
+                            messages=messages,
+                            error_context=last_error,
+                            partial_results=partial_results,
+                        )
+                        _logger.info(f">>> PLAN GENERATION COMPLETE. Plan:\n{self.current_plan[:500]}...")
 
                     # Store plan as artifact
                     plan_artifact = PlanArtifact(
@@ -160,8 +171,18 @@ class OrchestratorAgent(CustomAgent):
                         notes.append(plan_note)
 
                     # Create new executor with notes for streaming and status updates
-                    # Pass partial_results as cached_results to reuse successfully completed assets
+                    # For continuation plans, don't pass cached_results - the plan explicitly declares
+                    # what to reuse via external_artifact_id. Cached results would cause unintended
+                    # reuse of assets with the same name but different inputs.
                     _logger.info(">>> CREATING WorkflowExecutor...")
+                    cached_results_to_use = None
+                    if replan_context is None and partial_results:
+                        # Only use cached results for non-continuation plans
+                        cached_results_to_use = partial_results
+                        _logger.info(f"Using cached results for {len(partial_results)} assets")
+                    elif replan_context is not None:
+                        _logger.info("Continuation plan: not using cached results (artifacts referenced via external_artifact_id)")
+
                     self.plan_executor = WorkflowExecutor(
                         yaml_plan=self.current_plan,
                         agents=self.agents,
@@ -171,7 +192,7 @@ class OrchestratorAgent(CustomAgent):
                         validation_agent=self._validation_agent,
                         original_goal=self._original_goal,
                         disable_user_prompts=self._disable_user_prompts,
-                        cached_results=partial_results if partial_results else None,
+                        cached_results=cached_results_to_use,
                         env_path=env_path,
                         working_dir=working_dir,
                     )
@@ -235,7 +256,25 @@ class OrchestratorAgent(CustomAgent):
                 failure_mode = FailureMode.VALIDATION_FAILED
                 failed_asset_name = e.validation_result.asset_name
 
-                # Include suggested fix in error context for better replanning
+                # Build replan context from validation result
+                if self.plan_executor:
+                    iteration = attempt + 1  # First failure = iteration 1
+                    replan_context = self.plan_executor.build_replan_context(
+                        validation_result=e.validation_result,
+                        completed_assets=e.completed_assets,
+                        iteration=iteration,
+                        failed_asset_result=e.failed_asset_result,
+                    )
+                    _logger.info(
+                        f"Built replan context: iteration={iteration}, "
+                        f"completed={len(replan_context.completed_artifacts)}, "
+                        f"failure_type={replan_context.failure_type.value}"
+                    )
+                else:
+                    _logger.warning("No plan executor available to build replan context")
+                    replan_context = None
+
+                # Include suggested fix in error context for fallback
                 if e.validation_result.suggested_fix:
                     last_error = (
                         f"Validation failed for {e.validation_result.asset_name}: "

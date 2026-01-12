@@ -10,6 +10,7 @@ from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.validators.validation_result import ValidationResult
 from yaaaf.components.validators.artifact_inspector import inspect_artifact
+from yaaaf.components.validators.failure_analyzer import analyze_bash_output, create_failure_summary
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 
 _logger = logging.getLogger(__name__)
@@ -79,6 +80,17 @@ class ValidationAgent(CustomAgent):
         try:
             response = await self._client.predict(messages)
             result = self._parse_response(response.message, asset_name)
+
+            # For bash agents, analyze the output to detect failure type
+            if agent_name == "BashAgent" and not result.is_valid:
+                failure_type, failure_details = analyze_bash_output(artifact_content)
+                result.failure_type = failure_type
+                result.failure_details = failure_details
+                # Update reason with failure summary if not already detailed
+                if not result.reason or len(result.reason) < 20:
+                    result.reason = create_failure_summary(failure_type, failure_details)
+                _logger.info(f"Detected failure type: {failure_type} for {asset_name}")
+
             return result
         except Exception as e:
             _logger.error(f"Validation failed: {e}")

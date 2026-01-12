@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from yaaaf.components.validators.replan_context import FailureType, FailureDetails
+
 
 # Confidence thresholds
 REPLAN_THRESHOLD = 0.5  # Below this: attempt replan
@@ -24,6 +26,8 @@ class ValidationResult:
         should_ask_user: True if confidence is too low to auto-replan
         suggested_fix: What to do differently if replanning
         asset_name: Name of the asset that was validated
+        failure_type: Type of failure (for replanning context)
+        failure_details: Detailed failure information (for replanning context)
     """
 
     is_valid: bool
@@ -32,6 +36,8 @@ class ValidationResult:
     should_ask_user: bool = False
     suggested_fix: Optional[str] = None
     asset_name: Optional[str] = None
+    failure_type: Optional[FailureType] = None
+    failure_details: Optional[FailureDetails] = None
 
     def __post_init__(self):
         """Set should_ask_user based on confidence if not explicitly set."""
@@ -49,7 +55,7 @@ class ValidationResult:
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
-        return {
+        result = {
             "is_valid": self.is_valid,
             "confidence": self.confidence,
             "reason": self.reason,
@@ -57,10 +63,23 @@ class ValidationResult:
             "suggested_fix": self.suggested_fix,
             "asset_name": self.asset_name,
         }
+        if self.failure_type:
+            result["failure_type"] = self.failure_type.value
+        if self.failure_details:
+            result["failure_details"] = self.failure_details.model_dump()
+        return result
 
     @classmethod
     def from_dict(cls, data: dict) -> "ValidationResult":
         """Create from dictionary."""
+        failure_type = None
+        if "failure_type" in data:
+            failure_type = FailureType(data["failure_type"])
+
+        failure_details = None
+        if "failure_details" in data:
+            failure_details = FailureDetails(**data["failure_details"])
+
         return cls(
             is_valid=data.get("is_valid", False),
             confidence=data.get("confidence", 0.0),
@@ -68,6 +87,8 @@ class ValidationResult:
             should_ask_user=data.get("should_ask_user", False),
             suggested_fix=data.get("suggested_fix"),
             asset_name=data.get("asset_name"),
+            failure_type=failure_type,
+            failure_details=failure_details,
         )
 
     @classmethod

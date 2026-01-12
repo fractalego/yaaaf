@@ -5,8 +5,9 @@ from yaaaf.components.agents.base_agent import ToolBasedAgent
 from yaaaf.components.executors.planner_executor import PlannerExecutor
 from yaaaf.components.agents.prompts import planner_agent_prompt_template
 from yaaaf.components.client import BaseClient
-from yaaaf.components.data_types import AGENT_ARTIFACT_SPECS
+from yaaaf.components.data_types import AGENT_ARTIFACT_SPECS, Messages, Utterance
 from yaaaf.components.retrievers.planner_example_retriever import PlannerExampleRetriever
+from yaaaf.components.validators.replan_context import ReplanContext
 
 _logger = logging.getLogger(__name__)
 
@@ -145,3 +146,119 @@ The agent will output a workflow in YAML format with asset-based dependencies.
         completed_prompt = self._system_prompt_template.replace("{examples}", examples)
 
         return completed_prompt
+
+    async def plan_continuation(
+        self, replan_context: ReplanContext, notes: Optional[List] = None
+    ) -> str:
+        """Generate a continuation plan that builds on a failed plan.
+
+        Args:
+            replan_context: Context about the failed plan and what to fix
+            notes: Optional notes list
+
+        Returns:
+            YAML plan string that references prior artifacts
+        """
+        _logger.info(
+            f"Generating continuation plan (iteration {replan_context.iteration}) "
+            f"for goal: {replan_context.original_goal[:100]}"
+        )
+
+        # Build a detailed prompt for continuation planning
+        continuation_prompt = self._build_continuation_prompt(replan_context)
+
+        # Create messages
+        messages = Messages()
+        messages.utterances.append(
+            Utterance(role="user", content=continuation_prompt)
+        )
+
+        # Query the planner
+        result = await self.query(messages, notes=notes)
+
+        return result
+
+    def _build_continuation_prompt(self, replan_context: ReplanContext) -> str:
+        """Build a prompt for continuation planning.
+
+        Args:
+            replan_context: Context about the failed execution
+
+        Returns:
+            Prompt string
+        """
+        # Format completed artifacts
+        completed_artifacts_desc = []
+        for artifact in replan_context.completed_artifacts:
+            completed_artifacts_desc.append(
+                f"  - {artifact.name}: {artifact.description} "
+                f"(type={artifact.type}, id={artifact.id[:12]}..., agent={artifact.agent_name})"
+            )
+        completed_artifacts_str = "\n".join(completed_artifacts_desc) if completed_artifacts_desc else "  None"
+
+        # Format failed artifact
+        failed_artifact = replan_context.failed_artifact
+        failed_desc = (
+            f"{failed_artifact.name}: {failed_artifact.description} "
+            f"(type={failed_artifact.type}, agent={failed_artifact.agent_name})"
+        )
+
+        # Build the prompt
+        prompt = f"""CONTINUATION PLANNING REQUEST (Iteration {replan_context.iteration})
+
+**Original Goal:** {replan_context.original_goal}
+
+**What Happened:**
+A previous plan was executed but failed at one step. You need to create a NEW plan that:
+1. References artifacts from the prior plan (using external_artifact_id)
+2. Adds new steps to fix the failure
+3. Achieves the original goal
+
+**Prior Plan Execution Summary:**
+
+Successfully Completed Steps:
+{completed_artifacts_str}
+
+Failed Step:
+  - {failed_desc}
+
+**Failure Information:**
+Type: {replan_context.failure_type.value}
+Summary: {replan_context.failure_summary}
+Details: {replan_context.failure_details.error_message}
+
+**How to Reference Prior Artifacts:**
+To reuse an artifact from the prior plan, create an asset node WITHOUT an agent field:
+
+```yaml
+assets:
+  # Reference to prior artifact (no agent field!)
+  previous_analysis:
+    type: text  # REQUIRED: type field is always required
+    external_artifact_id: "{replan_context.completed_artifacts[0].id if replan_context.completed_artifacts else 'artifact_id_here'}"
+    description: "Analysis from first attempt"
+
+  # New step that uses the prior artifact
+  fix_the_issue:
+    agent: answerer
+    type: text  # REQUIRED: type field is always required
+    description: "Correct the issue based on failure analysis"
+    inputs: [previous_analysis]
+```
+
+**CRITICAL REQUIREMENTS:**
+- ALL assets (both external references and new steps) MUST have a `type` field
+- External artifact references: require `external_artifact_id` and `type` (NO `agent`)
+- New execution steps: require `agent`, `type`, and `description`
+
+**Your Task:**
+Generate a continuation plan that:
+1. References relevant completed artifacts using external_artifact_id (NO agent field for these!)
+2. Analyzes why the failed step didn't work
+3. Creates new steps to fix the issue and achieve the goal
+4. Uses appropriate agents from the available set
+5. ENSURES ALL assets have a `type` field (text, table, image, etc.)
+
+Please provide the complete YAML workflow."""
+
+        return prompt

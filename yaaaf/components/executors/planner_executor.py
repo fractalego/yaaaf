@@ -63,8 +63,20 @@ class PlannerExecutor(ToolExecutor):
                 for asset_name, asset_config in assets.items():
                     if not isinstance(asset_config, dict):
                         return None, f"Invalid asset '{asset_name}': must be a dictionary"
-                    
-                    required_fields = ["agent", "description", "type"]
+
+                    # Check if this is an external artifact reference (continuation plan)
+                    is_external_artifact = "external_artifact_id" in asset_config
+
+                    if is_external_artifact:
+                        # External artifacts don't need 'agent' field
+                        required_fields = ["external_artifact_id", "type"]
+                        # Description is optional but recommended
+                        if "agent" in asset_config:
+                            return None, f"Invalid asset '{asset_name}': external artifact references should not have 'agent' field"
+                    else:
+                        # Regular assets need agent field
+                        required_fields = ["agent", "description", "type"]
+
                     for field in required_fields:
                         if field not in asset_config:
                             return None, f"Invalid asset '{asset_name}': missing required field '{field}'"

@@ -9,6 +9,13 @@ from yaaaf.components.executors.paused_execution import (
     PausedExecutionState,
 )
 from yaaaf.components.validators.validation_result import ValidationResult
+from yaaaf.components.validators.replan_context import (
+    ReplanContext,
+    ArtifactMetadata,
+    FailureType,
+    FailureDetails,
+)
+from yaaaf.components.validators.failure_analyzer import create_failure_summary
 
 if TYPE_CHECKING:
     from yaaaf.components.agents.validation_agent import ValidationAgent
@@ -31,9 +38,10 @@ class ConditionError(Exception):
 class ReplanRequiredException(Exception):
     """Raised when validation fails and replanning is needed."""
 
-    def __init__(self, validation_result: ValidationResult, completed_assets: Dict[str, str]):
+    def __init__(self, validation_result: ValidationResult, completed_assets: Dict[str, str], failed_asset_result: str = ""):
         self.validation_result = validation_result
         self.completed_assets = completed_assets
+        self.failed_asset_result = failed_asset_result
         super().__init__(f"Replan required for {validation_result.asset_name}: {validation_result.reason}")
 
 
@@ -173,6 +181,11 @@ class WorkflowExecutor:
                     self._notes.append(reuse_note)
                 continue
 
+            # Check for external artifact reference (from prior plan)
+            if "external_artifact_id" in asset_config and "agent" not in asset_config:
+                self._load_external_artifact(asset_name, asset_config)
+                continue
+
             # Check conditions
             if not self._evaluate_conditions(asset_name, asset_config):
                 _logger.info(f"Skipping {asset_name} due to conditions")
@@ -261,6 +274,9 @@ class WorkflowExecutor:
                 # Store result string for access by dependent assets
                 self.asset_results[asset_name] = result_string
 
+                # Log artifact production details
+                self._log_artifact_production(asset_name, agent_name, result_string)
+
                 # Validate the artifact if validation is enabled
                 if self._validation_agent and self._original_goal:
                     validation_result = await self._validate_artifact(
@@ -275,7 +291,11 @@ class WorkflowExecutor:
                         artifact_preview = result_string[:1000] + "..." if len(result_string) > 1000 else result_string
                         _logger.warning(f"Validation failed artifact content for {asset_name}:\n{artifact_preview}")
 
-                        # IMPORTANT: Remove the failed asset from results before replanning
+                        # IMPORTANT: Save the failed asset result before removing it
+                        # We need it for building replan context with artifact metadata
+                        failed_result = result_string
+
+                        # Remove the failed asset from results before replanning
                         # Otherwise the invalid result gets cached and reused!
                         valid_results = {k: v for k, v in self.asset_results.items() if k != asset_name}
                         _logger.info(f"Excluding failed asset '{asset_name}' from cached results for replan")
@@ -287,7 +307,7 @@ class WorkflowExecutor:
                                     f"Validation failed for {asset_name}, user prompts disabled, replanning: {validation_result.reason}"
                                 )
                                 raise ReplanRequiredException(
-                                    validation_result, valid_results
+                                    validation_result, valid_results, failed_result
                                 )
                             else:
                                 # Need user decision
@@ -303,7 +323,7 @@ class WorkflowExecutor:
                                 f"Validation failed for {asset_name}, replanning: {validation_result.reason}"
                             )
                             raise ReplanRequiredException(
-                                validation_result, valid_results
+                                validation_result, valid_results, failed_result
                             )
                         else:
                             # Low confidence but not low enough to ask user
@@ -355,6 +375,70 @@ class WorkflowExecutor:
             code=final_result,
             description="Final workflow result",
         )
+
+    def _load_external_artifact(self, asset_name: str, asset_config: Dict) -> None:
+        """Load an external artifact from a prior plan execution.
+
+        Args:
+            asset_name: Name of the asset node
+            asset_config: Asset configuration containing external_artifact_id
+        """
+        external_id = asset_config["external_artifact_id"]
+        artifact_type = asset_config.get("type", "text")
+        description = asset_config.get("description", f"External artifact {asset_name}")
+
+        _logger.info(f"Loading external artifact '{asset_name}' with id={external_id[:12]}...")
+
+        # Check if artifact exists in storage
+        try:
+            artifact = self.artefact_storage.retrieve_from_id(external_id)
+            _logger.info(f"Successfully retrieved external artifact {external_id[:12]} from storage")
+
+            # Format as result string (same format as agents produce)
+            from yaaaf.components.agents.settings import task_completed_tag
+            result_string = f"Loaded artifact from prior plan: <artefact type='{artifact_type}'>{external_id}</artefact> {task_completed_tag}"
+
+            # Store in asset results
+            self.asset_results[asset_name] = result_string
+
+            # Add note
+            if self._notes is not None:
+                from yaaaf.components.data_types import Note
+                note = Note(
+                    message=f"🔗 Loaded external artifact '{asset_name}' from prior plan",
+                    artefact_id=external_id,
+                    agent_name="workflow",
+                )
+                self._notes.append(note)
+
+        except Exception as e:
+            error_msg = f"Failed to load external artifact {external_id}: {e}"
+            _logger.error(error_msg)
+            raise ValueError(error_msg)
+
+    def _log_artifact_production(self, asset_name: str, agent_name: str, result_string: str) -> None:
+        """Log details about artifacts produced by an agent at a specific step.
+
+        Args:
+            asset_name: Name of the workflow step
+            agent_name: Name of the agent that produced the artifacts
+            result_string: Agent output containing artifact references
+        """
+        step_number = self._execution_order.index(asset_name) + 1
+        total_steps = len(self._execution_order)
+        artifact_matches = re.findall(r"<artefact type='([^']+)'>([^<]+)</artefact>", result_string)
+
+        if artifact_matches:
+            for art_type, art_id in artifact_matches:
+                _logger.info(
+                    f"[Step {step_number}/{total_steps}] Agent '{agent_name}' produced artifact: "
+                    f"type={art_type}, id={art_id[:12]}..., step_name='{asset_name}'"
+                )
+        else:
+            _logger.info(
+                f"[Step {step_number}/{total_steps}] Agent '{agent_name}' completed step '{asset_name}' "
+                f"(no artifacts found in output)"
+            )
 
     def _evaluate_conditions(self, asset_name: str, asset_config: Dict) -> bool:
         """Evaluate conditions for an asset."""
@@ -607,6 +691,117 @@ class WorkflowExecutor:
         """Get all completed asset results."""
         return self.asset_results.copy()
 
+    def build_replan_context(
+        self,
+        validation_result: ValidationResult,
+        completed_assets: Dict[str, str],
+        iteration: int = 1,
+        failed_asset_result: str = "",
+    ) -> ReplanContext:
+        """Build a ReplanContext from validation failure.
+
+        Args:
+            validation_result: The validation result that triggered replanning
+            completed_assets: Dict of completed asset names to their result strings
+            iteration: Which replan attempt this is (1 = first replan)
+            failed_asset_result: Result string of the failed asset (for metadata extraction)
+
+        Returns:
+            ReplanContext for the planner
+        """
+        if not validation_result.failure_type or not validation_result.failure_details:
+            # If validation didn't provide failure details, create default
+            failure_type = FailureType.VALIDATION_ERROR
+            failure_details = FailureDetails(
+                raw_output=validation_result.reason,
+                error_message=validation_result.reason,
+            )
+        else:
+            failure_type = validation_result.failure_type
+            failure_details = validation_result.failure_details
+
+        # Build metadata for completed artifacts
+        completed_metadata = []
+        for asset_name, result_string in completed_assets.items():
+            artifact_meta = self._build_artifact_metadata(asset_name, result_string)
+            if artifact_meta:
+                completed_metadata.append(artifact_meta)
+
+        # Build metadata for failed artifact
+        failed_asset_name = validation_result.asset_name
+        # Use the passed failed_asset_result instead of trying to get from asset_results
+        # (it was removed to prevent caching)
+        failed_metadata = self._build_artifact_metadata(failed_asset_name, failed_asset_result)
+
+        if not failed_metadata:
+            # Fallback if we can't build metadata
+            failed_metadata = ArtifactMetadata(
+                id="unknown",
+                type="text",
+                name=failed_asset_name or "unknown",
+                description=f"Failed step: {failed_asset_name}",
+                size_bytes=len(failed_asset_result),
+                agent_name="unknown",
+            )
+
+        # Create failure summary
+        failure_summary = create_failure_summary(failure_type, failure_details)
+
+        return ReplanContext(
+            original_goal=self._original_goal or "Complete the task",
+            iteration=iteration,
+            prior_plan_id=str(id(self)),  # Use object id as plan identifier (convert to string)
+            completed_artifacts=completed_metadata,
+            failed_artifact=failed_metadata,
+            failure_type=failure_type,
+            failure_summary=failure_summary,
+            failure_details=failure_details,
+        )
+
+    def _build_artifact_metadata(
+        self, asset_name: str, result_string: str
+    ) -> Optional[ArtifactMetadata]:
+        """Build ArtifactMetadata from an asset result.
+
+        Args:
+            asset_name: Name of the asset
+            result_string: Result string containing artifact reference
+
+        Returns:
+            ArtifactMetadata or None if no artifact found
+        """
+        # Extract artifact info from result string
+        match = re.search(r"<artefact type='([^']+)'>([^<]+)</artefact>", result_string)
+        if not match:
+            return None
+
+        artifact_type, artifact_id = match.groups()
+
+        # Get asset config to find agent name
+        asset_config = self.plan["assets"].get(asset_name, {})
+        agent_name = asset_config.get("agent", "unknown")
+        description = asset_config.get("description", f"Step {asset_name}")
+
+        # Try to get artifact from storage to get accurate size
+        size_bytes = len(result_string)  # Default to result string size
+        try:
+            artifact = self.artefact_storage.retrieve_from_id(artifact_id)
+            if artifact.code:
+                size_bytes = len(artifact.code)
+            elif artifact.data is not None:
+                size_bytes = len(str(artifact.data))
+        except Exception:
+            pass  # Use default size
+
+        return ArtifactMetadata(
+            id=artifact_id,
+            type=artifact_type,
+            name=asset_name,
+            description=description,
+            size_bytes=size_bytes,
+            agent_name=agent_name,
+        )
+
     async def _validate_artifact(
         self, asset_name: str, result_string: str, asset_config: Dict, inputs: Dict[str, str] = None
     ) -> ValidationResult:
@@ -850,6 +1045,9 @@ class WorkflowExecutor:
 
                 # Store result string for access by dependent assets
                 self.asset_results[asset_name] = result_string
+
+                # Log artifact production details
+                self._log_artifact_production(asset_name, agent_name, result_string)
 
                 # Add completion note
                 if self._notes is not None:

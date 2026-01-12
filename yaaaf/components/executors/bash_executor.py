@@ -53,6 +53,13 @@ class BashExecutor(ToolExecutor):
             "alias", "source", ". ", "exec", "eval", "python -c", "python3 -c",
             "bash -c", "sh -c", "> /dev/", "| dd"
         ]
+
+        # Interactive commands that would hang
+        interactive_commands = ["nano ", "vim ", "vi ", "emacs ", "less ", "more ", "pico "]
+        for cmd in interactive_commands:
+            if command.strip().startswith(cmd) or f"\n{cmd}" in command:
+                _logger.warning(f"Blocked interactive command: {cmd.strip()}")
+                return False
         
         command_lower = command.lower().strip()
         

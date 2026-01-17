@@ -136,7 +136,7 @@ The agent will output a workflow in YAML format with asset-based dependencies.
 
         # Retrieve relevant examples
         if query:
-            examples = self._example_retriever.format_examples_for_prompt(query, topn=3)
+            examples = self._example_retriever.format_examples_for_prompt(query, topn=10)
             _logger.debug(f"Retrieved examples for query: {query[:100]}...")
         else:
             examples = "No examples available for empty query."

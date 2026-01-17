@@ -2,6 +2,8 @@
 """
 Run YAAAF evaluation on SWE-bench Lite instances.
 
+Single query per problem - no multi-turn dialogue.
+
 Requires YAAAF backend to be running:
     python -m yaaaf backend 4000
 
@@ -89,16 +91,14 @@ def evaluate_instance(
     repo_manager: RepoManager,
     yaaaf_runner: YaaafRunner,
     output_dir: Path,
-    max_attempts: int = 5,
 ) -> dict:
-    """Evaluate YAAAF on a single SWE-bench instance with multi-turn feedback.
+    """Evaluate YAAAF on a single SWE-bench instance with single query (no dialogue).
 
     Args:
         instance: SWE-bench instance dict
         repo_manager: RepoManager for handling repos
         yaaaf_runner: YaaafRunner for running YAAAF
         output_dir: Directory to save results
-        max_attempts: Maximum number of attempts (default: 5)
 
     Returns:
         Evaluation result dict
@@ -117,7 +117,7 @@ def evaluate_instance(
     _logger.info(f"Repository: {repo}")
     _logger.info(f"Base commit: {base_commit}")
     _logger.info(f"Tests to fix: {len(fail_to_pass)}")
-    _logger.info(f"Max attempts: {max_attempts}")
+    _logger.info(f"Mode: Single query (no dialogue)")
     _logger.info(f"{'='*60}")
 
     result = {
@@ -125,7 +125,6 @@ def evaluate_instance(
         "repo": repo,
         "timestamp": datetime.now().isoformat(),
         "status": "pending",
-        "attempts": [],
     }
 
     try:
@@ -151,100 +150,49 @@ def evaluate_instance(
                      f"failed={initial_test_result['failed']}, errors={initial_test_result['errors']}")
         result["initial_tests"] = initial_test_result
 
-        # Step 4: Multi-turn dialogue with YAAAF
+        # Step 4: Run YAAAF once (no dialogue)
         env_path = repo_manager.get_env_path(repo)
-        resolved = False
 
-        for attempt in range(1, max_attempts + 1):
-            _logger.info(f"\n{'='*40}")
-            _logger.info(f"ATTEMPT {attempt}/{max_attempts}")
-            _logger.info(f"{'='*40}")
+        _logger.info("Step 4: Running YAAAF (single query)...")
+        yaaaf_result = yaaaf_runner.run(
+            problem_statement=problem_statement,
+            repo_path=str(repo_path),
+            hints=hints if hints else None,
+            env_path=str(env_path),
+            fail_to_pass=fail_to_pass,
+            pass_to_pass=pass_to_pass,
+        )
 
-            attempt_result = {
-                "attempt": attempt,
-                "timestamp": datetime.now().isoformat(),
-            }
+        result["yaaaf_response"] = yaaaf_result["response"]
+        result["yaaaf_success"] = yaaaf_result["success"]
 
-            if attempt == 1:
-                # First attempt: send initial prompt
-                _logger.info("Step 4: Running YAAAF (initial attempt)...")
-                yaaaf_result = yaaaf_runner.run(
-                    problem_statement=problem_statement,
-                    repo_path=str(repo_path),
-                    hints=hints if hints else None,
-                    env_path=str(env_path),
-                    fail_to_pass=fail_to_pass,
-                    pass_to_pass=pass_to_pass,
-                )
-            else:
-                # Subsequent attempts: send feedback
-                _logger.info(f"Step 4.{attempt}: Continuing with feedback...")
-                yaaaf_result = yaaaf_runner.continue_with_feedback(feedback_message)
+        # Step 5: Run FAIL_TO_PASS tests
+        _logger.info("Step 5: Running FAIL_TO_PASS tests...")
+        test_result = repo_manager.run_tests(repo, fail_to_pass)
+        _logger.info(f"  Test result: passed={test_result['passed']}, "
+                     f"failed={test_result['failed']}, errors={test_result['errors']}")
+        result["fail_to_pass_tests"] = test_result
 
-            attempt_result["yaaaf_response"] = yaaaf_result["response"]
-            attempt_result["yaaaf_success"] = yaaaf_result["success"]
+        # Step 6: Check for regressions
+        regression_result = None
+        if pass_to_pass:
+            _logger.info("Step 6: Checking for regressions...")
+            regression_result = repo_manager.run_tests(repo, pass_to_pass[:10])
+            _logger.info(f"  Regression result: passed={regression_result['passed']}, "
+                         f"failed={regression_result['failed']}, errors={regression_result['errors']}")
+            result["regression_tests"] = regression_result
 
-            # Step 5: Run FAIL_TO_PASS tests
-            _logger.info(f"Step 5.{attempt}: Running FAIL_TO_PASS tests...")
-            test_result = repo_manager.run_tests(repo, fail_to_pass)
-            _logger.info(f"  Test result: passed={test_result['passed']}, "
-                         f"failed={test_result['failed']}, errors={test_result['errors']}")
-            attempt_result["fail_to_pass_tests"] = test_result
-
-            # Step 6: Check for regressions
-            regression_result = None
-            if pass_to_pass:
-                _logger.info(f"Step 6.{attempt}: Checking for regressions...")
-                regression_result = repo_manager.run_tests(repo, pass_to_pass[:10])
-                _logger.info(f"  Regression result: passed={regression_result['passed']}, "
-                             f"failed={regression_result['failed']}, errors={regression_result['errors']}")
-                attempt_result["regression_tests"] = regression_result
-
-            result["attempts"].append(attempt_result)
-
-            # Check if resolved (FAIL_TO_PASS tests pass AND no regressions)
-            fail_to_pass_success = test_result.get("success", False)
-            regression_success = regression_result.get("success", True) if regression_result else True
-
-            if fail_to_pass_success and regression_success:
-                _logger.info(f"✅ RESOLVED on attempt {attempt}!")
-                resolved = True
-                break
-            else:
-                if attempt < max_attempts:
-                    # Build feedback message for next attempt
-                    # Combine FAIL_TO_PASS and regression test outputs
-                    combined_output = test_result.get("output", "")
-                    if regression_result and not regression_success:
-                        combined_output += "\n\n### Regression Test Failures:\n"
-                        combined_output += regression_result.get("output", "")
-
-                    feedback_message = yaaaf_runner.build_feedback_message(
-                        test_output=combined_output,
-                        test_passed=test_result.get("passed", 0),
-                        test_failed=test_result.get("failed", 0),
-                        test_errors=test_result.get("errors", 0),
-                        attempt=attempt,
-                        max_attempts=max_attempts,
-                    )
-                    _logger.info(f"Preparing feedback for attempt {attempt + 1}...")
-                else:
-                    _logger.info(f"❌ FAILED after {max_attempts} attempts")
+        # Check if resolved (FAIL_TO_PASS tests pass AND no regressions)
+        fail_to_pass_success = test_result.get("success", False)
+        regression_success = regression_result.get("success", True) if regression_result else True
+        resolved = fail_to_pass_success and regression_success
 
         # Final results
-        result["final_tests"] = result["attempts"][-1]["fail_to_pass_tests"] if result["attempts"] else None
-        if result["attempts"] and "regression_tests" in result["attempts"][-1]:
-            result["regression_tests"] = result["attempts"][-1]["regression_tests"]
+        result["final_tests"] = test_result
         result["resolved"] = resolved
         result["status"] = "resolved" if resolved else "failed"
-        result["total_attempts"] = len(result["attempts"])
 
-        # Also store the last YAAAF response for backward compatibility
-        if result["attempts"]:
-            result["yaaaf_response"] = result["attempts"][-1]["yaaaf_response"]
-            result["yaaaf_success"] = result["attempts"][-1]["yaaaf_success"]
-
-        _logger.info(f"\nFinal Result: {'RESOLVED' if resolved else 'FAILED'} (attempts: {len(result['attempts'])})")
+        _logger.info(f"\nFinal Result: {'RESOLVED ✅' if resolved else 'FAILED ❌'}")
 
     except Exception as e:
         _logger.error(f"Evaluation failed: {e}")
@@ -325,8 +273,8 @@ def main():
     parser.add_argument(
         "--max-attempts",
         type=int,
-        default=5,
-        help="Maximum number of feedback attempts per instance (default: 5)",
+        default=1,
+        help="DEPRECATED: Always uses single query (no dialogue). Kept for compatibility.",
     )
 
     args = parser.parse_args()
@@ -377,8 +325,7 @@ def main():
     results = []
     for instance in instances:
         result = evaluate_instance(
-            instance, repo_manager, yaaaf_runner, output_dir,
-            max_attempts=args.max_attempts,
+            instance, repo_manager, yaaaf_runner, output_dir
         )
         results.append(result)
 

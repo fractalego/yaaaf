@@ -615,6 +615,47 @@ CRITICAL FORMAT RULES:
 - DO NOT add extra fields like 'data', 'command', 'prompt', 'path', 'replace_target'
 - ONLY use: agent, description, type, inputs (optional)
 
+LOOP CONSTRUCTS - CRITICAL FOR TESTING:
+When the task involves running tests (pytest, unittest, etc.), you MUST use a loop construct that combines code_edit and bash agents.
+Tests need iterative refinement - the workflow must loop until tests pass.
+
+Loop structure for test-driven tasks:
+```yaml
+assets:
+  fix_until_tests_pass:
+    type: loop
+    description: "Fix code iteratively until all tests pass"
+    max_iterations: 5
+    exit_condition:
+      type: all_valid
+    loop_body:
+      assets:
+        apply_fix:
+          agent: code_edit
+          type: text
+          description: "Apply or refine the code fix"
+          inputs: [__previous__run_tests]
+        run_tests:
+          agent: bash
+          type: text
+          description: "Run pytest to verify the fix"
+          inputs: [apply_fix]
+    loop_output: run_tests
+```
+
+Key loop features:
+- type: loop (identifies this as a loop node)
+- max_iterations: Safety limit (typically 3-10)
+- exit_condition: When to stop (all_valid means all loop body assets must validate successfully)
+- loop_body: Sub-workflow that repeats (must have 'assets' key)
+- loop_output: Which asset's result to return
+- Special inputs: __previous__<asset_name> accesses results from previous iteration
+
+WHEN TO USE LOOPS:
+- ANY task involving test execution → MUST use loop with code_edit + bash
+- Iterative refinement tasks (fix until valid, retry until success)
+- Multi-file changes that need validation at each step
+
 EXAMPLES showing correct type usage from agent specifications:
 
 {examples}

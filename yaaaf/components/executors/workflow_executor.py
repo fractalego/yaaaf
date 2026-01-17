@@ -616,14 +616,58 @@ class WorkflowExecutor:
 
         # Validate each asset in the iteration
         validation_results = {}
+        loop_body_assets = loop_body.get("assets", {})
+
         for asset_name, result_string in iteration_assets.items():
             # Skip special variables
             if asset_name.startswith("__"):
                 continue
 
-            # Simple validation: check if result exists and is non-empty
-            # TODO: Could use ValidationAgent here for proper validation
-            is_valid = bool(result_string and result_string.strip())
+            # Get asset config for validation
+            asset_config = loop_body_assets.get(asset_name, {})
+
+            # Use ValidationAgent if available for semantic validation
+            if self._validation_agent and self._original_goal:
+                try:
+                    # Get inputs for this asset from the loop body config
+                    input_names = asset_config.get("inputs", [])
+                    inputs = {}
+                    for input_name in input_names:
+                        # Check if input is from current iteration
+                        if input_name in iteration_assets:
+                            inputs[input_name] = iteration_assets[input_name]
+                        # Check if input is from previous iteration
+                        elif f"__previous__{input_name}" in iteration_assets:
+                            inputs[input_name] = iteration_assets[f"__previous__{input_name}"]
+                        # Check if input is from loop input
+                        elif f"__loop_input__{input_name}" in iteration_assets:
+                            inputs[input_name] = iteration_assets[f"__loop_input__{input_name}"]
+
+                    _logger.debug(f"Validating loop iteration asset '{asset_name}' (iteration {iteration})")
+
+                    validation_result = await self._validate_artifact(
+                        asset_name=asset_name,
+                        result_string=result_string,
+                        asset_config=asset_config,
+                        inputs=inputs,
+                    )
+
+                    is_valid = validation_result.is_valid
+
+                    _logger.debug(
+                        f"Loop iteration {iteration} validation for '{asset_name}': "
+                        f"valid={is_valid}, confidence={validation_result.confidence:.2f}, "
+                        f"reason={validation_result.reason[:100] if validation_result.reason else 'N/A'}"
+                    )
+
+                except Exception as e:
+                    # If validation fails, log error and fall back to simple check
+                    _logger.warning(f"ValidationAgent failed for loop asset '{asset_name}': {e}")
+                    is_valid = bool(result_string and result_string.strip())
+            else:
+                # No validation agent - use simple non-empty check
+                is_valid = bool(result_string and result_string.strip())
+
             validation_results[asset_name] = is_valid
 
         return iteration_assets, validation_results

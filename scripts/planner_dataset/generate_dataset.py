@@ -459,7 +459,7 @@ Do not use markdown code blocks. Output the raw YAML directly.
 Example format with descriptive names and checks:
 assets:
   customer_sales_data:
-    agent: SqlAgent
+    agent: sql
     description: "Extract customer purchase history from sales database"
     type: table
     checks:
@@ -469,7 +469,7 @@ assets:
       - "no_null_values: [customer_id, purchase_date]"
 
   validated_sales_data:
-    agent: ReviewerAgent
+    agent: reviewer
     description: "Validate and clean sales data for outliers"
     type: table
     inputs: [customer_sales_data]
@@ -478,7 +478,7 @@ assets:
       - "amount between 0 and 1000000"
 
   monthly_revenue_chart:
-    agent: VisualizationAgent
+    agent: visualization
     description: "Create monthly revenue trend visualization"
     type: image
     inputs: [validated_sales_data]
@@ -490,7 +490,7 @@ More check examples for different artifact types:
 
 For TEXT artifacts:
   search_results_summary:
-    agent: BraveSearchAgent
+    agent: brave_search
     type: table
     checks:
       - "row_count >= 5"
@@ -499,7 +499,7 @@ For TEXT artifacts:
 
 For MODEL artifacts:
   churn_prediction_model:
-    agent: MleAgent
+    agent: mle
     type: model
     inputs: [customer_features]
     checks:
@@ -509,7 +509,7 @@ For MODEL artifacts:
 
 For JSON artifacts:
   api_response_data:
-    agent: ToolAgent
+    agent: tool
     type: json
     checks:
       - "valid_json: true"
@@ -585,13 +585,13 @@ assets:
       # This is a mini-workflow that repeats each iteration
       assets:
         step1:
-          agent: CodeEditAgent  # or other agent
+          agent: code_edit  # or other agent
           type: text
           description: "Apply or refine fix"
           inputs: [__previous__step2]  # Use results from last iteration
 
         step2:
-          agent: BashAgent
+          agent: bash
           type: text
           description: "Run tests or validation"
           inputs: [step1]
@@ -624,11 +624,11 @@ fix_until_tests_pass:
   loop_body:
     assets:
       apply_fix:
-        agent: CodeEditAgent
+        agent: code_edit
         type: text
         inputs: [__previous__run_tests]
       run_tests:
-        agent: BashAgent
+        agent: bash
         type: text
         inputs: [apply_fix]
   loop_output: run_tests
@@ -645,11 +645,11 @@ refine_until_valid:
   loop_body:
     assets:
       generate:
-        agent: AnswererAgent
+        agent: answerer
         type: text
         inputs: [__previous__validation]
       validation:
-        agent: ReviewerAgent
+        agent: reviewer
         type: table
         inputs: [generate]
   loop_output: generate
@@ -739,19 +739,19 @@ assets:
 
   # New steps that build on prior work
   analyze_failure:
-    agent: AnswererAgent
+    agent: answerer
     type: text
     description: "Analyze why prior fix failed based on test results"
     inputs: [prior_code_analysis, prior_test_results]
 
   corrected_fix:
-    agent: CodeEditAgent
+    agent: code_edit
     type: text
     description: "Apply corrected fix addressing the failure"
     inputs: [analyze_failure]
 
   verify_fix:
-    agent: BashAgent
+    agent: bash
     type: text
     description: "Run tests to verify corrected fix"
     inputs: [corrected_fix]

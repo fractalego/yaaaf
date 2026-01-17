@@ -16,6 +16,11 @@ from yaaaf.components.validators.replan_context import (
     FailureDetails,
 )
 from yaaaf.components.validators.failure_analyzer import create_failure_summary
+from yaaaf.components.executors.loop_config import (
+    LoopConfig,
+    LoopIterationResult,
+    ExitConditionType,
+)
 
 if TYPE_CHECKING:
     from yaaaf.components.agents.validation_agent import ValidationAgent
@@ -184,6 +189,11 @@ class WorkflowExecutor:
             # Check for external artifact reference (from prior plan)
             if "external_artifact_id" in asset_config and "agent" not in asset_config:
                 self._load_external_artifact(asset_name, asset_config)
+                continue
+
+            # Check for loop node
+            if asset_config.get("type") == "loop":
+                await self._execute_loop(asset_name, asset_config, messages)
                 continue
 
             # Check conditions
@@ -376,6 +386,126 @@ class WorkflowExecutor:
             description="Final workflow result",
         )
 
+    async def _execute_loop(
+        self, loop_name: str, loop_config: Dict, messages: Messages
+    ) -> None:
+        """Execute a loop node.
+
+        Args:
+            loop_name: Name of the loop asset
+            loop_config: Loop configuration dict
+            messages: Original messages for context
+        """
+        _logger.info(f"Starting loop '{loop_name}' (max_iterations={loop_config.get('max_iterations', 10)})")
+
+        # Parse loop configuration
+        try:
+            loop_cfg = LoopConfig(**loop_config)
+        except Exception as e:
+            error_msg = f"Invalid loop configuration for '{loop_name}': {e}"
+            _logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        # Get loop inputs from outside the loop
+        loop_inputs = self._gather_inputs(loop_cfg.inputs or [])
+
+        # Track iteration results
+        iteration_results: List[LoopIterationResult] = []
+        previous_iteration_assets: Dict[str, str] = {}
+
+        # Execute loop iterations
+        for iteration in range(loop_cfg.max_iterations):
+            _logger.info(f"Loop '{loop_name}' iteration {iteration + 1}/{loop_cfg.max_iterations}")
+
+            # Add progress note
+            if self._notes is not None:
+                from yaaaf.components.data_types import Note
+                note = Note(
+                    message=f"🔁 Loop '{loop_name}' - iteration {iteration + 1}",
+                    artefact_id=None,
+                    agent_name="workflow",
+                )
+                self._notes.append(note)
+
+            # Execute loop body (it's a sub-workflow)
+            iteration_assets, validation_results = await self._execute_loop_body(
+                loop_name=loop_name,
+                loop_body=loop_cfg.loop_body,
+                iteration=iteration,
+                loop_inputs=loop_inputs,
+                previous_iteration=previous_iteration_assets,
+                messages=messages,
+            )
+
+            # Check if all assets are valid
+            all_valid = all(validation_results.values())
+
+            # Evaluate exit condition
+            exit_condition_met = self._evaluate_loop_exit_condition(
+                exit_condition=loop_cfg.exit_condition,
+                iteration_assets=iteration_assets,
+                validation_results=validation_results,
+            )
+
+            # Store iteration result
+            iter_result = LoopIterationResult(
+                iteration=iteration,
+                assets=iteration_assets,
+                all_valid=all_valid,
+                validation_results=validation_results,
+                exit_condition_met=exit_condition_met,
+            )
+            iteration_results.append(iter_result)
+
+            # Update previous iteration for next loop
+            previous_iteration_assets = iteration_assets
+
+            # Check if we should exit
+            if exit_condition_met:
+                _logger.info(f"Loop '{loop_name}' exit condition met after {iteration + 1} iteration(s)")
+                if self._notes is not None:
+                    from yaaaf.components.data_types import Note
+                    note = Note(
+                        message=f"✅ Loop '{loop_name}' completed successfully after {iteration + 1} iteration(s)",
+                        artefact_id=None,
+                        agent_name="workflow",
+                    )
+                    self._notes.append(note)
+                break
+        else:
+            # Max iterations reached without exit condition
+            _logger.warning(
+                f"Loop '{loop_name}' reached max_iterations ({loop_cfg.max_iterations}) "
+                "without meeting exit condition"
+            )
+            if self._notes is not None:
+                from yaaaf.components.data_types import Note
+                note = Note(
+                    message=f"⚠️ Loop '{loop_name}' stopped after {loop_cfg.max_iterations} iterations (max reached)",
+                    artefact_id=None,
+                    agent_name="workflow",
+                )
+                self._notes.append(note)
+
+        # Return the specified loop output from the final iteration
+        if not iteration_results:
+            raise ValueError(f"Loop '{loop_name}' produced no iterations")
+
+        final_iteration = iteration_results[-1]
+        output_asset_name = loop_cfg.loop_output
+
+        if output_asset_name not in final_iteration.assets:
+            raise ValueError(
+                f"Loop output asset '{output_asset_name}' not found in loop body. "
+                f"Available: {list(final_iteration.assets.keys())}"
+            )
+
+        # Store the final loop result in asset_results
+        final_result = final_iteration.assets[output_asset_name]
+        self.asset_results[loop_name] = final_result
+
+        _logger.info(f"Loop '{loop_name}' completed. Returning output from '{output_asset_name}'")
+
     def _load_external_artifact(self, asset_name: str, asset_config: Dict) -> None:
         """Load an external artifact from a prior plan execution.
 
@@ -415,6 +545,143 @@ class WorkflowExecutor:
             error_msg = f"Failed to load external artifact {external_id}: {e}"
             _logger.error(error_msg)
             raise ValueError(error_msg)
+
+    async def _execute_loop_body(
+        self,
+        loop_name: str,
+        loop_body: Dict,
+        iteration: int,
+        loop_inputs: Dict[str, str],
+        previous_iteration: Dict[str, str],
+        messages: Messages,
+    ) -> tuple[Dict[str, str], Dict[str, bool]]:
+        """Execute one iteration of a loop body.
+
+        Args:
+            loop_name: Name of the parent loop
+            loop_body: Loop body configuration (contains 'assets')
+            iteration: Current iteration number (0-based)
+            loop_inputs: Inputs from outside the loop
+            previous_iteration: Asset results from previous iteration
+            messages: Original messages
+
+        Returns:
+            Tuple of (iteration_assets, validation_results)
+        """
+        if "assets" not in loop_body:
+            raise ValueError(f"Loop '{loop_name}' body must have 'assets' section")
+
+        # Create a sub-executor for this iteration
+        # Build a mini YAML plan for the loop body
+        import yaml
+        loop_body_yaml = yaml.dump(loop_body)
+
+        _logger.debug(f"Loop '{loop_name}' iteration {iteration} body:\n{loop_body_yaml}")
+
+        # Create sub-executor with special context
+        # Note: We create a fresh executor per iteration to isolate state
+        sub_executor = WorkflowExecutor(
+            yaml_plan=loop_body_yaml,
+            agents=self.agents,
+            notes=self._notes,
+            stream_id=self._stream_id,
+            validation_agent=self._validation_agent,
+            original_goal=self._original_goal,
+            disable_user_prompts=self._disable_user_prompts,
+            env_path=self._env_path,
+            working_dir=self._working_dir,
+        )
+
+        # Inject special loop variables into the sub-executor's context
+        # __loop_input__: inputs from outside the loop
+        for input_name, input_value in loop_inputs.items():
+            sub_executor.asset_results[f"__loop_input__{input_name}"] = input_value
+
+        # __previous_iteration__: results from last iteration
+        for asset_name, asset_value in previous_iteration.items():
+            sub_executor.asset_results[f"__previous__{asset_name}"] = asset_value
+
+        # __iteration__: current iteration number
+        sub_executor.asset_results["__iteration__"] = str(iteration)
+
+        # Execute the loop body
+        try:
+            await sub_executor.execute(messages)
+        except Exception as e:
+            _logger.error(f"Loop '{loop_name}' iteration {iteration} failed: {e}")
+            raise
+
+        # Get results from this iteration
+        iteration_assets = sub_executor.get_completed_assets()
+
+        # Validate each asset in the iteration
+        validation_results = {}
+        for asset_name, result_string in iteration_assets.items():
+            # Skip special variables
+            if asset_name.startswith("__"):
+                continue
+
+            # Simple validation: check if result exists and is non-empty
+            # TODO: Could use ValidationAgent here for proper validation
+            is_valid = bool(result_string and result_string.strip())
+            validation_results[asset_name] = is_valid
+
+        return iteration_assets, validation_results
+
+    def _evaluate_loop_exit_condition(
+        self,
+        exit_condition: Dict,
+        iteration_assets: Dict[str, str],
+        validation_results: Dict[str, bool],
+    ) -> bool:
+        """Evaluate whether the loop should exit.
+
+        Args:
+            exit_condition: Exit condition configuration
+            iteration_assets: Assets produced in this iteration
+            validation_results: Validation status for each asset
+
+        Returns:
+            True if loop should exit, False to continue
+        """
+        condition_type = exit_condition.get("type", "all_valid")
+
+        if condition_type == ExitConditionType.ALL_VALID:
+            # All assets must be valid
+            # Filter to specified assets if provided
+            assets_to_check = exit_condition.get("assets")
+            if assets_to_check:
+                results_to_check = {
+                    name: validation_results[name]
+                    for name in assets_to_check
+                    if name in validation_results
+                }
+            else:
+                results_to_check = validation_results
+
+            return all(results_to_check.values()) if results_to_check else False
+
+        elif condition_type == ExitConditionType.ANY_VALID:
+            # At least one specified asset must be valid
+            assets_to_check = exit_condition.get("assets", [])
+            results_to_check = {
+                name: validation_results.get(name, False)
+                for name in assets_to_check
+            }
+            return any(results_to_check.values()) if results_to_check else False
+
+        elif condition_type == ExitConditionType.CUSTOM:
+            # Evaluate custom condition (future enhancement)
+            condition_expr = exit_condition.get("condition", "")
+            _logger.warning(
+                f"Custom loop exit conditions not yet implemented. "
+                f"Condition: '{condition_expr}'"
+            )
+            return False
+
+        else:
+            _logger.warning(f"Unknown exit condition type: {condition_type}")
+            return False
 
     def _log_artifact_production(self, asset_name: str, agent_name: str, result_string: str) -> None:
         """Log details about artifacts produced by an agent at a specific step.

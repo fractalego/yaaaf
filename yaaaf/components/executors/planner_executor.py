@@ -64,22 +64,42 @@ class PlannerExecutor(ToolExecutor):
                     if not isinstance(asset_config, dict):
                         return None, f"Invalid asset '{asset_name}': must be a dictionary"
 
-                    # Check if this is an external artifact reference (continuation plan)
+                    # Check asset type
                     is_external_artifact = "external_artifact_id" in asset_config
+                    is_loop = asset_config.get("type") == "loop"
 
-                    if is_external_artifact:
+                    if is_loop:
+                        # Loop nodes have special requirements
+                        required_fields = ["type", "description", "max_iterations", "exit_condition", "loop_body", "loop_output"]
+                        for field in required_fields:
+                            if field not in asset_config:
+                                return None, f"Invalid loop asset '{asset_name}': missing required field '{field}'"
+
+                        # Validate loop_body has 'assets'
+                        loop_body = asset_config.get("loop_body", {})
+                        if not isinstance(loop_body, dict) or "assets" not in loop_body:
+                            return None, f"Invalid loop asset '{asset_name}': loop_body must be a dict with 'assets' key"
+
+                        # Validate exit_condition structure
+                        exit_condition = asset_config.get("exit_condition", {})
+                        if not isinstance(exit_condition, dict) or "type" not in exit_condition:
+                            return None, f"Invalid loop asset '{asset_name}': exit_condition must have 'type' field"
+
+                    elif is_external_artifact:
                         # External artifacts don't need 'agent' field
                         required_fields = ["external_artifact_id", "type"]
-                        # Description is optional but recommended
                         if "agent" in asset_config:
                             return None, f"Invalid asset '{asset_name}': external artifact references should not have 'agent' field"
+                        for field in required_fields:
+                            if field not in asset_config:
+                                return None, f"Invalid asset '{asset_name}': missing required field '{field}'"
+
                     else:
                         # Regular assets need agent field
                         required_fields = ["agent", "description", "type"]
-
-                    for field in required_fields:
-                        if field not in asset_config:
-                            return None, f"Invalid asset '{asset_name}': missing required field '{field}'"
+                        for field in required_fields:
+                            if field not in asset_config:
+                                return None, f"Invalid asset '{asset_name}': missing required field '{field}'"
                 
             except yaml.YAMLError as e:
                 return None, f"Invalid YAML format: {str(e)}"

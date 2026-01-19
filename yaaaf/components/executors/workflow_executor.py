@@ -116,8 +116,18 @@ class WorkflowExecutor:
         # Build dependency graph
         dependencies = {}
         for asset_name, asset_config in assets.items():
-            dependencies[asset_name] = asset_config.get("inputs", [])
-            
+            inputs = asset_config.get("inputs", [])
+
+            # Filter out special loop inputs - they're not DAG dependencies
+            # __previous__* references previous iteration (not a dependency in this iteration)
+            # __loop_input__* references parent scope (injected externally)
+            real_dependencies = [
+                inp for inp in inputs
+                if not inp.startswith("__previous__") and not inp.startswith("__loop_input__")
+            ]
+
+            dependencies[asset_name] = real_dependencies
+
         # Debug: Log the dependency graph
         _logger.info(f"Dependency graph: {dependencies}")
 

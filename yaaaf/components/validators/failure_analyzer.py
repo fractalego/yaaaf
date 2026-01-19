@@ -61,7 +61,34 @@ def analyze_bash_output(output: str, exit_code: Optional[int] = None) -> Tuple[F
                 ),
             )
 
-    # Detect test failures (pytest, unittest, jest, etc.)
+    # Detect test failures by exit code (pytest)
+    # Exit code 1 = tests failed, 4 = usage error/no tests found, 5 = no tests collected
+    if exit_code in (1, 4, 5):
+        # Check if this is actually a test run (has pytest/test markers)
+        is_test_run = bool(
+            re.search(r"pytest|test.*\.py|test session|collected \d+ item", output, re.IGNORECASE)
+        )
+
+        if is_test_run:
+            error_message = _extract_test_failure_summary(output)
+
+            # For exit code 4 or 5, provide more specific message
+            if exit_code in (4, 5):
+                if "not found:" in output or "no match" in output:
+                    error_message = "No tests found - test path may be incorrect"
+                elif "collected 0 items" in output:
+                    error_message = "No tests collected - check test selection"
+
+            return (
+                FailureType.TESTS_FAILED,
+                FailureDetails(
+                    exit_code=exit_code,
+                    raw_output=output,
+                    error_message=error_message,
+                ),
+            )
+
+    # Detect test failures by output patterns (pytest, unittest, jest, etc.)
     test_patterns = [
         r"(\d+) failed",  # pytest
         r"FAILED.*test_",  # pytest test names

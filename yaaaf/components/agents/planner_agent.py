@@ -187,12 +187,13 @@ The agent will output a workflow in YAML format with asset-based dependencies.
         Returns:
             Prompt string
         """
-        # Format completed artifacts
+        # Format completed artifacts with FULL IDs (planner needs complete IDs)
         completed_artifacts_desc = []
         for artifact in replan_context.completed_artifacts:
             completed_artifacts_desc.append(
                 f"  - {artifact.name}: {artifact.description} "
-                f"(type={artifact.type}, id={artifact.id[:12]}..., agent={artifact.agent_name})"
+                f"(type={artifact.type}, agent={artifact.agent_name})\n"
+                f"    ID: {artifact.id}"
             )
         completed_artifacts_str = "\n".join(completed_artifacts_desc) if completed_artifacts_desc else "  None"
 
@@ -227,37 +228,78 @@ Type: {replan_context.failure_type.value}
 Summary: {replan_context.failure_summary}
 Details: {replan_context.failure_details.error_message}
 
-**How to Reference Prior Artifacts:**
-To reuse an artifact from the prior plan, create an asset node WITHOUT an agent field:
+**Available Artifact IDs to Reference:**
+Use these EXACT IDs when creating external_artifact_id references:
+"""
+        # Add each artifact ID explicitly for the planner to use
+        if replan_context.completed_artifacts:
+            for artifact in replan_context.completed_artifacts:
+                prompt += f"\n  {artifact.name}: {artifact.id}"
+        else:
+            prompt += "\n  (No completed artifacts available)"
+
+        # Build example using actual artifact if available
+        example_artifact = replan_context.completed_artifacts[0] if replan_context.completed_artifacts else None
+
+        if example_artifact:
+            example_yaml = f"""
+
+**Example of Referencing Prior Artifacts:**
+To reuse an artifact from the prior plan, create an asset WITHOUT an agent field:
 
 ```yaml
 assets:
   # Reference to prior artifact (no agent field!)
-  previous_analysis:
-    type: text  # REQUIRED: type field is always required
-    external_artifact_id: "{replan_context.completed_artifacts[0].id if replan_context.completed_artifacts else 'artifact_id_here'}"
-    description: "Analysis from first attempt"
+  {example_artifact.name}:
+    type: {example_artifact.type}
+    external_artifact_id: "{example_artifact.id}"
+    description: "{example_artifact.description}"
 
   # New step that uses the prior artifact
-  fix_the_issue:
+  analyze_failure:
     agent: answerer
-    type: text  # REQUIRED: type field is always required
-    description: "Correct the issue based on failure analysis"
-    inputs: [previous_analysis]
-```
+    type: text
+    description: "Analyze why the previous attempt failed"
+    inputs: [{example_artifact.name}]
+
+  # Another new step
+  apply_fix:
+    agent: code_edit
+    type: text
+    description: "Apply corrected fix based on failure analysis"
+    inputs: [analyze_failure]
+```"""
+        else:
+            example_yaml = """
+
+**Example Structure:**
+```yaml
+assets:
+  # New steps only (no prior artifacts to reference)
+  analyze_failure:
+    agent: answerer
+    type: text
+    description: "Analyze the failure"
+```"""
+
+        prompt += example_yaml
+        prompt += """
 
 **CRITICAL REQUIREMENTS:**
 - ALL assets (both external references and new steps) MUST have a `type` field
 - External artifact references: require `external_artifact_id` and `type` (NO `agent`)
 - New execution steps: require `agent`, `type`, and `description`
+- ONLY use artifact IDs from the "Available Artifact IDs" list above - DO NOT make up IDs
+- Copy the EXACT ID strings provided - they are long hash strings like "1234567890123456789"
 
 **Your Task:**
 Generate a continuation plan that:
-1. References relevant completed artifacts using external_artifact_id (NO agent field for these!)
-2. Analyzes why the failed step didn't work
-3. Creates new steps to fix the issue and achieve the goal
-4. Uses appropriate agents from the available set
-5. ENSURES ALL assets have a `type` field (text, table, image, etc.)
+1. References relevant completed artifacts using external_artifact_id from the list above
+2. Use the EXACT artifact ID strings provided (do NOT use placeholders like "artifact_id_here")
+3. Analyzes why the failed step didn't work
+4. Creates new steps to fix the issue and achieve the goal
+5. Uses appropriate agents from the available set
+6. ENSURES ALL assets have a `type` field (text, table, image, etc.)
 
 Please provide the complete YAML workflow."""
 

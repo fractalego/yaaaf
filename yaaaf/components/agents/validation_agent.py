@@ -11,6 +11,7 @@ from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.validators.validation_result import ValidationResult
 from yaaaf.components.validators.artifact_inspector import inspect_artifact
 from yaaaf.components.validators.failure_analyzer import analyze_bash_output, create_failure_summary
+from yaaaf.components.validators.replan_context import FailureType
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 
 _logger = logging.getLogger(__name__)
@@ -81,15 +82,25 @@ class ValidationAgent(CustomAgent):
             response = await self._client.predict(messages)
             result = self._parse_response(response.message, asset_name)
 
-            # For bash agents, analyze the output to detect failure type
-            if agent_name == "BashAgent" and not result.is_valid:
+            # For bash agents, ALWAYS analyze the output to detect failures
+            # This overrides LLM validation which might miss exit codes
+            if agent_name == "BashAgent":
                 failure_type, failure_details = analyze_bash_output(artifact_content)
-                result.failure_type = failure_type
-                result.failure_details = failure_details
-                # Update reason with failure summary if not already detailed
-                if not result.reason or len(result.reason) < 20:
+
+                # If failure analyzer detects a failure, override LLM result
+                if failure_type == FailureType.TESTS_FAILED:
+                    result.is_valid = False
+                    result.failure_type = failure_type
+                    result.failure_details = failure_details
                     result.reason = create_failure_summary(failure_type, failure_details)
-                _logger.info(f"Detected failure type: {failure_type} for {asset_name}")
+                    _logger.info(f"Detected test failure (overriding LLM): {failure_type} for {asset_name}")
+                elif not result.is_valid:
+                    # LLM said invalid, use failure analyzer details
+                    result.failure_type = failure_type
+                    result.failure_details = failure_details
+                    if not result.reason or len(result.reason) < 20:
+                        result.reason = create_failure_summary(failure_type, failure_details)
+                    _logger.info(f"Detected failure type: {failure_type} for {asset_name}")
 
             return result
         except Exception as e:

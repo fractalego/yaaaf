@@ -628,6 +628,12 @@ class WorkflowExecutor:
         # __iteration__: current iteration number
         sub_executor.asset_results["__iteration__"] = str(iteration)
 
+        # Log the initial state for debugging
+        _logger.debug(
+            f"Loop '{loop_name}' iteration {iteration} starting with asset_results keys: "
+            f"{list(sub_executor.asset_results.keys())}"
+        )
+
         # Execute the loop body
         try:
             await sub_executor.execute(messages)
@@ -636,7 +642,19 @@ class WorkflowExecutor:
             raise
 
         # Get results from this iteration
-        iteration_assets = sub_executor.get_completed_assets()
+        all_results = sub_executor.get_completed_assets()
+
+        # Filter to only actual loop body assets (exclude special variables)
+        # This ensures clean state for next iteration
+        iteration_assets = {
+            name: result
+            for name, result in all_results.items()
+            if not name.startswith("__")
+        }
+
+        _logger.debug(
+            f"Loop '{loop_name}' iteration {iteration} produced assets: {list(iteration_assets.keys())}"
+        )
 
         # Validate each asset in the iteration
         validation_results = {}
@@ -660,12 +678,12 @@ class WorkflowExecutor:
                         # Check if input is from current iteration
                         if input_name in iteration_assets:
                             inputs[input_name] = iteration_assets[input_name]
-                        # Check if input is from previous iteration
-                        elif f"__previous__{input_name}" in iteration_assets:
-                            inputs[input_name] = iteration_assets[f"__previous__{input_name}"]
-                        # Check if input is from loop input
-                        elif f"__loop_input__{input_name}" in iteration_assets:
-                            inputs[input_name] = iteration_assets[f"__loop_input__{input_name}"]
+                        # Check if input is from previous iteration (in all_results)
+                        elif f"__previous__{input_name}" in all_results:
+                            inputs[input_name] = all_results[f"__previous__{input_name}"]
+                        # Check if input is from loop input (in all_results)
+                        elif f"__loop_input__{input_name}" in all_results:
+                            inputs[input_name] = all_results[f"__loop_input__{input_name}"]
 
                     _logger.debug(f"Validating loop iteration asset '{asset_name}' (iteration {iteration})")
 

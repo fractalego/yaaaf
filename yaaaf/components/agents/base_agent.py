@@ -187,6 +187,8 @@ class BaseAgent(ABC):
 
             if error:
                 _logger.warning(f"{self.get_name()}: Operation failed: {error[:2000]}")
+                # Accumulate error so it's included in final artifact for next iteration
+                all_results.append((error, instruction))
                 feedback = self._executor.get_feedback_message(error)
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)

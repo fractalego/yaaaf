@@ -75,6 +75,7 @@ class WorkflowExecutor:
         cached_results: Optional[Dict[str, str]] = None,
         env_path: Optional[str] = None,
         working_dir: Optional[str] = None,
+        disable_validation_replan: bool = False,
     ):
         """Initialize workflow executor.
 
@@ -91,6 +92,8 @@ class WorkflowExecutor:
                            Assets with cached results will be skipped (reused)
             env_path: Optional path to Python virtual environment for bash commands
             working_dir: Optional working directory for file operations (code_edit)
+            disable_validation_replan: If True, validation failures will not trigger replanning
+                                      (used for loop bodies where validation is handled by the loop)
         """
         self.yaml_plan = yaml_plan  # Store raw YAML for state persistence
         self.plan = yaml.safe_load(yaml_plan)
@@ -107,6 +110,7 @@ class WorkflowExecutor:
         self._disable_user_prompts = disable_user_prompts
         self._env_path = env_path
         self._working_dir = working_dir
+        self._disable_validation_replan = disable_validation_replan
         self._build_execution_graph()
 
     def _build_execution_graph(self):
@@ -320,7 +324,13 @@ class WorkflowExecutor:
                         valid_results = {k: v for k, v in self.asset_results.items() if k != asset_name}
                         _logger.info(f"Excluding failed asset '{asset_name}' from cached results for replan")
 
-                        if validation_result.should_ask_user:
+                        # Skip replanning if we're inside a loop body
+                        if self._disable_validation_replan:
+                            _logger.warning(
+                                f"Validation failed for {asset_name} but replanning disabled (loop context): {validation_result.reason}"
+                            )
+                            # Continue execution - loop will handle validation
+                        elif validation_result.should_ask_user:
                             if self._disable_user_prompts:
                                 # User prompts disabled - go straight to replanning
                                 _logger.warning(
@@ -590,6 +600,8 @@ class WorkflowExecutor:
 
         # Create sub-executor with special context
         # Note: We create a fresh executor per iteration to isolate state
+        # IMPORTANT: disable_validation_replan=True prevents validation failures from
+        # triggering replanning within loop bodies - the loop handles validation itself
         sub_executor = WorkflowExecutor(
             yaml_plan=loop_body_yaml,
             agents=self.agents,
@@ -600,6 +612,7 @@ class WorkflowExecutor:
             disable_user_prompts=self._disable_user_prompts,
             env_path=self._env_path,
             working_dir=self._working_dir,
+            disable_validation_replan=True,  # Loop handles validation, don't replan
         )
 
         # Inject special loop variables into the sub-executor's context

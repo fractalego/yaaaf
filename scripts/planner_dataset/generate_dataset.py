@@ -571,8 +571,15 @@ Available agents:
 LOOP WORKFLOW FORMAT:
 ```yaml
 assets:
+  # IMPORTANT: Steps BEFORE the loop to provide context
+  gather_context:
+    agent: bash
+    type: text
+    description: "Gather necessary information for the loop"
+
   loop_name:
     type: loop
+    inputs: [gather_context]  # CRITICAL: Pass external context into loop!
     description: "What this loop does"
     max_iterations: 5  # Typically 3-7 iterations
 
@@ -588,7 +595,8 @@ assets:
           agent: code_edit  # or other agent
           type: text
           description: "Apply or refine fix"
-          inputs: [__previous__step2]  # Use results from last iteration
+          # Access BOTH external context AND previous iteration results
+          inputs: [__loop_input__gather_context, __previous__step2]
 
         step2:
           agent: bash
@@ -600,24 +608,31 @@ assets:
 ```
 
 CRITICAL RULES FOR LOOPS:
-1. Loop body MUST have 2-{bucket.max_agents} assets (typically fix/refine + test/validate)
-2. At least one asset should use __previous__<name> to get feedback from last iteration
-3. Exit condition {exit_condition_type}:
+1. **MUST HAVE INPUTS**: The loop MUST have an 'inputs' field that brings in context from prior steps
+   - Without inputs, the loop has no information to work with on iteration 1!
+   - Example: `inputs: [bug_report, initial_analysis]`
+2. Loop body MUST have 2-{bucket.max_agents} assets (typically fix/refine + test/validate)
+3. Assets in loop body access external inputs via __loop_input__<name>
+   - Example: `inputs: [__loop_input__bug_report, __previous__test_results]`
+4. At least one asset should use __previous__<name> to get feedback from last iteration
+5. Exit condition {exit_condition_type}:
    - all_valid: Loop continues until ALL assets in loop body pass validation
    - any_valid: Specify which asset(s) to check (e.g., assets: [run_tests])
-4. loop_output specifies which asset result to return
-5. max_iterations typically 3-7 (enough for refinement, not excessive)
-6. Agents in loop body can use:
-   - __previous__<asset_name>: Results from previous iteration
-   - __loop_input__<name>: Data from outside the loop
+6. loop_output specifies which asset result to return
+7. max_iterations typically 3-7 (enough for refinement, not excessive)
+8. Special variables available in loop body:
+   - __previous__<asset_name>: Results from previous iteration (empty on iteration 1)
+   - __loop_input__<name>: Data from outside the loop (from 'inputs' field)
    - __iteration__: Current iteration number
 
 COMMON LOOP PATTERNS:
 
-Fix-Test Pattern:
+Fix-Test Pattern (with external context):
 ```yaml
+# NOTE: Loops MUST have 'inputs' to bring in external context!
 fix_until_tests_pass:
   type: loop
+  inputs: [bug_description, code_to_fix]  # External inputs from prior steps
   max_iterations: 5
   exit_condition:
     type: all_valid
@@ -626,7 +641,8 @@ fix_until_tests_pass:
       apply_fix:
         agent: code_edit
         type: text
-        inputs: [__previous__run_tests]
+        # First iteration: uses loop inputs, later iterations: uses previous test results too
+        inputs: [__loop_input__bug_description, __loop_input__code_to_fix, __previous__run_tests]
       run_tests:
         agent: bash
         type: text
@@ -634,10 +650,11 @@ fix_until_tests_pass:
   loop_output: run_tests
 ```
 
-Iterative Refinement Pattern:
+Iterative Refinement Pattern (with external context):
 ```yaml
 refine_until_valid:
   type: loop
+  inputs: [initial_requirements, data_source]  # External inputs
   max_iterations: 3
   exit_condition:
     type: any_valid
@@ -647,7 +664,8 @@ refine_until_valid:
       generate:
         agent: answerer
         type: text
-        inputs: [__previous__validation]
+        # Access external inputs AND previous iteration feedback
+        inputs: [__loop_input__initial_requirements, __loop_input__data_source, __previous__validation]
       validation:
         agent: reviewer
         type: table
@@ -658,7 +676,30 @@ refine_until_valid:
 User Scenario:
 {scenario}
 
-Generate a complete workflow with a loop construct. The loop should solve the iterative problem described.
+Generate a complete workflow with a loop construct that:
+1. **INCLUDES PRE-LOOP STEPS**: Add 1-2 steps BEFORE the loop to gather context (analyze the bug, explore code, etc.)
+2. **LOOP HAS INPUTS**: The loop MUST reference the pre-loop steps in its 'inputs' field
+3. **LOOP BODY USES INPUTS**: Assets in loop body access external context via __loop_input__<name>
+
+Example structure:
+```yaml
+assets:
+  # Pre-loop: gather context
+  analyze_bug:
+    agent: answerer
+    type: text
+    description: "Analyze the bug description"
+
+  # Loop: iterative fix
+  fix_loop:
+    type: loop
+    inputs: [analyze_bug]  # ← REQUIRED!
+    loop_body:
+      assets:
+        apply_fix:
+          inputs: [__loop_input__analyze_bug, __previous__test_result]  # ← Use both!
+```
+
 Output ONLY valid YAML starting with "assets:". No markdown code blocks, no explanations.
 """
 

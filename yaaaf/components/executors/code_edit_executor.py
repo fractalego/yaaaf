@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import asyncio
 from typing import Dict, Any, Optional, Tuple
 
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
@@ -13,12 +14,13 @@ _logger = logging.getLogger(__name__)
 class CodeEditExecutor(ToolExecutor):
     """Executor for code editing operations.
 
-    Supports three operations:
+    Supports four operations:
     - view: Read file contents with line numbers
     - create: Create new files with content
     - str_replace: Replace exact strings in files
+    - bash: Execute shell commands
 
-    This executor mimics the str_replace_editor tool used in SWE-bench.
+    This executor mimics the str_replace_editor tool used in SWE-bench with additional bash support.
     """
 
     def __init__(self, allowed_directories: Optional[list[str]] = None, allow_overwrite: bool = True):
@@ -70,13 +72,18 @@ class CodeEditExecutor(ToolExecutor):
         Supports two formats:
         1. Markdown code blocks (for qwen and similar models):
            ```code_edit
-           operation: view|create|str_replace
+           operation: view|create|str_replace|bash
            path: /path/to/file
+           ```
+           Or for bash:
+           ```code_edit
+           operation: bash
+           command: your_bash_command
            ```
 
         2. Tool calls format (for devstral/mistral models):
            [TOOL_CALLS]code_edit
-           operation: view|create|str_replace
+           operation: view|create|str_replace|bash
            path: /path/to/file
            [/TOOL_CALLS]
         """
@@ -118,7 +125,7 @@ class CodeEditExecutor(ToolExecutor):
         return None
 
     # Known keys for code_edit instructions
-    KNOWN_KEYS = {'operation', 'path', 'old_str', 'new_str', 'content', 'start_line', 'end_line'}
+    KNOWN_KEYS = {'operation', 'path', 'old_str', 'new_str', 'content', 'start_line', 'end_line', 'command'}
 
     def _parse_instruction(self, instruction: str) -> Dict[str, str]:
         """Parse the instruction into operation and parameters."""
@@ -160,15 +167,6 @@ class CodeEditExecutor(ToolExecutor):
             params = self._parse_instruction(instruction)
             operation = params.get('operation', '').lower()
 
-            # Handle case where model tried to use bash (either via [TOOL_CALLS]bash or operation: bash)
-            if operation == 'invalid_bash_attempt' or operation == 'bash':
-                return None, (
-                    "ERROR: 'bash' is NOT a valid operation. This agent can ONLY use: view, create, str_replace. "
-                    "You cannot run shell commands like find, grep, ls, cd. "
-                    "To explore files, use 'operation: view' with a specific FILE path. "
-                    "Example:\n```code_edit\noperation: view\npath: /path/to/file.py\n```"
-                )
-
             # Handle case where model outputs JSON instead of code_edit block
             if operation == 'invalid_json_format':
                 return None, (
@@ -187,17 +185,26 @@ class CodeEditExecutor(ToolExecutor):
                     "new_str:\n"
                     "<your fixed version>\n"
                     "```\n\n"
+                    "Or for bash commands:\n"
+                    "```code_edit\n"
+                    "operation: bash\n"
+                    "command: pytest tests/test_file.py\n"
+                    "```\n\n"
                     "DO NOT use JSON. Use the ```code_edit block exactly as shown above."
                 )
 
             # Check for valid operation BEFORE checking path
-            if operation not in ('view', 'create', 'str_replace'):
-                _logger.warning(f"Invalid operation '{operation}' requested. Only view/create/str_replace are supported.")
+            if operation not in ('view', 'create', 'str_replace', 'bash'):
+                _logger.warning(f"Invalid operation '{operation}' requested. Only view/create/str_replace/bash are supported.")
                 return None, (
                     f"INVALID OPERATION: '{operation}' is not supported. "
-                    f"This agent ONLY supports: 'view', 'create', or 'str_replace'. "
+                    f"This agent ONLY supports: 'view', 'create', 'str_replace', or 'bash'. "
                     f"To FIX code, use 'str_replace' with old_str and new_str to replace the buggy code."
                 )
+
+            # Handle bash operation separately (doesn't need file path)
+            if operation == 'bash':
+                return await self._execute_bash(params, context)
 
             file_path = params.get('path', '')
 
@@ -491,14 +498,91 @@ class CodeEditExecutor(ToolExecutor):
         return result is not None and isinstance(result, str)
 
     def is_mutation_operation(self, instruction: str) -> bool:
-        """Check if the operation modifies files (vs read-only).
+        """Check if the operation modifies state (vs read-only).
 
-        Only str_replace and create are mutations. View is read-only.
+        str_replace, create, and bash are mutations. View is read-only.
         Read-only results are excluded from the final combined artifact.
         """
         params = self._parse_instruction(instruction)
         operation = params.get('operation', '').lower()
-        return operation in ('str_replace', 'create')
+        return operation in ('str_replace', 'create', 'bash')
+
+    async def _execute_bash(self, params: Dict[str, str], context: Dict[str, Any]) -> Tuple[Any, Optional[str]]:
+        """Execute a bash command.
+
+        Args:
+            params: Parsed instruction parameters (should contain 'command')
+            context: Execution context with working_dir, env_path, etc.
+
+        Returns:
+            Tuple of (result, error)
+        """
+        command = params.get('command', '').strip()
+
+        if not command:
+            return None, "No command specified. Use 'command: <your_bash_command>'"
+
+        _logger.info(f"Executing bash command: {command[:100]}...")
+
+        try:
+            # Get working directory and environment
+            working_dir = context.get("working_dir", os.getcwd())
+            env = os.environ.copy()
+
+            # Set up virtual environment if provided
+            env_path = context.get("env_path")
+            if env_path:
+                env["PATH"] = f"{env_path}/bin:{env['PATH']}"
+                env["VIRTUAL_ENV"] = env_path
+                _logger.info(f"Using virtual environment: {env_path}")
+
+                # Check for PYTHONPATH fallback marker
+                import pathlib
+                use_pythonpath_marker = pathlib.Path(env_path) / ".use_pythonpath"
+                if use_pythonpath_marker.exists() and working_dir:
+                    existing_pythonpath = env.get("PYTHONPATH", "")
+                    env["PYTHONPATH"] = f"{working_dir}:{existing_pythonpath}" if existing_pythonpath else working_dir
+                    _logger.info(f"Using PYTHONPATH fallback: {env['PYTHONPATH']}")
+
+            # Execute command asynchronously
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=working_dir,
+                env=env,
+            )
+
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=30  # 30 second timeout
+                )
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                error_msg = f"Command timed out after 30 seconds: {command}"
+                _logger.error(error_msg)
+                return None, error_msg
+
+            # Combine output
+            output = ""
+            if stdout:
+                output += f"STDOUT:\n{stdout.decode('utf-8', errors='replace')}\n"
+            if stderr:
+                output += f"STDERR:\n{stderr.decode('utf-8', errors='replace')}\n"
+            output += f"Return code: {process.returncode}"
+
+            # If command failed, return as error
+            if process.returncode != 0:
+                return None, f"Command failed with exit code {process.returncode}:\n{output}"
+
+            return output, None
+
+        except Exception as e:
+            error_msg = f"Error executing bash command '{command}': {str(e)}"
+            _logger.error(error_msg)
+            return None, error_msg
 
     def get_feedback_message(self, error: str) -> str:
         """Provide detailed feedback for code edit errors."""
@@ -515,6 +599,11 @@ class CodeEditExecutor(ToolExecutor):
                 "new_str:\n"
                 "def buggy_function():\n"
                 "    return correct_value\n"
+                "```\n\n"
+                "EXAMPLE of bash command:\n"
+                "```code_edit\n"
+                "operation: bash\n"
+                "command: pytest tests/test_file.py\n"
                 "```"
             )
         return f"Error: {error}. Please correct and try again."
@@ -524,11 +613,18 @@ class CodeEditExecutor(ToolExecutor):
         # Extract operation type from instruction for description
         params = self._parse_instruction(instruction)
         operation = params.get('operation', 'edit')
-        file_path = params.get('path', 'unknown')
+
+        # Create description based on operation type
+        if operation == 'bash':
+            command = params.get('command', 'unknown')
+            description = f"Output from bash command: {command[:50]}..."
+        else:
+            file_path = params.get('path', 'unknown')
+            description = f"Code edit ({operation}) on: {os.path.basename(file_path)}"
 
         return Artefact(
             id=artifact_id,
             type="text",
             code=result,
-            description=f"Code edit ({operation}) on: {os.path.basename(file_path)}"
+            description=description
         )

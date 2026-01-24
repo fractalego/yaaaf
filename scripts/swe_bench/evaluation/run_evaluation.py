@@ -151,7 +151,7 @@ def evaluate_instance(
 
         # Step 2: Setup Python environment (reuse if exists)
         _logger.info("Step 2: Setting up Python environment...")
-        repo_manager.setup_environment(repo, force=False)
+        repo_manager.setup_environment(repo, force=True)
 
         # Step 3: Verify initial test state (tests should fail)
         _logger.info("Step 3: Verifying initial test state...")

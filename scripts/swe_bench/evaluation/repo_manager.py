@@ -393,8 +393,9 @@ class RepoManager:
             elif "django" in repo_name:
                 _logger.info("Installing Django-specific dependencies...")
                 # Django needs these for testing
+                # legacy-cgi provides the cgi module for Python 3.13+ (removed from stdlib)
                 subprocess.run(
-                    [str(pip_path), "install", "pytz", "sqlparse", "asgiref"],
+                    [str(pip_path), "install", "pytz", "sqlparse", "asgiref", "legacy-cgi"],
                     capture_output=True,
                     text=True,
                     timeout=300,

@@ -33,6 +33,9 @@ class CodeEditExecutor(ToolExecutor):
         self._storage = ArtefactStorage()
         self._allowed_directories = allowed_directories or [os.getcwd()]
         self._allow_overwrite = allow_overwrite
+        # Track executed instructions to prevent redundant operations
+        self._executed_instructions: Dict[str, Tuple[Any, int]] = {}  # instruction -> (result, step_number)
+        self._step_counter = 0
 
     def _is_path_allowed(self, file_path: str) -> bool:
         """Check if the file path is within allowed directories."""
@@ -151,6 +154,9 @@ class CodeEditExecutor(ToolExecutor):
     async def execute_operation(self, instruction: str, context: Dict[str, Any]) -> Tuple[Any, Optional[str]]:
         """Execute code edit operation."""
         try:
+            # Increment step counter
+            self._step_counter += 1
+
             params = self._parse_instruction(instruction)
             operation = params.get('operation', '').lower()
 
@@ -214,8 +220,26 @@ class CodeEditExecutor(ToolExecutor):
                     f"Check spelling carefully - do NOT change the directory names!"
                 )
 
+            # Check if this view operation was already executed (prevent redundant views)
             if operation == 'view':
-                return self._view_file(file_path, params)
+                # Create a canonical key for this instruction
+                instruction_key = instruction.strip()
+                if instruction_key in self._executed_instructions:
+                    cached_result, previous_step = self._executed_instructions[instruction_key]
+                    warning_msg = (
+                        f"⚠️ Note: You already viewed this file in step {previous_step} of {self._step_counter}. "
+                        f"The previous result is shown below.\n\n"
+                        f"{cached_result}"
+                    )
+                    _logger.info(f"Duplicate view operation detected: {instruction_key[:100]}... (from step {previous_step})")
+                    return warning_msg, None
+
+            if operation == 'view':
+                result, error = self._view_file(file_path, params)
+                # Cache successful view operations
+                if error is None:
+                    self._executed_instructions[instruction.strip()] = (result, self._step_counter)
+                return result, error
             elif operation == 'create':
                 return self._create_file(file_path, params)
             else:  # str_replace (already validated above)

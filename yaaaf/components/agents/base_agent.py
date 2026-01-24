@@ -212,9 +212,10 @@ class BaseAgent(ABC):
                     return self._create_combined_artifact(all_results, notes)
 
                 # Operation succeeded but task not complete - feed result back to LLM
-                # Use larger limit for file views to avoid hallucination
+                # Use larger limit for file views to avoid truncation issues
+                # Modern LLMs have large context windows (100k+ tokens), so be generous
                 result_str = str(result)
-                result_summary = result_str[:8000] + "..." if len(result_str) > 8000 else result_str
+                result_summary = result_str[:50000] + "..." if len(result_str) > 50000 else result_str
                 feedback = f"Operation completed successfully. Result:\n{result_summary}\n\nContinue with next operation or say <taskcompleted/> if done."
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)

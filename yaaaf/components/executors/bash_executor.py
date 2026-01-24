@@ -94,6 +94,14 @@ class BashExecutor(ToolExecutor):
                 env["VIRTUAL_ENV"] = env_path
                 _logger.info(f"Using virtual environment: {env_path}")
 
+                # Check if we need to use PYTHONPATH fallback (for packages where editable install failed)
+                import pathlib
+                use_pythonpath_marker = pathlib.Path(env_path) / ".use_pythonpath"
+                if use_pythonpath_marker.exists() and working_dir:
+                    existing_pythonpath = env.get("PYTHONPATH", "")
+                    env["PYTHONPATH"] = f"{working_dir}:{existing_pythonpath}" if existing_pythonpath else working_dir
+                    _logger.info(f"Using PYTHONPATH fallback: {env['PYTHONPATH']}")
+
             # Execute the command asynchronously to avoid blocking the event loop
             process = await asyncio.create_subprocess_shell(
                 instruction,

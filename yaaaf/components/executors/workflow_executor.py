@@ -19,6 +19,7 @@ from yaaaf.components.validators.failure_analyzer import create_failure_summary
 from yaaaf.components.executors.loop_config import (
     LoopConfig,
     LoopIterationResult,
+    LoopExitCondition,
     ExitConditionType,
 )
 
@@ -697,7 +698,7 @@ class WorkflowExecutor:
 
     def _evaluate_loop_exit_condition(
         self,
-        exit_condition: Dict,
+        exit_condition: LoopExitCondition,
         iteration_assets: Dict[str, str],
         validation_results: Dict[str, bool],
     ) -> bool:
@@ -711,12 +712,12 @@ class WorkflowExecutor:
         Returns:
             True if loop should exit, False to continue
         """
-        condition_type = exit_condition.get("type", "all_valid")
+        condition_type = exit_condition.type
 
         if condition_type == ExitConditionType.ALL_VALID:
             # All assets must be valid
             # Filter to specified assets if provided
-            assets_to_check = exit_condition.get("assets")
+            assets_to_check = exit_condition.assets
             if assets_to_check:
                 results_to_check = {
                     name: validation_results[name]
@@ -730,7 +731,7 @@ class WorkflowExecutor:
 
         elif condition_type == ExitConditionType.ANY_VALID:
             # At least one specified asset must be valid
-            assets_to_check = exit_condition.get("assets", [])
+            assets_to_check = exit_condition.assets or []
             results_to_check = {
                 name: validation_results.get(name, False)
                 for name in assets_to_check
@@ -739,7 +740,7 @@ class WorkflowExecutor:
 
         elif condition_type == ExitConditionType.CUSTOM:
             # Evaluate custom condition (future enhancement)
-            condition_expr = exit_condition.get("condition", "")
+            condition_expr = exit_condition.condition or ""
             _logger.warning(
                 f"Custom loop exit conditions not yet implemented. "
                 f"Condition: '{condition_expr}'"

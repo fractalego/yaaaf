@@ -35,6 +35,9 @@ from yaaaf_runner import YaaafRunner
 
 _logger = logging.getLogger(__name__)
 
+# Cache dataset to avoid slow reloads
+_DATASET_CACHE = {}
+
 
 def load_swe_bench_lite(split: str = "test"):
     """Load the SWE-bench Lite dataset.
@@ -45,8 +48,20 @@ def load_swe_bench_lite(split: str = "test"):
     Returns:
         Dataset object
     """
+    cache_key = f"SWE-bench_Lite:{split}"
+    if cache_key in _DATASET_CACHE:
+        _logger.info(f"Using cached dataset ({split} split, {len(_DATASET_CACHE[cache_key])} instances)")
+        return _DATASET_CACHE[cache_key]
+
     _logger.info(f"Loading SWE-bench Lite ({split} split)...")
-    dataset = load_dataset("SWE-bench/SWE-bench_Lite", split=split)
+    # Use download_mode="reuse_cache_if_exists" to skip slow network metadata checks
+    dataset = load_dataset(
+        "SWE-bench/SWE-bench_Lite",
+        split=split,
+        keep_in_memory=True,
+        download_mode="reuse_cache_if_exists"
+    )
+    _DATASET_CACHE[cache_key] = dataset
     _logger.info(f"Loaded {len(dataset)} instances")
     return dataset
 
@@ -134,9 +149,9 @@ def evaluate_instance(
         repo_manager.checkout_commit(repo, base_commit)
         repo_manager.reset_repo(repo)  # Clean state
 
-        # Step 2: Setup Python environment (force clean every time)
-        _logger.info("Step 2: Setting up Python environment (clean rebuild)...")
-        repo_manager.setup_environment(repo, force=True)
+        # Step 2: Setup Python environment (reuse if exists)
+        _logger.info("Step 2: Setting up Python environment...")
+        repo_manager.setup_environment(repo, force=False)
 
         # Step 3: Verify initial test state (tests should fail)
         _logger.info("Step 3: Verifying initial test state...")

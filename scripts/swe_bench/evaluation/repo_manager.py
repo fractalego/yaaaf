@@ -306,12 +306,19 @@ class RepoManager:
             [str(pip_path), "install", "--upgrade", "pip"],
             capture_output=True,
             text=True,
+            timeout=120,  # 2 minute timeout
         )
         _logger.info("Installing pytest and common test dependencies...")
+        # Only install pytest-astropy for astropy repos (it's huge and slow)
+        test_deps = ["pytest", "pytest-xdist"]
+        if "astropy" in repo.lower():
+            test_deps.extend(["pytest-astropy", "hypothesis"])
+
         result = subprocess.run(
-            [str(pip_path), "install", "pytest", "hypothesis", "pytest-astropy", "pytest-xdist"],
+            [str(pip_path), "install"] + test_deps,
             capture_output=True,
             text=True,
+            timeout=300,  # 5 minute timeout
         )
         if result.returncode == 0:
             _logger.info("Test dependencies installed successfully")
@@ -383,6 +390,15 @@ class RepoManager:
                     text=True,
                     timeout=300,
                 )
+            elif "django" in repo_name:
+                _logger.info("Installing Django-specific dependencies...")
+                # Django needs these for testing
+                subprocess.run(
+                    [str(pip_path), "install", "pytz", "sqlparse", "asgiref"],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
 
             # Install common build dependencies (skip numpy - handled by repo-specific deps above)
             _logger.info("Installing common build dependencies...")
@@ -413,10 +429,15 @@ class RepoManager:
                     editable_success = True
                 else:
                     _logger.warning(f"Editable install failed: {result.stderr[-300:] if result.stderr else 'none'}")
+                    # Create marker to use PYTHONPATH fallback for ANY package where editable install failed
+                    _logger.info("Creating .use_pythonpath marker for PYTHONPATH fallback")
+                    (env_path / ".use_pythonpath").touch()
             except subprocess.TimeoutExpired as e:
                 _logger.warning(f"Package installation timed out: {e}")
+                (env_path / ".use_pythonpath").touch()
             except Exception as e:
                 _logger.warning(f"Failed to install package: {e}")
+                (env_path / ".use_pythonpath").touch()
 
             # For packages with C extensions, always run build_ext --inplace
             # This is needed even if editable install "succeeded" because pip might not build extensions

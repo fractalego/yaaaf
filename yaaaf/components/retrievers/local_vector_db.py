@@ -6,12 +6,22 @@ from nltk.tokenize import word_tokenize
 from typing import List, Tuple
 from rank_bm25 import BM25Okapi
 
-download("stopwords")
-download("punkt_tab")
+
+def _ensure_nltk_data():
+    """Ensure NLTK data is downloaded (called lazily on first use)."""
+    try:
+        stopwords.words("english")
+    except LookupError:
+        download("stopwords", quiet=True)
+    try:
+        word_tokenize("test")
+    except LookupError:
+        download("punkt_tab", quiet=True)
 
 
 class BM25LocalDB:
     def __init__(self):
+        _ensure_nltk_data()  # Download only when actually needed
         self._indices = []
         self._texts = []
         self._bm25 = None

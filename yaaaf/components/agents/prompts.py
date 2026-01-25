@@ -695,6 +695,7 @@ Your task is to perform code editing operations on files. You can:
 1. VIEW files to read their contents with line numbers
 2. CREATE new files with specified content
 3. STR_REPLACE to make precise string replacements in existing files
+4. BASH to execute shell commands (for running tests, exploring directories, etc.)
 
 <previous_step_results>
 {artifact_list}
@@ -707,6 +708,8 @@ IMPORTANT RULES:
 - For STR_REPLACE, provide enough context to uniquely identify the replacement location
 - Never modify system files or files outside the project directory
 - Use exact string matching - whitespace and indentation matter
+- Use BASH for running tests, listing directories, or executing commands
+- NEVER use ```bash blocks - ALWAYS use ```code_edit with operation: bash
 
 FINDING THE RIGHT CODE - CRITICAL:
 - ALWAYS view the ENTIRE file first (without start_line/end_line) to find where the code you need is located
@@ -719,6 +722,7 @@ WHEN TO USE EACH OPERATION:
 - VIEW: When you need to read/understand code (analysis, exploration)
 - CREATE: When you need to create a new file that doesn't exist
 - STR_REPLACE: When you need to FIX bugs, MODIFY code, or APPLY changes
+- BASH: When you need to run tests, list files, execute commands, etc.
 
 To perform an operation, output a code_edit block in this format:
 
@@ -755,6 +759,18 @@ old_str:
 new_str:
     42	    def buggy_function(self):
     43	        return correct_value
+```
+
+For running shell commands:
+```code_edit
+operation: bash
+command: pytest tests/test_file.py -v
+```
+
+Or to list files:
+```code_edit
+operation: bash
+command: find . -name "*.py" -type f
 ```
 
 WHAT old_str AND new_str MEAN:
@@ -810,6 +826,7 @@ WHEN TO OUTPUT {task_completed_tag}:
 - If your task is to VIEW/READ a file: output {task_completed_tag} immediately after the view operation
 - If your task is to CREATE a file: output {task_completed_tag} immediately after the create operation
 - If your task is to FIX/MODIFY code: output {task_completed_tag} immediately after the str_replace operation
+- If your task is to RUN a command/test: output {task_completed_tag} immediately after the bash operation
 - If you believe the task is complete for ANY reason: you MUST include {task_completed_tag}
 
 CRITICAL: The {task_completed_tag} tag is REQUIRED. If you think "the task is done" or "viewing is complete" or "no further action needed", you MUST include {task_completed_tag} in that same response. Without this tag, the system cannot know you are finished.
@@ -818,6 +835,7 @@ Examples:
 1. Task "view config.py" → VIEW → {task_completed_tag}
 2. Task "create utils.py" → CREATE → {task_completed_tag}
 3. Task "fix bug in main.py" → VIEW → STR_REPLACE → {task_completed_tag}
+4. Task "run tests for module" → BASH → {task_completed_tag}
 
 IMPORTANT: Output {task_completed_tag} on the SAME response as your final operation. Do NOT do extra operations after the task is done. Do NOT just say "the task is complete" - you MUST include the actual {task_completed_tag} tag.
 """
@@ -837,6 +855,7 @@ Available operations:
 1. VIEW - read file contents (do this ONCE to find the bug)
 2. STR_REPLACE - replace buggy code with fixed code (YOU MUST DO THIS)
 3. CREATE - create new files
+4. BASH - execute shell commands (run tests, list files, etc.)
 
 CRITICAL - YOU MUST FIX THE CODE:
 - VIEW the file ONCE to understand the bug
@@ -845,7 +864,8 @@ CRITICAL - YOU MUST FIX THE CODE:
 - If your task says "fix" or "modify", you MUST use STR_REPLACE
 
 RESTRICTIONS:
-- ONLY use [TOOL_CALLS]code_edit - no bash, no shell commands
+- ONLY use [TOOL_CALLS]code_edit format for ALL operations (including bash)
+- NEVER use [TOOL_CALLS]bash - use [TOOL_CALLS]code_edit with operation: bash
 - VIEW requires a FILE path, not a directory
 
 FORMAT (use EXACTLY this):
@@ -882,6 +902,12 @@ old_str:
 new_str:
     42	    def buggy_function(self):
     43	        return correct_value
+[/TOOL_CALLS]
+
+For running shell commands:
+[TOOL_CALLS]code_edit
+operation: bash
+command: pytest tests/test_file.py -v
 [/TOOL_CALLS]
 
 WHAT old_str AND new_str MEAN:

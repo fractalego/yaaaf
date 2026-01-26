@@ -128,7 +128,7 @@ AGENT_TAXONOMIES = {
         data_flow=DataFlow.TRANSFORMER,
         interaction_mode=InteractionMode.AUTONOMOUS,
         output_permanence=OutputPermanence.PERSISTENT,
-        description="Performs code editing operations (view, create, str_replace) on source files"
+        description="Performs code editing operations (view, create, str_replace) and executes bash commands on source files"
     ),
 }
 

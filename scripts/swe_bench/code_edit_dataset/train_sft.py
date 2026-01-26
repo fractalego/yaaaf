@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 """
-SFT (Supervised Fine-Tuning) training script for CodeEditAgent.
+SFT (Supervised Fine-Tuning) training script for Unified CodeEditAgent (bash + code editing).
 
-Trains a LoRA adapter on Qwen2.5-32B using good responses from code_edit_dataset.csv.
-Each training example includes the full conversation history up to that step.
+Trains a LoRA adapter on Qwen2.5-32B using the unified dataset that includes:
+- VIEW operations (read files)
+- CREATE operations (create new files)
+- STR_REPLACE operations (edit files)
+- BASH operations (execute shell commands)
+
+Each training example includes accumulated context from all previous steps in the trajectory.
 
 Usage:
     python train_sft.py \
-        --data code_edit_dataset.csv \
+        --data unified_code_edit_dataset.csv \
         --output-dir ./sft_output \
         --num-epochs 3
 
     # Resume from checkpoint
     python train_sft.py \
-        --data code_edit_dataset.csv \
+        --data unified_code_edit_dataset.csv \
         --output-dir ./sft_output \
         --resume-from-checkpoint
 
@@ -77,11 +82,12 @@ class MemoryCleanupCallback(TrainerCallback):
 TASK_COMPLETED_MARKER = "\n<taskcompleted/>"
 
 
-# CodeEditAgent system prompt
-SYSTEM_PROMPT = """Your task is to perform code editing operations on files. You can:
+# Unified CodeEditAgent system prompt (supports bash + code editing)
+SYSTEM_PROMPT = """Your task is to perform code editing operations and execute shell commands. You can:
 1. VIEW files to read their contents with line numbers
 2. CREATE new files with specified content
 3. STR_REPLACE to make precise string replacements in existing files
+4. BASH to execute shell commands (run tests, explore directories, etc.)
 
 IMPORTANT RULES:
 - If the task asks you to FIX, MODIFY, CHANGE, or APPLY something, you MUST use STR_REPLACE
@@ -101,6 +107,9 @@ WHEN TO USE EACH OPERATION:
 - VIEW: When you need to read/understand code (analysis, exploration)
 - CREATE: When you need to create a new file that doesn't exist
 - STR_REPLACE: When you need to FIX bugs, MODIFY code, or APPLY changes
+- BASH: When you need to run tests, explore directories, check outputs, or execute commands
+
+NEVER use ```bash blocks - ALWAYS use ```code_edit with operation: bash
 
 To perform an operation, output a code_edit block in this format:
 
@@ -139,6 +148,12 @@ new_str:
     43	        return correct_value
 ```
 
+For running shell commands:
+```code_edit
+operation: bash
+command: pytest tests/test_file.py -v
+```
+
 CRITICAL for str_replace - YOU MUST INCLUDE LINE NUMBERS:
 - COPY the lines EXACTLY as shown in VIEW output, INCLUDING the line number prefix
 - Each line MUST start with the line number, then a tab, then the code
@@ -163,38 +178,28 @@ def load_csv(path: str) -> list[dict]:
 
 def build_conversation_prompt(
     instruction: str,
-    file_content: str,
-    file_path: str,
     conversation_history: list[dict],
 ) -> str:
-    """Build the user prompt including conversation history."""
+    """Build the user prompt including conversation history.
+
+    For unified format (bash + code_edit operations).
+    """
     parts = []
 
-    # Initial context: file content and task
-    if file_content:
-        parts.append(f"FILE: {file_path}")
-        parts.append("```")
-        parts.append(file_content)
-        parts.append("```")
-        parts.append("")
-
+    # Task instruction
     parts.append(f"TASK: {instruction}")
 
-    # Add conversation history
-    for i, step in enumerate(conversation_history, 1):
-        parts.append("")
-        parts.append(f"--- Step {i} ---")
-        parts.append("")
-        parts.append("ASSISTANT:")
-        parts.append(step.get("response", ""))
-        parts.append("")
-        parts.append("RESULT:")
-        parts.append(step.get("executor_response", ""))
-
-    # Prompt for next response
+    # Add previous results (accumulated context)
     if conversation_history:
         parts.append("")
-        parts.append(f"--- Step {len(conversation_history) + 1} ---")
+        parts.append("<previous_results>")
+
+        for i, step in enumerate(conversation_history, 1):
+            parts.append("")
+            parts.append(f"Step {i}:")
+            parts.append(step.get("executor_response", ""))
+
+        parts.append("</previous_results>")
         parts.append("")
         parts.append("Now provide your next action:")
 
@@ -205,10 +210,10 @@ def prepare_sft_dataset(
     data_path: str,
     max_samples: Optional[int] = None,
 ) -> List[TrainingExample]:
-    """Prepare SFT training examples from good response CSV.
+    """Prepare SFT training examples from unified CSV (bash + code_edit).
 
     Args:
-        data_path: Path to code_edit_dataset.csv
+        data_path: Path to unified dataset CSV
         max_samples: Maximum number of samples (for testing)
 
     Returns:
@@ -234,6 +239,13 @@ def prepare_sft_dataset(
 
     print(f"Found {len(trajectories)} trajectories")
 
+    # Count operation types
+    operation_counts = {}
+    for row in rows:
+        op_type = row.get("operation_type", "unknown")
+        operation_counts[op_type] = operation_counts.get(op_type, 0) + 1
+    print(f"Operation type distribution: {operation_counts}")
+
     # Build training examples
     examples = []
     completed_trajectories = 0
@@ -246,11 +258,9 @@ def prepare_sft_dataset(
         for step_idx, row in enumerate(traj_steps):
             is_last_step = (step_idx == num_steps - 1)
 
-            # Build the prompt with conversation history
+            # Build the prompt with accumulated conversation history
             prompt = build_conversation_prompt(
                 instruction=row.get("instruction", ""),
-                file_content=row.get("file_content", ""),
-                file_path=row.get("file_path", ""),
                 conversation_history=conversation_history,
             )
 
@@ -269,7 +279,6 @@ def prepare_sft_dataset(
 
             # Add to conversation history for next step
             conversation_history.append({
-                "response": row.get("response", ""),
                 "executor_response": row.get("executor_response", ""),
             })
 
@@ -323,13 +332,13 @@ def examples_to_dataset(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="SFT training for CodeEditAgent using LoRA on Qwen2.5-32B"
+        description="SFT training for Unified CodeEditAgent (bash + code editing) using LoRA on Qwen2.5-32B"
     )
     parser.add_argument(
         "--data",
         type=str,
         required=True,
-        help="Path to code_edit_dataset.csv (good responses)",
+        help="Path to unified dataset CSV (contains bash + code_edit operations)",
     )
     parser.add_argument(
         "--output-dir",

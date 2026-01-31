@@ -44,6 +44,7 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "singleton-decorator>=1.0.0",
     "tabulate>=0.8.0",
+    "transformers>=4.48.0",
     "uvicorn>=0.15.0",
 ]
 

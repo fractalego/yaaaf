@@ -349,8 +349,8 @@ def main():
     parser.add_argument(
         "--model-name",
         type=str,
-        default="Qwen/Qwen2.5-32B-Instruct",
-        help="Base model name (default: Qwen/Qwen2.5-32B-Instruct)",
+        default="Qwen/Qwen2.5-14B-Instruct",
+        help="Base model name (default: Qwen/Qwen2.5-14B-Instruct)",
     )
     parser.add_argument(
         "--num-epochs",
@@ -416,6 +416,17 @@ def main():
         action="store_true",
         help="Use minimal LoRA targets (q_proj, v_proj only) to save memory",
     )
+    parser.add_argument(
+        "--use-flash-attn",
+        action="store_true",
+        help="Use Flash Attention 2 for memory efficiency (requires flash-attn package)",
+    )
+    parser.add_argument(
+        "--max-memory-per-gpu",
+        type=str,
+        default=None,
+        help="Max memory per GPU in GiB (e.g., '40GiB' to reserve some memory)",
+    )
 
     args = parser.parse_args()
 
@@ -447,6 +458,10 @@ def main():
     eval_dataset = dataset["test"]
     print(f"Train size: {len(train_dataset)}, Eval size: {len(eval_dataset)}")
 
+    # Clear memory before model loading
+    print(f"\n=== Clearing memory before model loading ===")
+    clear_memory()
+
     # Configure 4-bit quantization
     print(f"\n=== Loading Model with 4-bit Quantization ===")
     bnb_config = BitsAndBytesConfig(
@@ -476,14 +491,29 @@ def main():
         target_modules=target_modules,
     )
 
-    # Load model
+    # Prepare device_map and max_memory for model loading
+    max_memory = None
+    if args.max_memory_per_gpu:
+        max_memory = {0: args.max_memory_per_gpu, "cpu": "64GiB"}
+
+    # Load model with additional memory optimizations
+    model_kwargs = {
+        "quantization_config": bnb_config,
+        "device_map": "auto",
+        "trust_remote_code": True,
+        "torch_dtype": torch.bfloat16,
+        "low_cpu_mem_usage": True,
+    }
+
+    if max_memory:
+        model_kwargs["max_memory"] = max_memory
+
+    if args.use_flash_attn:
+        model_kwargs["attn_implementation"] = "flash_attention_2"
+
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
-        quantization_config=bnb_config,
-        device_map="auto",
-        trust_remote_code=True,
-        dtype=torch.bfloat16,
-        attn_implementation="flash_attention_2",
+        **model_kwargs,
     )
 
     # Prepare model for k-bit training

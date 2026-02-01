@@ -329,16 +329,18 @@ class CodeEditExecutor(ToolExecutor):
     def _parse_numbered_lines(self, text: str) -> Optional[Dict[int, str]]:
         """Parse text with line numbers into a dict of {line_number: content}.
 
-        Detects patterns like "  97:    code" or "   97	code" or "   97   code" at start of lines.
+        Detects patterns like "  97:    code" or "   97	code" or "   97  code" at start of lines.
         Returns None if no line numbers detected, otherwise dict mapping line nums to content.
         """
         lines = text.split('\n')
         numbered_lines = {}
 
         for line in lines:
-            # Match patterns like "  97:" or "97:" or "   97\t" or "   97   "
-            # (line number followed by colon, tab, or 2+ spaces)
-            match = re.match(r'^\s*(\d+)(?::\s?|\t|\s{2,})', line)
+            # Match patterns like "  97:" or "97:" or "   97\t" or "   97  " (exactly 2 spaces)
+            # (line number followed by colon, tab, or exactly 2 spaces)
+            # Using exactly 2 spaces prevents greedily consuming code indentation
+            # Colon doesn't consume the space after it (so indentation is preserved)
+            match = re.match(r'^\s*(\d+)(?::|\t|\s{2})', line)
             if match:
                 line_num = int(match.group(1))
                 content = line[match.end():]

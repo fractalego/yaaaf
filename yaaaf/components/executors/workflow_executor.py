@@ -438,6 +438,24 @@ class WorkflowExecutor:
         for iteration in range(loop_cfg.max_iterations):
             _logger.info(f"Loop '{loop_name}' iteration {iteration + 1}/{loop_cfg.max_iterations}")
 
+            # Save git state before iteration (for error recovery)
+            git_state_saved = False
+            if self._working_dir:
+                try:
+                    import subprocess
+                    # Check if we're in a git repo
+                    result = subprocess.run(
+                        ["git", "rev-parse", "--git-dir"],
+                        cwd=self._working_dir,
+                        capture_output=True,
+                        timeout=5,
+                    )
+                    if result.returncode == 0:
+                        git_state_saved = True
+                        _logger.debug(f"Git repo detected, state saved before loop iteration {iteration + 1}")
+                except Exception as e:
+                    _logger.debug(f"Could not save git state: {e}")
+
             # Add progress note
             if self._notes is not None:
                 from yaaaf.components.data_types import Note
@@ -460,6 +478,45 @@ class WorkflowExecutor:
 
             # Check if all assets are valid
             all_valid = all(validation_results.values())
+
+            # Error recovery: If git state was saved and iteration failed badly
+            # (infrastructure/syntax errors), revert changes
+            if git_state_saved and not all_valid:
+                # Check if any asset has infrastructure errors (syntax, import errors)
+                has_infrastructure_error = False
+                for asset_name, is_valid in validation_results.items():
+                    if not is_valid:
+                        result_string = iteration_assets.get(asset_name, "")
+                        # Check for syntax/import errors in output
+                        if any(pattern in result_string.lower() for pattern in [
+                            "syntaxerror", "indentationerror", "unexpected indent",
+                            "invalid syntax", "importerror", "modulenotfounderror"
+                        ]):
+                            has_infrastructure_error = True
+                            break
+
+                if has_infrastructure_error and self._working_dir:
+                    _logger.warning(f"Infrastructure error detected in loop iteration {iteration + 1}, reverting changes via git...")
+                    try:
+                        import subprocess
+                        # Reset all changes
+                        subprocess.run(
+                            ["git", "checkout", "."],
+                            cwd=self._working_dir,
+                            capture_output=True,
+                            timeout=10,
+                        )
+                        _logger.info("Successfully reverted changes via git")
+                        if self._notes is not None:
+                            from yaaaf.components.data_types import Note
+                            note = Note(
+                                message=f"⚠️ Reverted changes from iteration {iteration + 1} due to syntax/import errors",
+                                artefact_id=None,
+                                agent_name="workflow",
+                            )
+                            self._notes.append(note)
+                    except Exception as e:
+                        _logger.error(f"Failed to revert changes: {e}")
 
             # Evaluate exit condition
             exit_condition_met = self._evaluate_loop_exit_condition(
@@ -745,7 +802,13 @@ class WorkflowExecutor:
             else:
                 results_to_check = validation_results
 
-            return all(results_to_check.values()) if results_to_check else False
+            all_valid = all(results_to_check.values()) if results_to_check else False
+
+            # Log detailed validation results for debugging
+            _logger.info(f"Loop exit condition check (all_valid): {results_to_check}")
+            _logger.info(f"All assets valid: {all_valid}")
+
+            return all_valid
 
         elif condition_type == ExitConditionType.ANY_VALID:
             # At least one specified asset must be valid

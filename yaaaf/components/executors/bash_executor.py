@@ -39,7 +39,7 @@ class BashExecutor(ToolExecutor):
         if not self._skip_safety_check and not self._is_safe_command(command):
             _logger.warning(f"Command rejected as unsafe: {command}")
             return None
-        _logger.info(f"Extracted bash command: {command[:100]}...")
+        _logger.info(f"Extracted bash command: {command}")
         return command
     
     def _is_safe_command(self, command: str) -> bool:
@@ -169,7 +169,7 @@ class BashExecutor(ToolExecutor):
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
-                error_msg = f"Command timed out after {timeout} seconds: {instruction[:100]}..."
+                error_msg = f"Command timed out after {timeout} seconds: {instruction}"
                 _logger.error(error_msg)
                 return None, error_msg
 

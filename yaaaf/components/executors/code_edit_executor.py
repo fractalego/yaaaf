@@ -522,7 +522,7 @@ class CodeEditExecutor(ToolExecutor):
         if not command:
             return None, "No command specified. Use 'command: <your_bash_command>'"
 
-        _logger.info(f"Executing bash command: {command[:100]}...")
+        _logger.info(f"Executing bash command: {command}")
 
         try:
             # Get working directory and environment
@@ -570,7 +570,7 @@ class CodeEditExecutor(ToolExecutor):
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
-                error_msg = f"Command timed out after {timeout} seconds: {command[:100]}..."
+                error_msg = f"Command timed out after {timeout} seconds: {command}"
                 _logger.error(error_msg)
                 return None, error_msg
 

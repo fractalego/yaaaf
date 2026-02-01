@@ -46,6 +46,10 @@ def analyze_bash_output(output: str, exit_code: Optional[int] = None) -> Tuple[F
         r"importerror",
         r"segmentation fault",
         r"killed",
+        r"syntaxerror",  # Python syntax errors
+        r"indentationerror",  # Python indentation errors
+        r"unexpectedindent",  # Alternative IndentationError pattern
+        r"invalid syntax",  # Generic syntax errors
     ]
     for pattern in infra_patterns:
         if re.search(pattern, output, re.IGNORECASE):

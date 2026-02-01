@@ -82,18 +82,27 @@ class ValidationAgent(CustomAgent):
             response = await self._client.predict(messages)
             result = self._parse_response(response.message, asset_name)
 
-            # For bash agents, ALWAYS analyze the output to detect failures
+            # For bash agents OR any output that looks like bash command execution,
+            # ALWAYS analyze the output to detect failures
             # This overrides LLM validation which might miss exit codes
-            if agent_name == "BashAgent":
+            is_bash_output = (
+                agent_name in ("BashAgent", "bash", "code_edit") or  # Known bash agents
+                "Return code:" in artifact_content or  # Bash executor output format
+                "exit code" in artifact_content.lower() or  # Common bash output
+                "STDOUT:" in artifact_content or
+                "STDERR:" in artifact_content
+            )
+
+            if is_bash_output:
                 failure_type, failure_details = analyze_bash_output(artifact_content)
 
-                # If failure analyzer detects a failure, override LLM result
-                if failure_type == FailureType.TESTS_FAILED:
+                # If failure analyzer detects ANY failure (not just tests), override LLM
+                if failure_type in (FailureType.TESTS_FAILED, FailureType.INFRASTRUCTURE_ERROR, FailureType.TIMEOUT):
                     result.is_valid = False
                     result.failure_type = failure_type
                     result.failure_details = failure_details
                     result.reason = create_failure_summary(failure_type, failure_details)
-                    _logger.info(f"Detected test failure (overriding LLM): {failure_type} for {asset_name}")
+                    _logger.info(f"Detected failure (overriding LLM): {failure_type} for {asset_name}")
                 elif not result.is_valid:
                     # LLM said invalid, use failure analyzer details
                     result.failure_type = failure_type

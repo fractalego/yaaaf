@@ -157,7 +157,7 @@ class BaseAgent(ABC):
 
             if step_idx > 0:
                 self._add_internal_message(
-                    f"Step {step_idx + 1}/{self._max_steps}: {clean_message[:100]}...",
+                    f"Step {step_idx + 1}/{self._max_steps}: {clean_message}",
                     notes,
                     f"{self.get_name()} Progress"
                 )
@@ -170,7 +170,7 @@ class BaseAgent(ABC):
                 if self.is_complete(clean_message):
                     _logger.warning(
                         f"{self.get_name()}: LLM said task complete but no instruction found. "
-                        f"Response: {clean_message[:200]}..."
+                        f"Response: {clean_message}"
                     )
                     # Return accumulated results if any, otherwise format completion
                     if all_results:
@@ -186,7 +186,8 @@ class BaseAgent(ABC):
             result, error = await self._executor.execute_operation(instruction, context)
 
             if error:
-                _logger.warning(f"{self.get_name()}: Operation failed: {error[:2000]}")
+                # Log the full error without truncation for debugging
+                _logger.warning(f"{self.get_name()}: Operation failed: {error}")
                 # Accumulate error so it's included in final artifact for next iteration
                 all_results.append((error, instruction))
                 feedback = self._executor.get_feedback_message(error)
@@ -197,7 +198,7 @@ class BaseAgent(ABC):
                 all_results.append((result, instruction))
 
                 self._add_internal_message(
-                    f"Step {step_idx + 1} completed: {str(result)[:100]}...",
+                    f"Step {step_idx + 1} completed: {str(result)}",
                     notes,
                     "Artifact"
                 )

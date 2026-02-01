@@ -358,15 +358,27 @@ You can help with:
 - Running tests with pytest
 
 RUNNING TESTS:
-To run tests, always use pytest with the full command:
+CRITICAL - Django repos require special handling:
 ```bash
+# For Django repos (check if tests/runtests.py exists):
+python tests/runtests.py --settings=test_sqlite specific_test_module
+
+# For non-Django repos, use pytest:
 pytest --rootdir={working_dir} -c /dev/null path/to/test_file.py::TestClass::test_method
 ```
+
 IMPORTANT:
-- Always include --rootdir={working_dir} to set the correct project root
-- Always include -c /dev/null to ignore any pytest config from parent directories
-- NEVER run a test path directly without 'pytest' - the path itself is not a command!
-- NEVER use interactive editors like nano, vim, vi - use the code_edit agent instead for file modifications
+- Django repos: MUST use `python tests/runtests.py` NOT pytest
+- Check for tests/runtests.py first - if it exists, use Django's native test runner
+- Non-Django repos: Use pytest with --rootdir={working_dir} -c /dev/null
+- NEVER run a test path directly without a test command
+- NEVER use interactive editors like nano, vim, vi - use the code_edit agent instead
+
+WHY DJANGO NEEDS SPECIAL HANDLING:
+- Django has its own test runner that properly configures the Django environment
+- pytest-django often conflicts with Django's test configuration
+- Using pytest on Django repos will likely fail with configuration errors
+- Always prefer Django's native test runner when available
 
 IMPORTANT SAFETY RULES:
 1. Never suggest commands that could damage the system (rm -rf, sudo, etc.)
@@ -767,11 +779,22 @@ operation: bash
 command: pytest tests/test_file.py -v
 ```
 
+For Django repos (if tests/runtests.py exists):
+```code_edit
+operation: bash
+command: python tests/runtests.py --settings=test_sqlite module.tests
+```
+
 Or to list files:
 ```code_edit
 operation: bash
 command: find . -name "*.py" -type f
 ```
+
+IMPORTANT FOR DJANGO:
+- Check if tests/runtests.py exists first (use find or ls)
+- If it exists, use Django's native test runner: python tests/runtests.py
+- DO NOT use pytest for Django repos - it will fail with configuration errors
 
 WHAT old_str AND new_str MEAN:
 - old_str = The EXACT text from VIEW output INCLUDING LINE NUMBERS (e.g., "    42\tcode here")
@@ -909,6 +932,14 @@ For running shell commands:
 operation: bash
 command: pytest tests/test_file.py -v
 [/TOOL_CALLS]
+
+For Django repos (check if tests/runtests.py exists):
+[TOOL_CALLS]code_edit
+operation: bash
+command: python tests/runtests.py --settings=test_sqlite module.tests
+[/TOOL_CALLS]
+
+IMPORTANT: Django repos MUST use their native test runner (python tests/runtests.py), NOT pytest.
 
 WHAT old_str AND new_str MEAN:
 - old_str = EXACT text from VIEW INCLUDING LINE NUMBERS (e.g., "    42\tcode")

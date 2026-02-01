@@ -281,8 +281,15 @@ class RepoManager:
                 _logger.info(f"Removing existing environment: {env_path}")
                 shutil.rmtree(env_path)
             else:
-                _logger.info(f"Environment already exists: {env_path}")
-                return env_path
+                # Verify the environment is valid (has pip and python)
+                pip_path = env_path / "bin" / "pip"
+                python_path = env_path / "bin" / "python"
+                if pip_path.exists() and python_path.exists():
+                    _logger.info(f"Environment already exists: {env_path}")
+                    return env_path
+                else:
+                    _logger.warning(f"Environment exists but is incomplete (missing pip or python), recreating...")
+                    shutil.rmtree(env_path)
 
         _logger.info(f"Creating virtual environment: {env_path}")
 
@@ -302,28 +309,54 @@ class RepoManager:
 
         # Upgrade pip and install pytest
         _logger.info("Upgrading pip...")
-        subprocess.run(
-            [str(pip_path), "install", "--upgrade", "pip"],
-            capture_output=True,
-            text=True,
-            timeout=120,  # 2 minute timeout
-        )
+        try:
+            subprocess.run(
+                [str(pip_path), "install", "--upgrade", "pip"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=120,  # 2 minute timeout
+            )
+        except subprocess.CalledProcessError as e:
+            _logger.warning(f"pip upgrade failed: {e.stderr}")
+
         _logger.info("Installing pytest and common test dependencies...")
         # Only install pytest-astropy for astropy repos (it's huge and slow)
         test_deps = ["pytest", "pytest-xdist"]
         if "astropy" in repo.lower():
             test_deps.extend(["pytest-astropy", "hypothesis"])
 
-        result = subprocess.run(
-            [str(pip_path), "install"] + test_deps,
-            capture_output=True,
-            text=True,
-            timeout=300,  # 5 minute timeout
-        )
-        if result.returncode == 0:
+        try:
+            result = subprocess.run(
+                [str(pip_path), "install"] + test_deps,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+            )
             _logger.info("Test dependencies installed successfully")
-        else:
-            _logger.warning(f"Test dependencies installation may have failed: {result.stderr}")
+
+            # Verify pytest is actually installed and executable
+            pytest_path = env_path / "bin" / "pytest"
+            if pytest_path.exists():
+                _logger.info(f"pytest verified at: {pytest_path}")
+            else:
+                _logger.error(f"pytest not found at expected location: {pytest_path}")
+        except subprocess.CalledProcessError as e:
+            _logger.error(f"Test dependencies installation FAILED: {e.stderr}")
+            # Try installing pytest alone as fallback
+            try:
+                _logger.info("Attempting fallback: installing pytest only...")
+                subprocess.run(
+                    [str(pip_path), "install", "pytest"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+                _logger.info("pytest installed successfully (fallback)")
+            except subprocess.CalledProcessError as e2:
+                _logger.error(f"pytest installation failed completely: {e2.stderr}")
 
         # Try to install requirements if they exist
         requirements_files = [
@@ -394,8 +427,20 @@ class RepoManager:
                 _logger.info("Installing Django-specific dependencies...")
                 # Django needs these for testing
                 # legacy-cgi provides the cgi module for Python 3.13+ (removed from stdlib)
+                django_deps = ["pytz", "sqlparse", "asgiref", "legacy-cgi"]
+
+                # Check if Django uses its native test runner (tests/runtests.py)
+                # If so, DON'T install pytest-django as it causes conflicts
+                django_test_runner = repo_path / "tests" / "runtests.py"
+                if django_test_runner.exists():
+                    _logger.info(f"Django native test runner detected at {django_test_runner}")
+                    _logger.info("Will NOT install pytest-django (use Django's native test runner instead)")
+                else:
+                    _logger.info("Django native test runner not found, installing pytest-django")
+                    django_deps.append("pytest-django")
+
                 subprocess.run(
-                    [str(pip_path), "install", "pytz", "sqlparse", "asgiref", "legacy-cgi"],
+                    [str(pip_path), "install"] + django_deps,
                     capture_output=True,
                     text=True,
                     timeout=300,
@@ -509,6 +554,20 @@ class RepoManager:
                 else:
                     _logger.error(f"Import FAILED: {import_result.stderr[:300]}")
 
+        # Final verification: ensure pytest is available
+        _logger.info("Final verification: checking pytest availability...")
+        pytest_check = subprocess.run(
+            [str(env_path / "bin" / "python"), "-m", "pytest", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if pytest_check.returncode == 0:
+            _logger.info(f"pytest is available: {pytest_check.stdout.strip()}")
+        else:
+            _logger.error(f"pytest verification FAILED: {pytest_check.stderr}")
+            _logger.error("Tests will likely fail due to missing pytest!")
+
         return env_path
 
     def run_in_env(
@@ -543,6 +602,34 @@ class RepoManager:
         # Fix astropy logging conflict with pytest warnings
         # This prevents "Cannot disable warnings logging" error
         env["PYTHONWARNINGS"] = "ignore"
+
+        # Django-specific configuration
+        if "django" in repo.lower():
+            # Set Django settings module for pytest-django
+            # Try to find actual test settings in the repo
+            from pathlib import Path
+            repo_path_obj = Path(repo_path) if isinstance(repo_path, str) else repo_path
+
+            settings_candidates = [
+                ("tests.test_sqlite", repo_path_obj / "tests" / "test_sqlite.py"),
+                ("tests.settings", repo_path_obj / "tests" / "settings.py"),
+                ("test_sqlite", repo_path_obj / "test_sqlite.py"),
+            ]
+
+            found_settings = None
+            for module_name, file_path in settings_candidates:
+                if file_path.exists():
+                    found_settings = module_name
+                    _logger.debug(f"Found Django test settings at: {file_path}")
+                    break
+
+            if found_settings:
+                env["DJANGO_SETTINGS_MODULE"] = found_settings
+                _logger.debug(f"Set DJANGO_SETTINGS_MODULE={env['DJANGO_SETTINGS_MODULE']}")
+            else:
+                # No settings found - use fallback but log warning
+                env["DJANGO_SETTINGS_MODULE"] = "tests.test_sqlite"
+                _logger.warning(f"Django test settings not found in {repo_path_obj}, using fallback: tests.test_sqlite")
 
         # If editable install failed, add repo to PYTHONPATH
         if (env_path / ".use_pythonpath").exists():
@@ -579,6 +666,56 @@ class RepoManager:
             Dict with 'passed', 'failed', 'errors' counts and 'output'
         """
         repo_path = self.get_repo_path(repo)
+        env_path = self.get_env_path(repo)
+
+        # Verify environment is valid
+        pip_path = env_path / "bin" / "pip"
+        python_path = env_path / "bin" / "python"
+
+        if not pip_path.exists() or not python_path.exists():
+            error_msg = (
+                f"Environment is broken for {repo}. "
+                f"pip exists: {pip_path.exists()}, python exists: {python_path.exists()}. "
+                f"Please recreate the environment by deleting: {env_path}"
+            )
+            _logger.error(error_msg)
+            return {
+                "success": False,
+                "passed": 0,
+                "failed": 0,
+                "errors": 0,
+                "returncode": -1,
+                "output": error_msg,
+            }
+
+        # Verify pytest is available, install if missing
+        pytest_check = subprocess.run(
+            [str(python_path), "-m", "pytest", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if pytest_check.returncode != 0:
+            _logger.warning("pytest not found in environment, installing it now...")
+            try:
+                subprocess.run(
+                    [str(pip_path), "install", "pytest", "pytest-xdist"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+                _logger.info("pytest installed successfully")
+            except subprocess.CalledProcessError as e:
+                _logger.error(f"Failed to install pytest: {e.stderr}")
+                return {
+                    "success": False,
+                    "passed": 0,
+                    "failed": 0,
+                    "errors": 0,
+                    "returncode": -1,
+                    "output": f"pytest is not available and installation failed: {e.stderr}",
+                }
 
         # Convert unittest-style test IDs to pytest format
         converted_tests = []
@@ -590,7 +727,26 @@ class RepoManager:
 
         # Build pytest command
         # -p no:warnings disables pytest's warnings plugin to avoid conflict with astropy's logger
-        command = ["python", "-m", "pytest", "-xvs", "-p", "no:warnings"] + converted_tests
+        command = ["python", "-m", "pytest", "-xvs", "-p", "no:warnings"]
+
+        # Django-specific flags
+        if "django" in repo.lower():
+            # Check if tests/runtests.py exists (Django's native test runner)
+            django_test_runner = repo_path / "tests" / "runtests.py"
+            if django_test_runner.exists():
+                _logger.info(f"Django native test runner detected at {django_test_runner}")
+                _logger.info("Consider using: python tests/runtests.py --settings=test_sqlite instead of pytest")
+                # Disable pytest-django to avoid conflicts
+                command.extend(["-p", "no:django"])
+                _logger.info("Disabled pytest-django plugin (using -p no:django)")
+            else:
+                # Use pytest-django with Django-specific flags
+                # --nomigrations: Don't run migrations (faster)
+                # --reuse-db: Reuse test database between runs
+                command.extend(["--nomigrations", "--reuse-db"])
+                _logger.info("Added Django-specific pytest flags")
+
+        command.extend(converted_tests)
 
         _logger.info(f"Running pytest with {len(test_list)} test(s) in {repo_path}")
 

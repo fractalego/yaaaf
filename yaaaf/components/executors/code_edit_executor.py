@@ -553,15 +553,24 @@ class CodeEditExecutor(ToolExecutor):
                 env=env,
             )
 
+            # Determine timeout based on command type
+            # Test runs (Django runtests.py, pytest) need much longer timeouts
+            # Database setup + test execution can take several minutes
+            if "runtests.py" in command or "pytest" in command or "python -m pytest" in command:
+                timeout = 300  # 5 minutes for test runs
+                _logger.info(f"Using extended timeout ({timeout}s) for test command")
+            else:
+                timeout = 60  # 1 minute for regular commands (increased from 30s)
+
             try:
                 stdout, stderr = await asyncio.wait_for(
                     process.communicate(),
-                    timeout=30  # 30 second timeout
+                    timeout=timeout
                 )
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
-                error_msg = f"Command timed out after 30 seconds: {command}"
+                error_msg = f"Command timed out after {timeout} seconds: {command[:100]}..."
                 _logger.error(error_msg)
                 return None, error_msg
 

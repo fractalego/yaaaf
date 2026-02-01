@@ -102,6 +102,45 @@ class BashExecutor(ToolExecutor):
                     env["PYTHONPATH"] = f"{working_dir}:{existing_pythonpath}" if existing_pythonpath else working_dir
                     _logger.info(f"Using PYTHONPATH fallback: {env['PYTHONPATH']}")
 
+                # Django-specific: Set minimal settings for pytest-django
+                if working_dir and "django" in working_dir.lower():
+                    # pytest-django requires a valid Django settings module
+                    # Try to find the test settings in common locations
+                    if "DJANGO_SETTINGS_MODULE" not in env:
+                        import pathlib
+                        work_path = pathlib.Path(working_dir)
+
+                        # Common Django test settings patterns
+                        test_settings_candidates = [
+                            "tests.test_sqlite",      # Most common in Django repo
+                            "test_sqlite",            # Alternative
+                            "tests.settings",         # Generic test settings
+                            "django.conf.settings",   # Main Django settings
+                        ]
+
+                        # Check if any of these modules exist
+                        found_settings = None
+                        for candidate in test_settings_candidates:
+                            # Convert module path to file path (e.g., tests.test_sqlite -> tests/test_sqlite.py)
+                            module_file = candidate.replace(".", "/") + ".py"
+                            if (work_path / module_file).exists():
+                                found_settings = candidate
+                                _logger.info(f"Found Django test settings: {found_settings}")
+                                break
+
+                        if found_settings:
+                            env["DJANGO_SETTINGS_MODULE"] = found_settings
+                        else:
+                            # Fallback: create minimal settings on the fly
+                            # Don't use global_settings - it's not a valid settings module
+                            # Instead, let pytest-django fail gracefully or skip Django setup
+                            _logger.warning("No Django test settings found, pytest-django may fail")
+                            env["DJANGO_SETTINGS_MODULE"] = "tests.test_sqlite"  # Try anyway
+
+                        _logger.info(f"Set DJANGO_SETTINGS_MODULE={env['DJANGO_SETTINGS_MODULE']}")
+                    # Disable Django debug mode for tests
+                    env["DJANGO_DEBUG"] = "False"
+
             # Execute the command asynchronously to avoid blocking the event loop
             process = await asyncio.create_subprocess_shell(
                 instruction,
@@ -111,15 +150,26 @@ class BashExecutor(ToolExecutor):
                 env=env,
             )
 
+            # Determine timeout based on command type
+            # Django tests need much longer (database setup + test execution)
+            # pytest can also take a while with many tests
+            if "runtests.py" in instruction or "pytest" in instruction or "python -m pytest" in instruction:
+                timeout = 300  # 5 minutes for test runs
+                _logger.info(f"Test command detected - using extended timeout: {timeout}s")
+            else:
+                timeout = 60  # 1 minute for regular commands (increased from 30s)
+
             try:
+                _logger.info(f"Waiting for command to complete (timeout={timeout}s)...")
                 stdout, stderr = await asyncio.wait_for(
                     process.communicate(),
-                    timeout=30  # 30 second timeout
+                    timeout=timeout
                 )
+                _logger.info(f"Command completed with return code: {process.returncode}")
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
-                error_msg = f"Command timed out after 30 seconds: {instruction}"
+                error_msg = f"Command timed out after {timeout} seconds: {instruction[:100]}..."
                 _logger.error(error_msg)
                 return None, error_msg
 

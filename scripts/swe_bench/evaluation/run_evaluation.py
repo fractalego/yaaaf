@@ -19,6 +19,9 @@ Usage:
 
     # List available instances
     python run_evaluation.py --list
+
+    # Force recreation of virtual environments (if broken)
+    python run_evaluation.py --force-env
 """
 
 import argparse
@@ -106,6 +109,7 @@ def evaluate_instance(
     repo_manager: RepoManager,
     yaaaf_runner: YaaafRunner,
     output_dir: Path,
+    force_env: bool = False,
 ) -> dict:
     """Evaluate YAAAF on a single SWE-bench instance with single query (no dialogue).
 
@@ -151,7 +155,7 @@ def evaluate_instance(
 
         # Step 2: Setup Python environment (reuse if exists)
         _logger.info("Step 2: Setting up Python environment...")
-        repo_manager.setup_environment(repo, force=False)
+        repo_manager.setup_environment(repo, force=force_env)
 
         # Step 3: Verify initial test state (tests should fail)
         _logger.info("Step 3: Verifying initial test state...")
@@ -291,6 +295,11 @@ def main():
         default=1,
         help="DEPRECATED: Always uses single query (no dialogue). Kept for compatibility.",
     )
+    parser.add_argument(
+        "--force-env",
+        action="store_true",
+        help="Force recreation of Python virtual environments (use if envs are broken)",
+    )
 
     args = parser.parse_args()
 
@@ -340,7 +349,7 @@ def main():
     results = []
     for instance in instances:
         result = evaluate_instance(
-            instance, repo_manager, yaaaf_runner, output_dir
+            instance, repo_manager, yaaaf_runner, output_dir, force_env=args.force_env
         )
         results.append(result)
 

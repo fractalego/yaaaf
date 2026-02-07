@@ -402,69 +402,48 @@ class CodeEditExecutor(ToolExecutor):
                 old_numbered = None
 
             if old_numbered and new_numbered:
-                # Line-number based replacement - replace the RANGE of old lines with new lines
-                _logger.info(f"Using line-number based replacement for lines: {list(old_numbered.keys())}")
+                # Line-number based replacement
+                # LOGIC: old_str defines the DESTRUCTION range, new_str provides REPLACEMENT content
+                # old_str line numbers: what file lines to delete
+                # new_str line numbers: only used for ordering the replacement content
 
-                # Get the range of lines to replace from old_str
+                # Get destruction range from old_str (ONLY source for what to replace)
                 old_line_nums = sorted(old_numbered.keys())
                 min_line = min(old_line_nums)
                 max_line = max(old_line_nums)
 
-                # Validate range
+                _logger.info(f"Line-number replacement: destroying file lines {min_line}-{max_line} ({len(old_line_nums)} lines)")
+
+                # Validate destruction range is within file bounds
                 if min_line < 1 or max_line > len(file_lines):
                     return None, f"Line range {min_line}-{max_line} is out of range (file has {len(file_lines)} lines)"
 
-                # Get new content lines in order
-                # Extract all numbered lines from new_str and sort by line number for ordering.
-                # We don't require line numbers to start at min_line or be consecutive -
-                # we just use them to preserve the order the LLM intended.
+                # Get replacement content from new_str
+                # Line numbers in new_str are ONLY for ordering - they don't affect what gets replaced
                 new_line_nums = sorted(new_numbered.keys())
-
-                # Validation: new_str should ideally start at the same line number as old_str
-                # If it doesn't, the LLM might have made a mistake
-                if new_line_nums and new_line_nums[0] != min_line:
-                    _logger.warning(
-                        f"Line number mismatch: old_str starts at line {min_line} but new_str starts at line {new_line_nums[0]}. "
-                        f"Using new_str content anyway, but this might indicate an error."
-                    )
-
-                # Extract content in order
                 new_content_lines = [new_numbered[ln] for ln in new_line_nums]
 
-                # Safety check: if new_str has way more lines than seems reasonable, warn
-                if len(new_content_lines) > len(old_line_nums) * 3:
-                    _logger.warning(
-                        f"new_str has {len(new_content_lines)} lines but old_str only had {len(old_line_nums)} lines. "
-                        f"This might indicate the LLM included extra lines by mistake. "
-                        f"Proceeding with replacement anyway."
-                    )
+                _logger.info(f"Inserting {len(new_content_lines)} lines of replacement content")
 
-                # Get the old content before replacing
+                # Get the old content before destroying (for logging)
                 old_content_lines = file_lines[min_line - 1:max_line]
 
-                # Replace the range: remove old lines [min_line-1:max_line], insert new lines
+                # PERFORM REPLACEMENT: destroy old_str range, insert new_str content
                 file_lines[min_line - 1:max_line] = new_content_lines
 
-                # Write back
+                # Write back to file
                 new_file_content = '\n'.join(file_lines)
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(new_file_content)
 
-                # Build detailed result showing what changed (same format as string-based replacement)
+                # Build success result
                 result = f"str_replace operation completed successfully.\n"
                 result += f"File: {file_path}\n"
-                result += f"Changed lines {min_line}-{max_line} ({len(old_content_lines)} lines replaced with {len(new_content_lines)} lines)\n\n"
-                result += f"BEFORE (old code):\n" + '\n'.join(old_content_lines) + "\n\n"
-                result += f"AFTER (new code):\n" + '\n'.join(new_content_lines)
-
-                # Debug: check what comes after the replacement in the file
-                if max_line < len(file_lines):
-                    next_few_lines = file_lines[max_line:min(max_line + 3, len(file_lines))]
-                    if any(line.strip() in ['}', '})', '},'] for line in next_few_lines):
-                        _logger.warning(
-                            f"Lines immediately after replacement contain closing braces: {next_few_lines}. "
-                            f"If you're seeing duplicate braces, the old_str might not have included all the lines it should."
-                        )
+                result += f"Destroyed lines {min_line}-{max_line} ({len(old_content_lines)} lines)\n"
+                result += f"Inserted {len(new_content_lines)} new lines at position {min_line}\n"
+                result += f"Net change: {len(new_content_lines) - len(old_content_lines):+d} lines\n\n"
+                result += f"BEFORE (destroyed lines {min_line}-{max_line}):\n" + '\n'.join(old_content_lines) + "\n\n"
+                result += f"AFTER (inserted content):\n" + '\n'.join(new_content_lines)
 
                 return result, None
 

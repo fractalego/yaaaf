@@ -414,9 +414,30 @@ class CodeEditExecutor(ToolExecutor):
                 if min_line < 1 or max_line > len(file_lines):
                     return None, f"Line range {min_line}-{max_line} is out of range (file has {len(file_lines)} lines)"
 
-                # Get new content lines in order (sorted by line number)
+                # Get new content lines in order
+                # Extract all numbered lines from new_str and sort by line number for ordering.
+                # We don't require line numbers to start at min_line or be consecutive -
+                # we just use them to preserve the order the LLM intended.
                 new_line_nums = sorted(new_numbered.keys())
+
+                # Validation: new_str should ideally start at the same line number as old_str
+                # If it doesn't, the LLM might have made a mistake
+                if new_line_nums and new_line_nums[0] != min_line:
+                    _logger.warning(
+                        f"Line number mismatch: old_str starts at line {min_line} but new_str starts at line {new_line_nums[0]}. "
+                        f"Using new_str content anyway, but this might indicate an error."
+                    )
+
+                # Extract content in order
                 new_content_lines = [new_numbered[ln] for ln in new_line_nums]
+
+                # Safety check: if new_str has way more lines than seems reasonable, warn
+                if len(new_content_lines) > len(old_line_nums) * 3:
+                    _logger.warning(
+                        f"new_str has {len(new_content_lines)} lines but old_str only had {len(old_line_nums)} lines. "
+                        f"This might indicate the LLM included extra lines by mistake. "
+                        f"Proceeding with replacement anyway."
+                    )
 
                 # Get the old content before replacing
                 old_content_lines = file_lines[min_line - 1:max_line]
@@ -435,6 +456,16 @@ class CodeEditExecutor(ToolExecutor):
                 result += f"Changed lines {min_line}-{max_line} ({len(old_content_lines)} lines replaced with {len(new_content_lines)} lines)\n\n"
                 result += f"BEFORE (old code):\n" + '\n'.join(old_content_lines) + "\n\n"
                 result += f"AFTER (new code):\n" + '\n'.join(new_content_lines)
+
+                # Debug: check what comes after the replacement in the file
+                if max_line < len(file_lines):
+                    next_few_lines = file_lines[max_line:min(max_line + 3, len(file_lines))]
+                    if any(line.strip() in ['}', '})', '},'] for line in next_few_lines):
+                        _logger.warning(
+                            f"Lines immediately after replacement contain closing braces: {next_few_lines}. "
+                            f"If you're seeing duplicate braces, the old_str might not have included all the lines it should."
+                        )
+
                 return result, None
 
             # Standard string-based replacement

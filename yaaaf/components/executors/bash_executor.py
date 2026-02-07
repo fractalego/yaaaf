@@ -97,10 +97,20 @@ class BashExecutor(ToolExecutor):
                 # Check if we need to use PYTHONPATH fallback (for packages where editable install failed)
                 import pathlib
                 use_pythonpath_marker = pathlib.Path(env_path) / ".use_pythonpath"
+                pythonpath_set = False
                 if use_pythonpath_marker.exists() and working_dir:
                     existing_pythonpath = env.get("PYTHONPATH", "")
                     env["PYTHONPATH"] = f"{working_dir}:{existing_pythonpath}" if existing_pythonpath else working_dir
                     _logger.info(f"Using PYTHONPATH fallback: {env['PYTHONPATH']}")
+                    pythonpath_set = True
+
+                # Django-specific: Always use PYTHONPATH to prioritize repo code over site-packages
+                # This is critical because Django's test runner imports from django.utils.deprecation
+                # which may have different classes in different Django versions (e.g., RemovedInDjango40Warning)
+                if working_dir and "django" in working_dir.lower() and not pythonpath_set:
+                    existing_pythonpath = env.get("PYTHONPATH", "")
+                    env["PYTHONPATH"] = f"{working_dir}:{existing_pythonpath}" if existing_pythonpath else working_dir
+                    _logger.info(f"Django detected - setting PYTHONPATH to prioritize repo: {env['PYTHONPATH']}")
 
                 # Django-specific: Set minimal settings for pytest-django
                 if working_dir and "django" in working_dir.lower():

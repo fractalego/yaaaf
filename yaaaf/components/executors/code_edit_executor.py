@@ -278,9 +278,10 @@ class CodeEditExecutor(ToolExecutor):
             end_line = int(params.get('end_line', len(lines)))
 
             # Build output with line numbers
+            # Use colon separator (not TAB) so LLM can copy-paste exact indentation
             output_lines = []
             for i, line in enumerate(lines[start_line-1:end_line], start=start_line):
-                output_lines.append(f"{i:6d}\t{line.rstrip()}")
+                output_lines.append(f"{i:6d}: {line.rstrip()}")
 
             result = f"File: {file_path}\n"
             result += f"Lines: {start_line}-{min(end_line, len(lines))} of {len(lines)}\n"
@@ -336,11 +337,9 @@ class CodeEditExecutor(ToolExecutor):
         numbered_lines = {}
 
         for line in lines:
-            # Match patterns like "  97:" or "97:" or "   97\t" or "   97  " (exactly 2 spaces)
-            # (line number followed by colon, tab, or exactly 2 spaces)
-            # Using exactly 2 spaces prevents greedily consuming code indentation
-            # Colon doesn't consume the space after it (so indentation is preserved)
-            match = re.match(r'^\s*(\d+)(?::|\t|\s{2})', line)
+            # Match patterns like "  97: " (colon + space) or "   97\t" (tab) or "   97  " (exactly 2 spaces)
+            # The separator (colon+space, tab, or 2 spaces) is consumed so content has correct indentation
+            match = re.match(r'^\s*(\d+)(?::\s|\t|\s{2})', line)
             if match:
                 line_num = int(match.group(1))
                 content = line[match.end():]

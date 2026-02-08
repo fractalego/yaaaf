@@ -725,48 +725,90 @@ class RepoManager:
             if converted != test_id:
                 _logger.info(f"Converted test ID: {test_id} -> {converted}")
 
-        # Build pytest command
-        # -p no:warnings disables pytest's warnings plugin to avoid conflict with astropy's logger
-        command = ["python", "-m", "pytest", "-xvs", "-p", "no:warnings"]
-
-        # Django-specific flags
+        # Check if this is Django with native test runner
+        use_django_runner = False
+        django_tests = []
         if "django" in repo.lower():
-            # Check if tests/runtests.py exists (Django's native test runner)
             django_test_runner = repo_path / "tests" / "runtests.py"
             if django_test_runner.exists():
+                use_django_runner = True
                 _logger.info(f"Django native test runner detected at {django_test_runner}")
-                _logger.info("Consider using: python tests/runtests.py --settings=test_sqlite instead of pytest")
-                # Disable pytest-django to avoid conflicts
-                command.extend(["-p", "no:django"])
-                _logger.info("Disabled pytest-django plugin (using -p no:django)")
-            else:
-                # Use pytest-django with Django-specific flags
-                # --nomigrations: Don't run migrations (faster)
-                # --reuse-db: Reuse test database between runs
+                _logger.info("Using Django's native test runner instead of pytest")
+
+                # Convert test IDs from unittest format to Django format
+                # unittest: "test_method (module.path.ClassName)"
+                # Django: "module.path.ClassName.test_method"
+                import re
+                for test_id in test_list:
+                    match = re.match(r'^(\w+)\s+\(([^)]+)\)$', test_id.strip())
+                    if match:
+                        test_method = match.group(1)
+                        full_path = match.group(2)
+                        django_test = f"{full_path}.{test_method}"
+                        django_tests.append(django_test)
+                        _logger.info(f"Converted to Django format: {test_id} -> {django_test}")
+                    else:
+                        # Already in Django format or unknown format
+                        django_tests.append(test_id)
+
+        # Build command based on test runner type
+        if use_django_runner:
+            # Use Django's native test runner
+            command = [
+                "python",
+                "tests/runtests.py",
+                "--settings=test_sqlite",
+                "--verbosity=2"
+            ]
+            command.extend(django_tests)
+        else:
+            # Use pytest for non-Django repos
+            command = ["python", "-m", "pytest", "-xvs", "-p", "no:warnings"]
+
+            # Django-specific pytest flags (for repos without native runner)
+            if "django" in repo.lower():
                 command.extend(["--nomigrations", "--reuse-db"])
                 _logger.info("Added Django-specific pytest flags")
 
-        command.extend(converted_tests)
+            command.extend(converted_tests)
 
-        _logger.info(f"Running pytest with {len(test_list)} test(s) in {repo_path}")
+        runner_name = "Django native runner" if use_django_runner else "pytest"
+        _logger.info(f"Running {runner_name} with {len(test_list)} test(s) in {repo_path}")
 
         try:
             result = self.run_in_env(repo, command, cwd=repo_path, timeout=timeout)
-
-            # Parse pytest output
             output = result.stdout + result.stderr
-            passed = output.count(" PASSED")
-            failed = output.count(" FAILED")
-            errors = output.count(" ERROR")
 
-            # Check for common setup errors
-            if "No module named pytest" in output:
-                _logger.error("pytest is not installed in the virtual environment")
-            elif "No module named" in output:
-                _logger.warning(f"Missing module detected in test output")
+            # Parse output based on runner type
+            if use_django_runner:
+                # Parse Django test runner output
+                # Format: "Ran N test" followed by "OK" or "FAILED (failures=X, errors=Y)"
+                import re
+                tests_run_match = re.search(r'Ran (\d+) test', output)
+                failure_match = re.search(r'failures=(\d+)', output)
+                error_match = re.search(r'errors=(\d+)', output)
 
-            _logger.info(f"Test run completed: returncode={result.returncode}, "
-                        f"passed={passed}, failed={failed}, errors={errors}")
+                tests_run = int(tests_run_match.group(1)) if tests_run_match else 0
+                failed = int(failure_match.group(1)) if failure_match else 0
+                errors = int(error_match.group(1)) if error_match else 0
+                passed = tests_run - failed - errors
+
+                _logger.info(f"Django test run completed: returncode={result.returncode}, "
+                            f"ran={tests_run}, passed={passed}, failed={failed}, errors={errors}")
+            else:
+                # Parse pytest output
+                passed = output.count(" PASSED")
+                failed = output.count(" FAILED")
+                errors = output.count(" ERROR")
+
+                # Check for common setup errors
+                if "No module named pytest" in output:
+                    _logger.error("pytest is not installed in the virtual environment")
+                elif "No module named" in output:
+                    _logger.warning(f"Missing module detected in test output")
+
+                _logger.info(f"pytest run completed: returncode={result.returncode}, "
+                            f"passed={passed}, failed={failed}, errors={errors}")
 
             return {
                 "success": result.returncode == 0,

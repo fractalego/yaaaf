@@ -425,8 +425,37 @@ class CodeEditExecutor(ToolExecutor):
 
                 _logger.info(f"Inserting {len(new_content_lines)} lines of replacement content")
 
-                # Get the old content before destroying (for logging)
-                old_content_lines = file_lines[min_line - 1:max_line]
+                # Get the actual content from file at the specified line range
+                actual_file_lines = file_lines[min_line - 1:max_line]
+
+                # Get the expected content from old_str (content without line numbers)
+                expected_old_lines = [old_numbered[ln] for ln in old_line_nums]
+
+                # CRITICAL VALIDATION: Verify old_str content matches the file
+                # This prevents blindly destroying content when the LLM is confused about file state
+                if actual_file_lines != expected_old_lines:
+                    _logger.error(f"Content mismatch! old_str doesn't match file lines {min_line}-{max_line}")
+
+                    error_msg = f"ERROR: old_str content does NOT match file at lines {min_line}-{max_line}\n\n"
+                    error_msg += f"You expected the file to contain:\n"
+                    error_msg += "=" * 60 + "\n"
+                    for i, line in enumerate(expected_old_lines, min_line):
+                        error_msg += f"{i:4d}: {line}\n"
+                    error_msg += "=" * 60 + "\n\n"
+
+                    error_msg += f"But the file ACTUALLY contains:\n"
+                    error_msg += "=" * 60 + "\n"
+                    for i, line in enumerate(actual_file_lines, min_line):
+                        error_msg += f"{i:4d}: {line}\n"
+                    error_msg += "=" * 60 + "\n\n"
+
+                    error_msg += "This usually means:\n"
+                    error_msg += "1. The file was already modified (possibly by a previous operation)\n"
+                    error_msg += "2. You're using old_str from a different version of the file\n"
+                    error_msg += "3. You need to VIEW the file again to see its current state\n\n"
+                    error_msg += "FIX: Use 'operation: view' to see the current file content, then try again with the correct old_str."
+
+                    return None, error_msg
 
                 # PERFORM REPLACEMENT: destroy old_str range, insert new_str content
                 file_lines[min_line - 1:max_line] = new_content_lines
@@ -439,10 +468,10 @@ class CodeEditExecutor(ToolExecutor):
                 # Build success result
                 result = f"str_replace operation completed successfully.\n"
                 result += f"File: {file_path}\n"
-                result += f"Destroyed lines {min_line}-{max_line} ({len(old_content_lines)} lines)\n"
+                result += f"Destroyed lines {min_line}-{max_line} ({len(actual_file_lines)} lines)\n"
                 result += f"Inserted {len(new_content_lines)} new lines at position {min_line}\n"
-                result += f"Net change: {len(new_content_lines) - len(old_content_lines):+d} lines\n\n"
-                result += f"BEFORE (destroyed lines {min_line}-{max_line}):\n" + '\n'.join(old_content_lines) + "\n\n"
+                result += f"Net change: {len(new_content_lines) - len(actual_file_lines):+d} lines\n\n"
+                result += f"BEFORE (destroyed lines {min_line}-{max_line}):\n" + '\n'.join(actual_file_lines) + "\n\n"
                 result += f"AFTER (inserted content):\n" + '\n'.join(new_content_lines)
 
                 return result, None

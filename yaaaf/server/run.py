@@ -70,7 +70,7 @@ def run_server(host: str, port: int):
 
     # Create server logger for startup messages
     server_logger = logging.getLogger("yaaaf.server")
-    server_logger.info(f"🚀 Starting YAAAF backend server on {host}:{port}")
+    server_logger.info(f"🚀 Starting YAAAF backend version 0.1.0 server on {host}:{port}")
     server_logger.info(
         "📋 Agent registration logs will appear when first chat session starts"
     )

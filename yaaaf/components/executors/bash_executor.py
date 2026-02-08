@@ -36,6 +36,17 @@ class BashExecutor(ToolExecutor):
         if not command:
             _logger.debug(f"No ```bash block found in response: {response[:200]}...")
             return None
+
+        # ALWAYS check for interactive commands (they will hang execution)
+        interactive_commands = ["nano ", "vim ", "vi ", "emacs ", "less ", "more ", "pico "]
+        command_lower = command.strip().lower()
+        for cmd in interactive_commands:
+            if command_lower.startswith(cmd) or f"\n{cmd}" in command_lower:
+                _logger.error(f"BLOCKED interactive command: {cmd.strip()}")
+                _logger.error(f"Interactive commands hang execution. Use 'cat' to view files, not {cmd.strip()}")
+                return None
+
+        # Other safety checks (can be skipped if needed)
         if not self._skip_safety_check and not self._is_safe_command(command):
             _logger.warning(f"Command rejected as unsafe: {command}")
             return None

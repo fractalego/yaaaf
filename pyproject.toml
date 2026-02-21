@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yaaaf"
-version = "0.1.1"
+version = "0.1.8"
 description = "YAAAF (Yet Another Autonomous Agents Framework) - A modular framework for building intelligent agentic applications with Python backend and Next.js frontend"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,6 +21,8 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
@@ -44,6 +46,7 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "singleton-decorator>=1.0.0",
     "tabulate>=0.8.0",
+    "transformers>=4.48.0",
     "uvicorn>=0.15.0",
 ]
 

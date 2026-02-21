@@ -53,9 +53,7 @@ def load_config(config_path: str = "config.json") -> Dict[str, Any]:
                 "workflow_temperature": 0.7,
                 "max_workflow_retries": 2
             },
-            "stratification": {
-                "buckets": []
-            }
+            "stratification": {}
         }
 
     with open(config_file, 'r') as f:
@@ -186,8 +184,9 @@ class StratificationBucket:
     max_agents: int
     min_steps: int
     max_steps: int
-    complexity: str  # 'simple_chain', 'multi_branch', 'complex_tree'
+    complexity: str  # 'simple_chain', 'multi_branch', 'complex_tree', 'loop', 'continuation'
     target_count: int
+    workflow_type: str = "regular"  # 'regular', 'loop', 'continuation'
 
 
 @dataclass
@@ -300,6 +299,87 @@ Your scenario:"""
 
         return response.choices[0].message.content.strip()
 
+    def generate_loop_scenario(self, bucket: StratificationBucket) -> str:
+        """Generate a scenario that requires iterative loop execution.
+
+        Args:
+            bucket: Stratification bucket defining constraints
+
+        Returns:
+            Generated scenario description
+        """
+        loop_types = [
+            "fix-test cycles (apply fix, run tests, repeat if failed)",
+            "iterative refinement (generate solution, validate, refine, repeat)",
+            "retry with backoff (API call, retry on failure)",
+            "multi-file changes (update files, lint, fix issues, repeat)"
+        ]
+        selected_type = random.choice(loop_types)
+
+        prompt = f"""Generate a realistic user scenario that requires an ITERATIVE LOOP workflow with the following characteristics:
+- Loop type: {selected_type}
+- Number of agents in loop body: {bucket.min_agents} to {bucket.max_agents}
+- The task should require repeating steps until success
+
+Available agents:
+{self.agent_descriptions}
+
+The scenario should:
+1. Clearly require iteration until a condition is met (e.g., "until tests pass", "until validation succeeds")
+2. Involve refinement based on feedback from previous iteration
+3. Be realistic (something users actually need)
+
+Example loop scenarios:
+- "Fix the authentication bug in auth.py and keep testing until all tests pass"
+- "Refine the data visualization based on validation feedback until it meets quality standards"
+- "Update the codebase to fix linting errors, running the linter after each change until clean"
+
+Generate ONLY the user scenario/query (1-2 sentences). Do not include the workflow plan.
+
+Your scenario:"""
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.scenario_temperature,
+            max_tokens=150
+        )
+
+        return response.choices[0].message.content.strip()
+
+    def generate_continuation_scenario(self, bucket: StratificationBucket) -> str:
+        """Generate a scenario for a continuation plan (replanning after failure).
+
+        Args:
+            bucket: Stratification bucket defining constraints
+
+        Returns:
+            Generated scenario description
+        """
+        prompt = f"""Generate a realistic scenario where an initial workflow execution FAILED and needs a continuation plan.
+
+The scenario should:
+1. Describe what was attempted initially (what work was done)
+2. Explain what failed (specifically test failures)
+3. Request a fix that builds on the prior work
+
+Example continuation scenarios:
+- "The previous fix for the authentication bug didn't work - tests still fail with 'Invalid token'. Use the prior code analysis and failed test output to create a better fix."
+- "Tests are failing after the database migration script ran. Use the migration results and test failures to diagnose and fix the issue."
+
+Generate ONLY the user scenario (2-3 sentences) describing the continuation/replan situation.
+
+Your scenario:"""
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.scenario_temperature,
+            max_tokens=200
+        )
+
+        return response.choices[0].message.content.strip()
+
     def generate_workflow(self, scenario: str, bucket: StratificationBucket) -> str:
         """Generate a workflow plan for the scenario using GPT-4.
 
@@ -379,7 +459,7 @@ Do not use markdown code blocks. Output the raw YAML directly.
 Example format with descriptive names and checks:
 assets:
   customer_sales_data:
-    agent: SqlAgent
+    agent: sql
     description: "Extract customer purchase history from sales database"
     type: table
     checks:
@@ -389,7 +469,7 @@ assets:
       - "no_null_values: [customer_id, purchase_date]"
 
   validated_sales_data:
-    agent: ReviewerAgent
+    agent: reviewer
     description: "Validate and clean sales data for outliers"
     type: table
     inputs: [customer_sales_data]
@@ -398,7 +478,7 @@ assets:
       - "amount between 0 and 1000000"
 
   monthly_revenue_chart:
-    agent: VisualizationAgent
+    agent: visualization
     description: "Create monthly revenue trend visualization"
     type: image
     inputs: [validated_sales_data]
@@ -410,7 +490,7 @@ More check examples for different artifact types:
 
 For TEXT artifacts:
   search_results_summary:
-    agent: BraveSearchAgent
+    agent: brave_search
     type: table
     checks:
       - "row_count >= 5"
@@ -419,7 +499,7 @@ For TEXT artifacts:
 
 For MODEL artifacts:
   churn_prediction_model:
-    agent: MleAgent
+    agent: mle
     type: model
     inputs: [customer_features]
     checks:
@@ -429,7 +509,7 @@ For MODEL artifacts:
 
 For JSON artifacts:
   api_response_data:
-    agent: ToolAgent
+    agent: tool
     type: json
     checks:
       - "valid_json: true"
@@ -471,6 +551,304 @@ Now generate the workflow with descriptive asset names and acceptance checks:"""
 
         return content
 
+    def generate_loop_workflow(self, scenario: str, bucket: StratificationBucket) -> str:
+        """Generate a loop workflow plan for the scenario.
+
+        Args:
+            scenario: User scenario description
+            bucket: Stratification bucket defining constraints
+
+        Returns:
+            YAML workflow plan with loop construct
+        """
+        exit_condition_type = random.choice(["all_valid", "any_valid"])
+
+        planner_prompt = f"""Your task is to create a workflow with a LOOP construct for iterative execution.
+
+Available agents:
+{self.agent_descriptions}
+
+LOOP WORKFLOW FORMAT:
+```yaml
+assets:
+  # IMPORTANT: Steps BEFORE the loop to provide context
+  gather_context:
+    agent: bash
+    type: text
+    description: "Gather necessary information for the loop"
+
+  loop_name:
+    type: loop
+    inputs: [gather_context]  # CRITICAL: Pass external context into loop!
+    description: "What this loop does"
+    max_iterations: 5  # Typically 3-7 iterations
+
+    exit_condition:
+      type: {exit_condition_type}  # all_valid or any_valid
+      # For any_valid, specify which assets to check:
+      # assets: [run_tests]
+
+    loop_body:
+      # This is a mini-workflow that repeats each iteration
+      assets:
+        step1:
+          agent: code_edit  # or other agent
+          type: text
+          description: "Apply or refine fix"
+          # Access BOTH external context AND previous iteration results
+          inputs: [__loop_input__gather_context, __previous__step2]
+
+        step2:
+          agent: bash
+          type: text
+          description: "Run tests or validation"
+          inputs: [step1]
+
+    loop_output: step2  # Which asset to return when loop exits
+```
+
+CRITICAL RULES FOR LOOPS:
+1. **MUST HAVE INPUTS**: The loop MUST have an 'inputs' field that brings in context from prior steps
+   - Without inputs, the loop has no information to work with on iteration 1!
+   - Example: `inputs: [bug_report, initial_analysis]`
+2. Loop body MUST have 2-{bucket.max_agents} assets (typically fix/refine + test/validate)
+3. Assets in loop body access external inputs via __loop_input__<name>
+   - Example: `inputs: [__loop_input__bug_report, __previous__test_results]`
+4. At least one asset should use __previous__<name> to get feedback from last iteration
+5. Exit condition {exit_condition_type}:
+   - all_valid: Loop continues until ALL assets in loop body pass validation
+   - any_valid: Specify which asset(s) to check (e.g., assets: [run_tests])
+6. loop_output specifies which asset result to return
+7. max_iterations typically 3-7 (enough for refinement, not excessive)
+8. Special variables available in loop body:
+   - __previous__<asset_name>: Results from previous iteration (empty on iteration 1)
+   - __loop_input__<name>: Data from outside the loop (from 'inputs' field)
+   - __iteration__: Current iteration number
+
+COMMON LOOP PATTERNS:
+
+Fix-Test Pattern (with external context):
+```yaml
+# NOTE: Loops MUST have 'inputs' to bring in external context!
+fix_until_tests_pass:
+  type: loop
+  inputs: [bug_description, code_to_fix]  # External inputs from prior steps
+  max_iterations: 5
+  exit_condition:
+    type: all_valid
+  loop_body:
+    assets:
+      apply_fix:
+        agent: code_edit
+        type: text
+        # First iteration: uses loop inputs, later iterations: uses previous test results too
+        inputs: [__loop_input__bug_description, __loop_input__code_to_fix, __previous__run_tests]
+      run_tests:
+        agent: bash
+        type: text
+        inputs: [apply_fix]
+  loop_output: run_tests
+```
+
+Iterative Refinement Pattern (with external context):
+```yaml
+refine_until_valid:
+  type: loop
+  inputs: [initial_requirements, data_source]  # External inputs
+  max_iterations: 3
+  exit_condition:
+    type: any_valid
+    assets: [validation]
+  loop_body:
+    assets:
+      generate:
+        agent: answerer
+        type: text
+        # Access external inputs AND previous iteration feedback
+        inputs: [__loop_input__initial_requirements, __loop_input__data_source, __previous__validation]
+      validation:
+        agent: reviewer
+        type: table
+        inputs: [generate]
+  loop_output: generate
+```
+
+User Scenario:
+{scenario}
+
+Generate a complete workflow with a loop construct that:
+1. **INCLUDES PRE-LOOP STEPS**: Add 1-2 steps BEFORE the loop to gather context (analyze the bug, explore code, etc.)
+2. **LOOP HAS INPUTS**: The loop MUST reference the pre-loop steps in its 'inputs' field
+3. **LOOP BODY USES INPUTS**: Assets in loop body access external context via __loop_input__<name>
+
+Example structure:
+```yaml
+assets:
+  # Pre-loop: gather context
+  analyze_bug:
+    agent: answerer
+    type: text
+    description: "Analyze the bug description"
+
+  # Loop: iterative fix
+  fix_loop:
+    type: loop
+    inputs: [analyze_bug]  # ← REQUIRED!
+    loop_body:
+      assets:
+        apply_fix:
+          inputs: [__loop_input__analyze_bug, __previous__test_result]  # ← Use both!
+```
+
+Output ONLY valid YAML starting with "assets:". No markdown code blocks, no explanations.
+"""
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": "You are a workflow planning expert. You output ONLY valid YAML, with no explanations or markdown formatting."},
+                {"role": "user", "content": planner_prompt}
+            ],
+            temperature=self.workflow_temperature,
+            max_tokens=1500
+        )
+
+        content = response.choices[0].message.content.strip()
+
+        # Clean up markdown if present
+        if "```yaml" in content:
+            yaml_start = content.find("```yaml") + 7
+            yaml_end = content.find("```", yaml_start)
+            content = content[yaml_start:yaml_end].strip()
+        elif "```" in content:
+            yaml_start = content.find("```") + 3
+            yaml_end = content.find("```", yaml_start)
+            content = content[yaml_start:yaml_end].strip()
+
+        if not content.startswith("assets:"):
+            if "assets:" in content:
+                assets_start = content.find("assets:")
+                content = content[assets_start:]
+
+        return content
+
+    def generate_continuation_workflow(self, scenario: str, bucket: StratificationBucket) -> str:
+        """Generate a continuation plan that references prior artifacts.
+
+        Args:
+            scenario: User scenario description (describing prior failure)
+            bucket: Stratification bucket defining constraints
+
+        Returns:
+            YAML workflow plan with external artifact references
+        """
+        # Generate mock artifact IDs for the prior plan
+        num_prior_artifacts = random.randint(2, 4)
+        prior_artifact_names = ["code_analysis", "initial_fix", "test_results", "validation_output"]
+        selected_prior = random.sample(prior_artifact_names, min(num_prior_artifacts, len(prior_artifact_names)))
+
+        prior_artifacts_desc = []
+        for i, name in enumerate(selected_prior):
+            artifact_id = f"{random.randint(10000, 99999)}{random.randint(10000, 99999)}{random.randint(10000, 99999)}"
+            prior_artifacts_desc.append({
+                "name": name,
+                "id": artifact_id,
+                "description": f"Results from {name} step in prior execution"
+            })
+
+        planner_prompt = f"""Your task is to create a CONTINUATION PLAN that builds on a failed prior execution.
+
+Available agents:
+{self.agent_descriptions}
+
+CONTINUATION PLAN FORMAT:
+
+A continuation plan references artifacts from the prior plan using external_artifact_id:
+
+```yaml
+assets:
+  # Reference prior artifacts (NO agent field!)
+  prior_code_analysis:
+    type: text
+    external_artifact_id: "12345678901234567890"
+    description: "Code analysis from first attempt"
+
+  prior_test_results:
+    type: text
+    external_artifact_id: "98765432109876543210"
+    description: "Test failures from first attempt"
+
+  # New steps that build on prior work
+  analyze_failure:
+    agent: answerer
+    type: text
+    description: "Analyze why prior fix failed based on test results"
+    inputs: [prior_code_analysis, prior_test_results]
+
+  corrected_fix:
+    agent: code_edit
+    type: text
+    description: "Apply corrected fix addressing the failure"
+    inputs: [analyze_failure]
+
+  verify_fix:
+    agent: bash
+    type: text
+    description: "Run tests to verify corrected fix"
+    inputs: [corrected_fix]
+```
+
+CRITICAL RULES FOR CONTINUATION PLANS:
+1. Reference 2-3 prior artifacts using external_artifact_id (use the IDs provided below)
+2. External artifact nodes: NO agent field, just type + external_artifact_id + description
+3. Include at least one analysis step that uses prior artifacts to understand failure
+4. Add new execution steps that build on the analysis
+5. Typically 3-5 total steps (including external references)
+
+PRIOR ARTIFACTS AVAILABLE (from failed execution):
+{chr(10).join([f"  - {a['name']}: id={a['id']}, {a['description']}" for a in prior_artifacts_desc])}
+
+User Scenario (Continuation Request):
+{scenario}
+
+Generate a continuation plan that:
+1. References 2-3 of the prior artifacts listed above
+2. Analyzes why the prior attempt failed
+3. Creates new steps to fix the issue
+4. Achieves the original goal
+
+Output ONLY valid YAML starting with "assets:". No markdown, no explanations.
+"""
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": "You are a workflow planning expert. You output ONLY valid YAML, with no explanations or markdown formatting."},
+                {"role": "user", "content": planner_prompt}
+            ],
+            temperature=self.workflow_temperature,
+            max_tokens=1500
+        )
+
+        content = response.choices[0].message.content.strip()
+
+        # Clean up markdown if present
+        if "```yaml" in content:
+            yaml_start = content.find("```yaml") + 7
+            yaml_end = content.find("```", yaml_start)
+            content = content[yaml_start:yaml_end].strip()
+        elif "```" in content:
+            yaml_start = content.find("```") + 3
+            yaml_end = content.find("```", yaml_start)
+            content = content[yaml_start:yaml_end].strip()
+
+        if not content.startswith("assets:"):
+            if "assets:" in content:
+                assets_start = content.find("assets:")
+                content = content[assets_start:]
+
+        return content
+
     def validate_workflow(self, workflow_yaml: str) -> tuple[bool, Optional[str], List[str], int]:
         """Validate the generated workflow.
 
@@ -500,17 +878,53 @@ Now generate the workflow with descriptive asset names and acceptance checks:"""
                 if not isinstance(asset_config, dict):
                     return False, f"Invalid asset '{asset_name}': must be a dictionary", [], 0
 
-                required_fields = ["agent", "description", "type"]
-                for field in required_fields:
-                    if field not in asset_config:
-                        return False, f"Invalid asset '{asset_name}': missing required field '{field}'", [], 0
+                # Check asset type
+                is_loop = asset_config.get("type") == "loop"
+                is_external = "external_artifact_id" in asset_config
 
-                agent_name = asset_config["agent"]
-                agents_used.append(agent_name)
+                if is_loop:
+                    # Loop node validation
+                    required_fields = ["type", "description", "max_iterations", "exit_condition", "loop_body", "loop_output"]
+                    for field in required_fields:
+                        if field not in asset_config:
+                            return False, f"Invalid loop '{asset_name}': missing field '{field}'", [], 0
 
-                # Validate agent exists
-                if agent_name not in AGENT_TAXONOMIES:
-                    return False, f"Unknown agent '{agent_name}' in asset '{asset_name}'", [], 0
+                    # Validate loop_body has assets
+                    loop_body = asset_config.get("loop_body", {})
+                    if not isinstance(loop_body, dict) or "assets" not in loop_body:
+                        return False, f"Invalid loop '{asset_name}': loop_body must have 'assets'", [], 0
+
+                    # Count agents in loop body
+                    for lb_asset_name, lb_asset_config in loop_body.get("assets", {}).items():
+                        if "agent" in lb_asset_config:
+                            agent_name = lb_asset_config["agent"]
+                            agents_used.append(agent_name)
+                            if agent_name not in AGENT_TAXONOMIES:
+                                return False, f"Unknown agent '{agent_name}' in loop body '{lb_asset_name}'", [], 0
+
+                elif is_external:
+                    # External artifact reference
+                    required_fields = ["type", "external_artifact_id"]
+                    for field in required_fields:
+                        if field not in asset_config:
+                            return False, f"Invalid external artifact '{asset_name}': missing field '{field}'", [], 0
+
+                    if "agent" in asset_config:
+                        return False, f"External artifact '{asset_name}' should not have 'agent' field", [], 0
+
+                else:
+                    # Regular asset
+                    required_fields = ["agent", "description", "type"]
+                    for field in required_fields:
+                        if field not in asset_config:
+                            return False, f"Invalid asset '{asset_name}': missing required field '{field}'", [], 0
+
+                    agent_name = asset_config["agent"]
+                    agents_used.append(agent_name)
+
+                    # Validate agent exists
+                    if agent_name not in AGENT_TAXONOMIES:
+                        return False, f"Unknown agent '{agent_name}' in asset '{asset_name}'", [], 0
 
             return True, None, list(set(agents_used)), len(assets)
 
@@ -529,8 +943,13 @@ Now generate the workflow with descriptive asset names and acceptance checks:"""
         Returns:
             PlanningExample instance
         """
-        # Generate scenario
-        scenario = self.generate_scenario(bucket)
+        # Generate scenario based on workflow type
+        if bucket.workflow_type == "loop":
+            scenario = self.generate_loop_scenario(bucket)
+        elif bucket.workflow_type == "continuation":
+            scenario = self.generate_continuation_scenario(bucket)
+        else:
+            scenario = self.generate_scenario(bucket)
 
         # Try to generate valid workflow with retries
         workflow_yaml = None
@@ -540,8 +959,13 @@ Now generate the workflow with descriptive asset names and acceptance checks:"""
         num_steps = 0
 
         for retry in range(max_workflow_retries + 1):
-            # Generate workflow
-            workflow_yaml = self.generate_workflow(scenario, bucket)
+            # Generate workflow based on type
+            if bucket.workflow_type == "loop":
+                workflow_yaml = self.generate_loop_workflow(scenario, bucket)
+            elif bucket.workflow_type == "continuation":
+                workflow_yaml = self.generate_continuation_workflow(scenario, bucket)
+            else:
+                workflow_yaml = self.generate_workflow(scenario, bucket)
 
             # Validate workflow
             is_valid, error_message, agents_used, num_steps = self.validate_workflow(workflow_yaml)
@@ -583,67 +1007,107 @@ Now generate the workflow with descriptive asset names and acceptance checks:"""
         Returns:
             DataFrame with all examples
         """
+        logger.info(f"[DEBUG] generate_dataset called with total_examples={total_examples}, buckets={'None' if buckets is None else f'len={len(buckets)}'}")
 
         failed_workflows = [] if save_debug_info else None
 
         # Use provided buckets or create default ones
         if buckets is None:
             # Default stratification buckets with proportions
+            # Total: 85% regular, 13% loops, 2% continuation
             buckets = [
+                # Regular workflows (85% total)
                 {
                     "name": "simple_2agent_chain",
                     "min_agents": 2, "max_agents": 2,
                     "min_steps": 2, "max_steps": 2,
                     "complexity": "simple_chain",
-                    "proportion": 0.15
+                    "workflow_type": "regular",
+                    "proportion": 0.12
                 },
                 {
                     "name": "medium_chain",
                     "min_agents": 3, "max_agents": 5,
                     "min_steps": 3, "max_steps": 5,
                     "complexity": "simple_chain",
-                    "proportion": 0.20
+                    "workflow_type": "regular",
+                    "proportion": 0.18
                 },
                 {
                     "name": "medium_branch",
                     "min_agents": 3, "max_agents": 5,
                     "min_steps": 3, "max_steps": 6,
                     "complexity": "multi_branch",
-                    "proportion": 0.25
+                    "workflow_type": "regular",
+                    "proportion": 0.22
                 },
                 {
                     "name": "complex_tree_small",
                     "min_agents": 6, "max_agents": 8,
                     "min_steps": 6, "max_steps": 10,
                     "complexity": "complex_tree",
-                    "proportion": 0.20
+                    "workflow_type": "regular",
+                    "proportion": 0.18
                 },
                 {
                     "name": "complex_tree_large",
                     "min_agents": 9, "max_agents": 12,
                     "min_steps": 9, "max_steps": 15,
                     "complexity": "complex_tree",
-                    "proportion": 0.20
+                    "workflow_type": "regular",
+                    "proportion": 0.15
+                },
+                # Loop workflows (13% total)
+                {
+                    "name": "simple_loop_2agents",
+                    "min_agents": 2, "max_agents": 2,
+                    "min_steps": 2, "max_steps": 2,
+                    "complexity": "loop",
+                    "workflow_type": "loop",
+                    "proportion": 0.06
+                },
+                {
+                    "name": "medium_loop_3agents",
+                    "min_agents": 3, "max_agents": 3,
+                    "min_steps": 3, "max_steps": 3,
+                    "complexity": "loop",
+                    "workflow_type": "loop",
+                    "proportion": 0.07
+                },
+                # Continuation plans (2% total)
+                {
+                    "name": "continuation_plan",
+                    "min_agents": 2, "max_agents": 4,
+                    "min_steps": 4, "max_steps": 6,
+                    "complexity": "continuation",
+                    "workflow_type": "continuation",
+                    "proportion": 0.02
                 }
             ]
 
         # Convert bucket configs to StratificationBucket objects
         stratification_buckets = []
+        logger.info(f"[DEBUG] Creating {len(buckets)} buckets from configuration...")
         for bucket_config in buckets:
             target_count = max(1, int(total_examples * bucket_config.get("proportion", 0.2)))
-            stratification_buckets.append(StratificationBucket(
+            bucket = StratificationBucket(
                 name=bucket_config["name"],
                 min_agents=bucket_config["min_agents"],
                 max_agents=bucket_config["max_agents"],
                 min_steps=bucket_config["min_steps"],
                 max_steps=bucket_config["max_steps"],
                 complexity=bucket_config["complexity"],
-                target_count=target_count
-            ))
+                target_count=target_count,
+                workflow_type=bucket_config.get("workflow_type", "regular")
+            )
+            logger.info(f"[DEBUG] Created bucket: {bucket.name} (type={bucket.workflow_type}, target={target_count})")
+            stratification_buckets.append(bucket)
+
+        logger.info(f"[DEBUG] Total stratification_buckets created: {len(stratification_buckets)}")
 
         examples = []
 
-        logger.info(f"Generating {total_examples} planning examples...")
+        logger.info(f"Generating {total_examples} planning examples across {len(stratification_buckets)} buckets...")
 
         for bucket in stratification_buckets:
             logger.info(f"\nGenerating {bucket.target_count} examples for bucket: {bucket.name}")
@@ -691,12 +1155,16 @@ Now generate the workflow with descriptive asset names and acceptance checks:"""
         # Add summary statistics
         logger.info("\n=== Dataset Statistics ===")
         logger.info(f"Total examples: {len(df)}")
-        logger.info(f"Valid examples: {df['is_valid'].sum()}")
-        logger.info(f"Invalid examples: {(~df['is_valid']).sum()}")
-        logger.info(f"\nExamples by complexity:")
-        logger.info(df['complexity'].value_counts())
-        logger.info(f"\nExamples by number of agents:")
-        logger.info(df['num_agents'].value_counts().sort_index())
+
+        if len(df) > 0:
+            logger.info(f"Valid examples: {df['is_valid'].sum()}")
+            logger.info(f"Invalid examples: {(~df['is_valid']).sum()}")
+            logger.info(f"\nExamples by complexity:")
+            logger.info(df['complexity'].value_counts())
+            logger.info(f"\nExamples by number of agents:")
+            logger.info(df['num_agents'].value_counts().sort_index())
+        else:
+            logger.warning("No examples were generated!")
 
         # Save to CSV
         df.to_csv(output_path, index=False)

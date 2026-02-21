@@ -18,7 +18,8 @@ from yaaaf.components.agents.numerical_sequences_agent import NumericalSequences
 from yaaaf.components.agents.answerer_agent import AnswererAgent
 from yaaaf.components.agents.mle_agent import MleAgent
 from yaaaf.components.agents.validation_agent import ValidationAgent
-from yaaaf.components.client import OllamaClient
+from yaaaf.components.agents.code_edit_agent import CodeEditAgent
+from yaaaf.components.client import create_client, ClientType
 from yaaaf.components.sources.sqlite_source import SqliteSource
 from yaaaf.components.sources.rag_source import RAGSource
 from yaaaf.components.sources.persistent_rag_source import PersistentRAGSource
@@ -47,6 +48,7 @@ class OrchestratorBuilder:
             "answerer": AnswererAgent,
             "mle": MleAgent,
             "planner": PlannerAgent,
+            "code_edit": CodeEditAgent,
         }
 
     def _load_text_from_file(self, file_path: str) -> str:
@@ -238,10 +240,11 @@ class OrchestratorBuilder:
         sql_sources = self._create_sql_sources()
         return sql_sources[0] if sql_sources else None
 
-    def _create_client_for_agent(self, agent_config) -> OllamaClient:
+    def _create_client_for_agent(self, agent_config):
         """Create a client for an agent, using agent-specific settings if available."""
         if isinstance(agent_config, AgentSettings):
             # Use agent-specific settings, falling back to default client settings
+            client_type = agent_config.type or self.config.client.type
             model = agent_config.model or self.config.client.model
             temperature = (
                 agent_config.temperature
@@ -254,6 +257,7 @@ class OrchestratorBuilder:
                 else self.config.client.max_tokens
             )
             host = agent_config.host or self.config.client.host
+            adapter = agent_config.adapter or self.config.client.adapter
             agent_name = agent_config.name
 
             # Log agent-specific configuration
@@ -263,21 +267,35 @@ class OrchestratorBuilder:
                 )
             else:
                 _logger.info(f"Agent '{agent_name}' using default host: {host}")
+
+            if adapter:
+                _logger.info(f"Agent '{agent_name}' using LoRA adapter: {adapter}")
         else:
             # Use default client settings for string-based agent names
+            client_type = self.config.client.type
             model = self.config.client.model
             temperature = self.config.client.temperature
             max_tokens = self.config.client.max_tokens
             host = self.config.client.host
+            adapter = self.config.client.adapter
             agent_name = agent_config
 
             _logger.info(f"Agent '{agent_name}' using default host: {host}")
 
-        return OllamaClient(
+        # Convert config ClientType to client module ClientType
+        from yaaaf.server.config import ClientType as ConfigClientType
+        if client_type == ConfigClientType.VLLM:
+            client_type_enum = ClientType.VLLM
+        else:
+            client_type_enum = ClientType.OLLAMA
+
+        return create_client(
+            client_type=client_type_enum,
             model=model,
             temperature=temperature,
             max_tokens=max_tokens,
             host=host,
+            adapter=adapter,
             disable_thinking=self.config.client.disable_thinking,
         )
 
@@ -295,11 +313,18 @@ class OrchestratorBuilder:
         )
 
         # Create default client for orchestrator
-        orchestrator_client = OllamaClient(
+        from yaaaf.server.config import ClientType as ConfigClientType
+        orchestrator_client_type = (
+            ClientType.VLLM if self.config.client.type == ConfigClientType.VLLM
+            else ClientType.OLLAMA
+        )
+        orchestrator_client = create_client(
+            client_type=orchestrator_client_type,
             model=self.config.client.model,
             temperature=self.config.client.temperature,
             max_tokens=self.config.client.max_tokens,
             host=self.config.client.host,
+            adapter=self.config.client.adapter,
             disable_thinking=self.config.client.disable_thinking,
         )
 
@@ -345,6 +370,7 @@ class OrchestratorBuilder:
                         available_agents.append(
                             {
                                 "name": agent_name,  # Use config name instead of class name
+                                "class_name": agent_class.__name__,  # Class name for retriever filtering
                                 "description": agent_class.get_info(),
                                 "taxonomy": taxonomy,
                             }
@@ -357,9 +383,13 @@ class OrchestratorBuilder:
 
         # Create plan-driven orchestrator with validation
         orchestrator = OrchestratorAgent(
-            orchestrator_client, all_agents, validation_agent=validation_agent
+            orchestrator_client,
+            all_agents,
+            validation_agent=validation_agent,
+            disable_user_prompts=self.config.disable_user_prompts,
+            max_replan_attempts=self.config.max_replan_attempts,
         )
-        _logger.info("Created plan-driven orchestrator with validation")
+        _logger.info(f"Created plan-driven orchestrator with validation (disable_user_prompts={self.config.disable_user_prompts}, max_replan_attempts={self.config.max_replan_attempts})")
 
         return orchestrator
 
@@ -388,7 +418,7 @@ class OrchestratorBuilder:
             )
 
             available_agents = []
-            # Only include agents that are actually configured 
+            # Only include agents that are actually configured
             configured_agent_names = [self._get_agent_name(agent_config) for agent_config in self.config.agents]
             for agent_key, agent_class in self._agents_map.items():
                 if agent_key in configured_agent_names:  # Only configured agents
@@ -397,6 +427,7 @@ class OrchestratorBuilder:
                         available_agents.append(
                             {
                                 "name": agent_key,  # Use config name instead of class name
+                                "class_name": agent_class.__name__,  # Class name for retriever filtering
                                 "description": agent_class.get_info(),
                                 "taxonomy": taxonomy,
                             }
@@ -415,6 +446,18 @@ class OrchestratorBuilder:
                 return None  # DocumentRetrieverAgent requires sources
             elif agent_name == "tool" and not mcp_tools:
                 return None  # ToolAgent requires tools
+            elif agent_name == "bash":
+                # BashAgent can optionally skip safety checks
+                return self._agents_map[agent_name](
+                    client=agent_client,
+                    skip_safety_check=self.config.skip_bash_safety_check,
+                )
+            elif agent_name == "code_edit":
+                # CodeEditAgent can optionally allow overwriting files
+                return self._agents_map[agent_name](
+                    client=agent_client,
+                    allow_overwrite=self.config.allow_code_edit_overwrite,
+                )
             else:
                 return self._agents_map[agent_name](client=agent_client)
         return None

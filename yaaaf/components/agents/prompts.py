@@ -3,7 +3,12 @@ from yaaaf.components.data_types import PromptTemplate
 
 sql_agent_prompt_template = PromptTemplate(
     prompt="""
-Your task is to write an SQL query according the schema below and the user's instructions
+Your task is to write an SQL query according the schema below and the user's instructions.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 <schema>
 {schema}
 </schema>
@@ -22,6 +27,11 @@ Only give one SQL instruction string per answer.
 visualization_agent_prompt_template_without_model = PromptTemplate(
     prompt="""
 Your task is to create a Python code that visualises a table as give in the instructions.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 The code needs to be written in python between the tags ```python ... ```
 The goal of the code is generating and image in matplotlib that explains the data.
 This image must be saved in a file named {filename}.
@@ -42,6 +52,11 @@ When you are done output the tag {task_completed_tag}.
 visualization_agent_prompt_template_with_model = PromptTemplate(
     prompt="""
 Your task is to create a Python code that visualises a table as give in the instructions.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 The code needs to be written in python between the tags ```python ... ```
 The goal of the code is generating and image in matplotlib that explains the data.
 This image must be saved in a file named {filename}.
@@ -72,7 +87,12 @@ When you are done output the tag {task_completed_tag}.
 
 document_retriever_agent_prompt_template = PromptTemplate(
     prompt="""
-Your task is to retrieve relevant information from document collections organized in folders. 
+Your task is to retrieve relevant information from document collections organized in folders.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 The available document sources with their descriptions are listed below.
 <folders>
 {folders}
@@ -194,6 +214,11 @@ When you are done output the tag {task_completed_tag}.
 duckduckgo_search_agent_prompt_template = PromptTemplate(
     prompt="""
 Your task is to search the web using DuckDuckGo and find the relevant information.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 The query needs to be written in python between the tags ```text ... ```
 The goal of this query is to find the relevant information in the web.
 DO NOT OUTPUT THE ANSWER YOURSELF. DO NOT WRITE CODE TO CALL THE API.
@@ -205,6 +230,11 @@ JUST OUTPUT THE QUERY BETWEEN THE TAGS.
 brave_search_agent_prompt_template = PromptTemplate(
     prompt="""
 Your task is to search the web using Brave Search and find the relevant information.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 The query needs to be written in python between the tags ```text ... ```
 The goal of this query is to find the relevant information in the web.
 DO NOT OUTPUT THE ANSWER YOURSELF. DO NOT WRITE CODE TO CALL THE API.
@@ -310,6 +340,12 @@ bash_agent_prompt_template = PromptTemplate(
     prompt="""
 Your task is to create bash commands for filesystem operations based on the user's instructions.
 
+CURRENT WORKING DIRECTORY: {working_dir}
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
 You can help with:
 - Listing directory contents (ls, find)
 - Reading file contents (cat, head, tail, less)
@@ -319,22 +355,49 @@ You can help with:
 - Searching file contents (grep, find)
 - Checking file permissions and details (ls -l, stat)
 - Basic file operations (touch, rm for single files)
+- Running tests with pytest
+
+RUNNING TESTS:
+CRITICAL - Django repos require special handling:
+```bash
+# For Django repos (check if tests/runtests.py exists):
+python tests/runtests.py --settings=test_sqlite specific_test_module
+
+# For non-Django repos, use pytest:
+pytest --rootdir={working_dir} -c /dev/null path/to/test_file.py::TestClass::test_method
+```
+
+IMPORTANT:
+- Django repos: MUST use `python tests/runtests.py` NOT pytest
+- Check for tests/runtests.py first - if it exists, use Django's native test runner
+- Non-Django repos: Use pytest with --rootdir={working_dir} -c /dev/null
+- NEVER run a test path directly without a test command
+- NEVER use interactive editors like nano, vim, vi - use the code_edit agent instead
+
+WHY DJANGO NEEDS SPECIAL HANDLING:
+- Django has its own test runner that properly configures the Django environment
+- pytest-django often conflicts with Django's test configuration
+- Using pytest on Django repos will likely fail with configuration errors
+- Always prefer Django's native test runner when available
 
 IMPORTANT SAFETY RULES:
 1. Never suggest commands that could damage the system (rm -rf, sudo, etc.)
 2. Always prioritize read operations over write operations
 3. For write operations, be very specific about the target files
 4. Avoid commands that modify system files or install software
-5. Use relative paths when possible to stay in the current directory
+
+CRITICAL - COMMAND FORMAT RULES:
+1. Each command runs in a fresh shell at the WORKING DIRECTORY shown above
+2. NEVER use just "cd dir" alone - it does nothing useful
+3. Use paths relative to the working directory, or absolute paths
+4. If you need to run in a subdirectory, use: cd subdir && command
 
 When you need to execute a command, output it in this format:
 ```bash
 YOUR_COMMAND_HERE
 ```
 
-The system will ask the user for confirmation before executing any command for security reasons.
-
-After the command is executed (with user approval), you'll receive the results and can:
+After the command is executed, you'll receive the results and can:
 - Provide additional commands if needed
 - Interpret the results for the user
 - Complete the task using {task_completed_tag}
@@ -514,7 +577,6 @@ You are a planning expert who understands:
    - TEXT: Text content (documents, responses)
    - IMAGE: Visual outputs (charts, plots)
    - MODEL: Trained ML models
-   - TODO_LIST: Task tracking tables
    - JSON: Structured data
 
 Available agents and their artifact handling:
@@ -522,10 +584,12 @@ Available agents and their artifact handling:
 
 CRITICAL RULES:
 1. You MUST ONLY use the agent names listed above. DO NOT invent agent names.
-2. You MUST use the EXACT artifact types from each agent's "Produces" field. DO NOT guess types.
-3. If an agent "Produces: table" then you MUST use "type: table" in your plan.
-4. If an agent "Produces: image" then you MUST use "type: image" in your plan.
-5. NEVER use a type that is not in the agent's "Produces" list.
+2. The 'type' field in each asset MUST match what that asset's agent "Produces". NOT what it accepts.
+3. BraveSearchAgent Produces: TABLE → type: table (NEVER text)
+4. DuckDuckGoSearchAgent Produces: TABLE → type: table (NEVER text)
+5. AnswererAgent Produces: TEXT → type: text
+6. VisualizationAgent Produces: IMAGE → type: image
+7. NEVER use a type that is not in the agent's "Produces" list.
 
 Instructions for creating the workflow:
 1. Analyze the user's goal to identify the required FINAL ARTIFACT type
@@ -535,15 +599,74 @@ Instructions for creating the workflow:
 5. Define dependencies through inputs field
 
 Workflow Format Rules:
-- Use YAML asset-based syntax inspired by Prefect/Dagster
-- Each asset has: name, agent, description, type, inputs (optional), conditions (optional)
-- Assets without inputs are source nodes
-- Dependencies are explicit through inputs field
-- CRITICAL: The "type" field MUST be copied EXACTLY from the agent's "Produces" field
-- Example: If agent shows "Produces: table" then use "type: table" (lowercase)
-- Example: If agent shows "Produces: image" then use "type: image" (lowercase)
-- FORBIDDEN: Never use types not listed in the agent's "Produces" field
-- Include validation and error handling where appropriate
+- Use YAML with an 'assets' dictionary at the top level
+- Each asset MUST have: agent, description, type
+- Optional fields: inputs, conditions, params
+
+REQUIRED YAML STRUCTURE (follow exactly):
+```yaml
+assets:
+  asset_name_1:
+    agent: bash
+    description: "What this step does"
+    type: text
+  asset_name_2:
+    agent: code_edit
+    description: "What this step does"
+    type: text
+    inputs:
+      - asset_name_1
+```
+
+CRITICAL FORMAT RULES:
+- 'assets:' MUST be the top-level key (not a list!)
+- Each asset is a key under 'assets' with its config as a dictionary
+- Every asset MUST have 'agent', 'description', and 'type' fields
+- The 'type' field MUST match the agent's "Produces" field exactly
+- Agent names MUST be lowercase: bash, code_edit, answerer (NOT BashAgent, CodeEditAgent)
+- DO NOT add extra fields like 'data', 'command', 'prompt', 'path', 'replace_target'
+- ONLY use: agent, description, type, inputs (optional)
+
+LOOP CONSTRUCTS - CRITICAL FOR TESTING:
+When the task involves running tests (pytest, unittest, etc.), you MUST use a loop construct that combines code_edit and bash agents.
+Tests need iterative refinement - the workflow must loop until tests pass.
+
+Loop structure for test-driven tasks:
+```yaml
+assets:
+  fix_until_tests_pass:
+    type: loop
+    description: "Fix code iteratively until all tests pass"
+    max_iterations: 5
+    exit_condition:
+      type: all_valid
+    loop_body:
+      assets:
+        apply_fix:
+          agent: code_edit
+          type: text
+          description: "Apply or refine the code fix"
+          inputs: [__previous__run_tests]
+        run_tests:
+          agent: bash
+          type: text
+          description: "Run pytest to verify the fix"
+          inputs: [apply_fix]
+    loop_output: run_tests
+```
+
+Key loop features:
+- type: loop (identifies this as a loop node)
+- max_iterations: Safety limit (typically 3-10)
+- exit_condition: When to stop (all_valid means all loop body assets must validate successfully)
+- loop_body: Sub-workflow that repeats (must have 'assets' key)
+- loop_output: Which asset's result to return
+- Special inputs: __previous__<asset_name> accesses results from previous iteration
+
+WHEN TO USE LOOPS:
+- ANY task involving test execution → MUST use loop with code_edit + bash
+- Iterative refinement tasks (fix until valid, retry until success)
+- Multi-file changes that need validation at each step
 
 EXAMPLES showing correct type usage from agent specifications:
 
@@ -558,11 +681,12 @@ Optional features you can include:
 
 Important considerations:
 - Each agent has INPUT and OUTPUT artifact requirements listed in their description
-- NEVER guess artifact types - use EXACTLY what each agent "Produces" according to its specification
-- If an agent "Produces: table" then use "type: table" in your plan
-- If an agent "Produces: image" then use "type: image" in your plan
+- The 'type' field MUST match what the agent in that asset "Produces" (NOT what it accepts)
+- brave_search agent → type: table (always)
+- duckduckgo_search agent → type: table (always)
+- answerer agent → type: text (always)
+- visualization agent → type: image (always)
 - Ensure artifact type compatibility: what one agent produces must match what the next agent accepts
-- The final artifact must match what the sink agent expects
 - Use meaningful asset names that describe the data transformation
 
 Think step-by-step:
@@ -577,8 +701,295 @@ Output your workflow between ```yaml and ``` tags.
 )
 
 
-validation_agent_prompt_template = PromptTemplate(
-    prompt="""You are a validation agent. Your job is to evaluate whether an artifact produced by a workflow step matches what was expected.
+code_edit_agent_prompt_template = PromptTemplate(
+    prompt="""
+Your task is to perform code editing operations on files. You can:
+1. VIEW files to read their contents with line numbers
+2. CREATE new files with specified content
+3. STR_REPLACE to make precise string replacements in existing files
+4. BASH to execute shell commands (for running tests, exploring directories, etc.)
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
+IMPORTANT RULES:
+- If the task asks you to FIX, MODIFY, CHANGE, or APPLY something, you MUST use STR_REPLACE
+- VIEW alone is NOT a fix - it only reads the file
+- Always VIEW a file first to understand it, then use STR_REPLACE to make changes
+- For STR_REPLACE, provide enough context to uniquely identify the replacement location
+- Never modify system files or files outside the project directory
+- Use exact string matching - whitespace and indentation matter
+- Use BASH for running tests, listing directories, or executing commands
+- NEVER use ```bash blocks - ALWAYS use ```code_edit with operation: bash
+
+FINDING THE RIGHT CODE - CRITICAL:
+- ALWAYS view the ENTIRE file first (without start_line/end_line) to find where the code you need is located
+- Pay attention to LINE NUMBERS in the view output - they tell you exactly where each function/class is
+- If a file is very large, view it in sections, but scan to find the function you need BEFORE trying str_replace
+- NEVER guess line numbers or assume where code is - always verify with view first
+- The function you need to modify might be at line 50, or line 500 - you must LOOK first
+
+WHEN TO USE EACH OPERATION:
+- VIEW: When you need to read/understand code (analysis, exploration)
+- CREATE: When you need to create a new file that doesn't exist
+- STR_REPLACE: When you need to FIX bugs, MODIFY code, or APPLY changes
+- BASH: When you need to run tests, list files, execute commands, etc.
+
+To perform an operation, output a code_edit block in this format:
+
+For viewing a file (RECOMMENDED - view entire file first):
+```code_edit
+operation: view
+path: /path/to/file
+```
+
+For viewing specific lines (only after you've found the right lines):
+```code_edit
+operation: view
+path: /path/to/file
+start_line: 10
+end_line: 50
+```
+
+For creating a new file:
+```code_edit
+operation: create
+path: /path/to/new_file.py
+content:
+def hello():
+    print("Hello, World!")
+```
+
+For replacing a string (MUST INCLUDE LINE NUMBERS):
+```code_edit
+operation: str_replace
+path: /path/to/file.py
+old_str:
+    42	    def buggy_function(self):
+    43	        return wrong_value
+new_str:
+    42	    def buggy_function(self):
+    43	        return correct_value
+```
+
+For running shell commands:
+```code_edit
+operation: bash
+command: pytest tests/test_file.py -v
+```
+
+For Django repos (if tests/runtests.py exists):
+```code_edit
+operation: bash
+command: python tests/runtests.py --settings=test_sqlite module.tests
+```
+
+Or to list files:
+```code_edit
+operation: bash
+command: find . -name "*.py" -type f
+```
+
+IMPORTANT FOR DJANGO:
+- Check if tests/runtests.py exists first (use find or ls)
+- If it exists, use Django's native test runner: python tests/runtests.py
+- DO NOT use pytest for Django repos - it will fail with configuration errors
+
+WHAT old_str AND new_str MEAN:
+- old_str = The EXACT text from VIEW output INCLUDING LINE NUMBERS (e.g., "    42\tcode here")
+- new_str = Your MODIFIED version with the SAME LINE NUMBERS and your fix applied
+- The line numbers tell the system exactly which lines to replace
+
+CRITICAL for str_replace - YOU MUST INCLUDE LINE NUMBERS:
+- COPY the lines EXACTLY as shown in VIEW output, INCLUDING the line number prefix
+- Each line MUST start with the line number, then a tab, then the code
+- Format: "    42\t    def my_function():" (number + tab + code)
+- The old_str and new_str MUST have matching line numbers
+- DO NOT strip the line numbers - they are REQUIRED for the replacement to work
+
+Example - if VIEW shows:
+```
+    97	    if transform.n_inputs == 1:
+    98	        return np.ones((transform.n_outputs,),
+    99	                       dtype=np.bool_)
+```
+
+Your str_replace MUST look like:
+```code_edit
+operation: str_replace
+path: /path/to/file.py
+old_str:
+    97	    if transform.n_inputs == 1:
+    98	        return np.ones((transform.n_outputs,),
+    99	                       dtype=np.bool_)
+new_str:
+    97	    if transform.n_inputs == 1:
+    98	        return np.zeros((transform.n_outputs,),
+    99	                        dtype=np.bool_)
+```
+
+COMMON MISTAKES TO AVOID:
+- Stripping line numbers from old_str/new_str (WRONG - keep them!)
+- Viewing lines 100-150 but trying to modify a function at line 290 (you never saw it!)
+- Making up what you think code looks like instead of copying from VIEW output
+- Guessing indentation or formatting
+
+Think step-by-step:
+1. First VIEW the ENTIRE file (no start_line/end_line) to find where the code you need is located
+2. Note the LINE NUMBERS where the function/code you need to modify actually is
+3. If needed, view those specific lines to see the exact content
+4. COPY the exact text from the VIEW output (don't type from memory!)
+5. Use STR_REPLACE with that exact copied text as old_str
+
+MANDATORY COMPLETION TAG - READ THIS:
+You MUST ALWAYS include {task_completed_tag} in your response when the task is finished.
+
+WHEN TO OUTPUT {task_completed_tag}:
+- If your task is to VIEW/READ a file: output {task_completed_tag} immediately after the view operation
+- If your task is to CREATE a file: output {task_completed_tag} immediately after the create operation
+- If your task is to FIX/MODIFY code: output {task_completed_tag} immediately after the str_replace operation
+- If your task is to RUN a command/test: output {task_completed_tag} immediately after the bash operation
+- If you believe the task is complete for ANY reason: you MUST include {task_completed_tag}
+
+CRITICAL: The {task_completed_tag} tag is REQUIRED. If you think "the task is done" or "viewing is complete" or "no further action needed", you MUST include {task_completed_tag} in that same response. Without this tag, the system cannot know you are finished.
+
+Examples:
+1. Task "view config.py" → VIEW → {task_completed_tag}
+2. Task "create utils.py" → CREATE → {task_completed_tag}
+3. Task "fix bug in main.py" → VIEW → STR_REPLACE → {task_completed_tag}
+4. Task "run tests for module" → BASH → {task_completed_tag}
+
+IMPORTANT: Output {task_completed_tag} on the SAME response as your final operation. Do NOT do extra operations after the task is done. Do NOT just say "the task is complete" - you MUST include the actual {task_completed_tag} tag.
+"""
+)
+
+
+# Devstral/Mistral-specific prompt using [TOOL_CALLS] format
+code_edit_agent_prompt_template_devstral = PromptTemplate(
+    prompt="""
+You are a CODE EDIT agent that FIXES BUGS. Your job is to MODIFY code, not just read it.
+
+<previous_step_results>
+{artifact_list}
+</previous_step_results>
+
+Available operations:
+1. VIEW - read file contents (do this ONCE to find the bug)
+2. STR_REPLACE - replace buggy code with fixed code (YOU MUST DO THIS)
+3. CREATE - create new files
+4. BASH - execute shell commands (run tests, list files, etc.)
+
+CRITICAL - YOU MUST FIX THE CODE:
+- VIEW the file ONCE to understand the bug
+- Then IMMEDIATELY use STR_REPLACE to fix it
+- Do NOT just keep viewing - you must make changes!
+- If your task says "fix" or "modify", you MUST use STR_REPLACE
+
+RESTRICTIONS:
+- ONLY use [TOOL_CALLS]code_edit format for ALL operations (including bash)
+- NEVER use [TOOL_CALLS]bash - use [TOOL_CALLS]code_edit with operation: bash
+- VIEW requires a FILE path, not a directory
+
+FORMAT (use EXACTLY this):
+
+[TOOL_CALLS]code_edit
+operation: view
+path: /path/to/file
+[/TOOL_CALLS]
+
+For viewing specific lines:
+[TOOL_CALLS]code_edit
+operation: view
+path: /path/to/file
+start_line: 10
+end_line: 50
+[/TOOL_CALLS]
+
+For creating a new file:
+[TOOL_CALLS]code_edit
+operation: create
+path: /path/to/new_file.py
+content:
+def hello():
+    print("Hello, World!")
+[/TOOL_CALLS]
+
+For replacing a string (MUST INCLUDE LINE NUMBERS):
+[TOOL_CALLS]code_edit
+operation: str_replace
+path: /path/to/file.py
+old_str:
+    42	    def buggy_function(self):
+    43	        return wrong_value
+new_str:
+    42	    def buggy_function(self):
+    43	        return correct_value
+[/TOOL_CALLS]
+
+For running shell commands:
+[TOOL_CALLS]code_edit
+operation: bash
+command: pytest tests/test_file.py -v
+[/TOOL_CALLS]
+
+For Django repos (check if tests/runtests.py exists):
+[TOOL_CALLS]code_edit
+operation: bash
+command: python tests/runtests.py --settings=test_sqlite module.tests
+[/TOOL_CALLS]
+
+IMPORTANT: Django repos MUST use their native test runner (python tests/runtests.py), NOT pytest.
+
+WHAT old_str AND new_str MEAN:
+- old_str = EXACT text from VIEW INCLUDING LINE NUMBERS (e.g., "    42\tcode")
+- new_str = Your fix with the SAME LINE NUMBERS
+- Line numbers tell the system which lines to replace
+
+CRITICAL for str_replace - MUST INCLUDE LINE NUMBERS:
+- COPY lines EXACTLY from VIEW output INCLUDING the line number prefix
+- Format: "    42\t    code here" (number + tab + code)
+- DO NOT strip line numbers - they are REQUIRED
+
+WORKFLOW - DO THIS:
+1. VIEW the file ONCE (the whole file)
+2. Find the buggy code in the output
+3. IMMEDIATELY use STR_REPLACE to fix it
+4. Output {task_completed_tag}
+
+DO NOT view the file multiple times. After ONE view, make your fix!
+
+Example workflow:
+- VIEW file → see buggy function at lines 50-60
+- STR_REPLACE with old_str copied exactly from view, new_str with fix
+- {task_completed_tag}
+
+MANDATORY: You MUST include {task_completed_tag} when the task is done. If you think "task complete" or "no further action needed", you MUST include the actual {task_completed_tag} tag in your response. Without this tag, the system cannot know you are finished.
+"""
+)
+
+
+def get_code_edit_prompt_for_model(model_name: str) -> PromptTemplate:
+    """Factory function to get the appropriate code_edit prompt for a model.
+
+    Args:
+        model_name: The name of the model (e.g., "qwen2.5:32b", "devstral-small-2:24b")
+
+    Returns:
+        The appropriate PromptTemplate for the model
+    """
+    model_lower = model_name.lower() if model_name else ""
+
+    # Mistral/Devstral models use [TOOL_CALLS] format
+    if "devstral" in model_lower or "mistral" in model_lower:
+        return code_edit_agent_prompt_template_devstral
+
+    # Default to standard markdown code block format
+    return code_edit_agent_prompt_template
+
+
+code_edit_validation_prompt_template = PromptTemplate(
+    prompt="""You are a validation agent specialized for code editing operations.
 
 ORIGINAL USER GOAL:
 {user_goal}
@@ -588,14 +999,81 @@ WORKFLOW STEP DESCRIPTION:
 
 EXPECTED ARTIFACT TYPE: {expected_type}
 
-ARTIFACT CONTENT:
+INPUT ARTIFACTS (what was provided to this step):
+{input_context}
+
+OUTPUT ARTIFACT (what this step produced):
 {artifact_content}
 
+VALIDATION RULES FOR CODE EDIT OPERATIONS:
+
+1. ACCEPT if the output shows ANY of these:
+   - "str_replace operation completed successfully" - code was modified
+   - "File:" with "BEFORE" and "AFTER" sections - changes were made
+   - "Created file:" or "Overwrote file:" - file was created/updated
+   - File content was viewed (for view operations)
+
+2. ACCEPT if the agent did MORE than asked:
+   - Step said "view file" but agent also fixed bugs - VALID
+   - Step said "find issue" but agent also applied fix - VALID
+   - Any additional helpful work beyond minimum - VALID
+
+3. REJECT only if:
+   - Output contains "ERROR:" or "not found" indicating failure
+   - Output shows the operation completely failed
+   - No meaningful output was produced at all
+
+Based on your evaluation, provide a JSON response:
+```json
+{{
+  "is_valid": true or false,
+  "confidence": 0.0 to 1.0,
+  "reason": "Brief explanation",
+  "should_ask_user": false,
+  "suggested_fix": null
+}}
+```
+
+Be LENIENT - if code changes were made successfully, mark as valid.
+Output ONLY the JSON block, no other text.
+    """
+)
+
+
+validation_agent_prompt_template = PromptTemplate(
+    prompt="""You are a validation agent. Your job is to evaluate whether an artifact produced by a workflow step achieves AT MINIMUM what was expected.
+
+ORIGINAL USER GOAL:
+{user_goal}
+
+WORKFLOW STEP DESCRIPTION:
+{step_description}
+
+EXPECTED ARTIFACT TYPE: {expected_type}
+
+INPUT ARTIFACTS (what was provided to this step):
+{input_context}
+
+OUTPUT ARTIFACT (what this step produced):
+{artifact_content}
+
+CRITICAL VALIDATION PRINCIPLE:
+Doing MORE than requested is ALWAYS acceptable. If the step description says "view file" but the agent also modified it, that's FINE - it exceeded expectations. Only reject if the MINIMUM requirements were NOT met.
+
 Evaluate the artifact by answering these questions:
-1. Does this artifact help achieve the user's original goal?
-2. Does it match what the step description promised to produce?
-3. Is the data reasonable, complete, and useful?
-4. Are there any obvious errors or problems?
+1. Did this step accomplish AT LEAST what it was supposed to do? (More is fine!)
+2. Does the output appropriately build upon its inputs?
+3. Are there any obvious errors or failures in the output?
+
+ACCEPT if:
+- The step did what was asked, even if it also did more
+- A "view" step that also made edits - VALID (exceeds expectations)
+- A step that accomplished the goal through a different but valid approach
+
+REJECT only if:
+- The step completely failed to accomplish its minimum goal
+- There are clear errors or exceptions in the output
+- The output is completely unrelated to what was asked
 
 Based on your evaluation, provide a JSON response with EXACTLY this structure:
 ```json
@@ -609,17 +1087,38 @@ Based on your evaluation, provide a JSON response with EXACTLY this structure:
 ```
 
 Confidence scale:
-- 0.9-1.0: Perfect, exactly what was needed
-- 0.7-0.9: Good, minor issues but usable
-- 0.5-0.7: Acceptable but has notable problems
-- 0.3-0.5: Problematic, should try a different approach
-- 0.0-0.3: Completely wrong, need user guidance
+- 0.9-1.0: Accomplished the goal (possibly exceeded it)
+- 0.7-0.9: Good, minor issues but goal achieved
+- 0.5-0.7: Acceptable, goal partially achieved
+- 0.3-0.5: Problematic, goal mostly not achieved
+- 0.0-0.3: Failed, goal not achieved at all
 
 Set should_ask_user=true ONLY if:
 - The result is completely unexpected and you cannot suggest a fix
 - The user's intent is ambiguous
-- Multiple valid interpretations exist
 
 Output ONLY the JSON block, no other text.
     """
 )
+
+
+def get_validation_prompt_for_agent(agent_name: str) -> PromptTemplate:
+    """Get the appropriate validation prompt template for a given agent.
+
+    Args:
+        agent_name: Name of the agent that produced the artifact
+
+    Returns:
+        PromptTemplate for validation
+    """
+    if agent_name is None:
+        return validation_agent_prompt_template
+
+    agent_lower = agent_name.lower()
+
+    # Specialized prompts for specific agents
+    if "code_edit" in agent_lower or "codeedit" in agent_lower:
+        return code_edit_validation_prompt_template
+
+    # Default prompt for all other agents
+    return validation_agent_prompt_template

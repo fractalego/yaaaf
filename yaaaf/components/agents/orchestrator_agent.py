@@ -17,6 +17,7 @@ from yaaaf.components.executors.workflow_executor import (
     UserDecisionRequiredException,
 )
 from yaaaf.components.executors.paused_execution import PausedExecutionException
+from yaaaf.components.exceptions import PlanExecutionError, FailureMode
 from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.client import BaseClient
 
@@ -31,6 +32,8 @@ class OrchestratorAgent(CustomAgent):
         client: BaseClient,
         agents: Dict[str, Any],
         validation_agent: Optional["ValidationAgent"] = None,
+        disable_user_prompts: bool = False,
+        max_replan_attempts: int = 3,
     ):
         """Initialize plan-driven orchestrator.
 
@@ -38,6 +41,8 @@ class OrchestratorAgent(CustomAgent):
             client: LLM client
             agents: Dictionary of available agents
             validation_agent: Optional validation agent for artifact validation
+            disable_user_prompts: If True, skip user prompts on validation failure and replan instead
+            max_replan_attempts: Maximum number of replan attempts before giving up
         """
         super().__init__(client)
         self.agents = agents
@@ -46,9 +51,10 @@ class OrchestratorAgent(CustomAgent):
         self.current_plan = None
         self.plan_executor = None
         self.artefact_storage = ArtefactStorage()
-        self._max_replan_attempts = 3
+        self._max_replan_attempts = max_replan_attempts
         self._validation_agent = validation_agent
         self._original_goal = None  # Store for validation context
+        self._disable_user_prompts = disable_user_prompts
 
         # Extract planner from agents
         for agent_name, agent in agents.items():
@@ -59,30 +65,40 @@ class OrchestratorAgent(CustomAgent):
         if not self.planner:
             raise ValueError("PlannerAgent not found in available agents")
 
-    async def query(self, messages: Messages, notes=None, stream_id=None) -> str:
+    async def query(self, messages: Messages, notes=None, stream_id=None, env_path=None, working_dir=None) -> str:
         """Override query to accept stream_id parameter.
-        
+
         Args:
             messages: User messages
             notes: Optional notes (not used)
             stream_id: Stream ID for tracking and real-time updates
-            
+            env_path: Optional path to Python virtual environment for bash commands
+            working_dir: Optional working directory for file operations
+
         Returns:
             String representation of final result
         """
-        return await self._query_custom(messages, notes, stream_id)
+        return await self._query_custom(messages, notes, stream_id, env_path, working_dir)
 
-    async def _query_custom(self, messages: Messages, notes=None, stream_id=None) -> str:
+    async def _query_custom(self, messages: Messages, notes=None, stream_id=None, env_path=None, working_dir=None) -> str:
         """Process messages using plan-driven approach.
 
         Args:
             messages: User messages
             notes: Optional notes (not used)
             stream_id: Stream ID for tracking and real-time updates
+            env_path: Optional path to Python virtual environment for bash commands
+            working_dir: Optional working directory for file operations
 
         Returns:
             String representation of final result
         """
+        # CRITICAL: Reset plan state at the start of each query to prevent stale plan reuse
+        # This ensures each query generates a fresh plan, even if orchestrator instance is reused
+        _logger.info(f"Starting new query (stream_id={stream_id}), resetting plan state...")
+        self.current_plan = None
+        self.plan_executor = None
+
         # Step 1: Extract goal and target artifact type
         goal_info = await self._extract_goal_and_type(messages)
         _logger.info(
@@ -102,18 +118,36 @@ class OrchestratorAgent(CustomAgent):
         # Step 2: Execute with replanning on failure
         last_error = None
         partial_results = {}
+        failure_mode = FailureMode.UNEXPECTED_ERROR  # Default, will be set by exception handlers
+        failed_asset_name = None  # Track which asset failed for better error messages
+        replan_context = None  # Track replan context for continuation planning
 
         for attempt in range(self._max_replan_attempts):
             try:
                 # Generate or regenerate plan
+                _logger.info(f"Attempt {attempt + 1}/{self._max_replan_attempts}: current_plan={bool(self.current_plan)}, last_error={bool(last_error)}, plan_executor={bool(self.plan_executor)}")
+
+                # ALWAYS generate plan if we don't have one or there was an error
                 if not self.current_plan or last_error:
-                    self.current_plan = await self._generate_plan(
-                        goal=goal_info["goal"],
-                        target_type=goal_info["artifact_type"],
-                        messages=messages,
-                        error_context=last_error,
-                        partial_results=partial_results,
-                    )
+                    # Check if we should use continuation planning (replan after validation failure)
+                    if replan_context is not None:
+                        _logger.info(f">>> GENERATING CONTINUATION PLAN (iteration {replan_context.iteration})...")
+                        result_string = await self.planner.plan_continuation(
+                            replan_context=replan_context,
+                            notes=notes,
+                        )
+                        self.current_plan = self._extract_yaml_from_artifact(result_string)
+                        _logger.info(f">>> CONTINUATION PLAN GENERATED. Plan:\n{self.current_plan[:500]}...")
+                    else:
+                        _logger.info(">>> GENERATING NEW PLAN via PlannerAgent (this MUST complete before any agent executes)...")
+                        self.current_plan = await self._generate_plan(
+                            goal=goal_info["goal"],
+                            target_type=goal_info["artifact_type"],
+                            messages=messages,
+                            error_context=last_error,
+                            partial_results=partial_results,
+                        )
+                        _logger.info(f">>> PLAN GENERATION COMPLETE. Plan:\n{self.current_plan[:500]}...")
 
                     # Store plan as artifact
                     plan_artifact = PlanArtifact(
@@ -137,6 +171,18 @@ class OrchestratorAgent(CustomAgent):
                         notes.append(plan_note)
 
                     # Create new executor with notes for streaming and status updates
+                    # For continuation plans, don't pass cached_results - the plan explicitly declares
+                    # what to reuse via external_artifact_id. Cached results would cause unintended
+                    # reuse of assets with the same name but different inputs.
+                    _logger.info(">>> CREATING WorkflowExecutor...")
+                    cached_results_to_use = None
+                    if replan_context is None and partial_results:
+                        # Only use cached results for non-continuation plans
+                        cached_results_to_use = partial_results
+                        _logger.info(f"Using cached results for {len(partial_results)} assets")
+                    elif replan_context is not None:
+                        _logger.info("Continuation plan: not using cached results (artifacts referenced via external_artifact_id)")
+
                     self.plan_executor = WorkflowExecutor(
                         yaml_plan=self.current_plan,
                         agents=self.agents,
@@ -145,9 +191,19 @@ class OrchestratorAgent(CustomAgent):
                         original_messages=messages,
                         validation_agent=self._validation_agent,
                         original_goal=self._original_goal,
+                        disable_user_prompts=self._disable_user_prompts,
+                        cached_results=cached_results_to_use,
+                        env_path=env_path,
+                        working_dir=working_dir,
                     )
+                    _logger.info(">>> WorkflowExecutor created, ready to execute plan")
+
+                # Safety check: ensure we have a plan executor before executing
+                if not self.plan_executor:
+                    raise ValueError("CRITICAL: No plan executor available - this should never happen!")
 
                 # Execute plan
+                _logger.info(">>> STARTING PLAN EXECUTION (agents will now be invoked)...")
                 result = await self.plan_executor.execute(messages)
 
                 # Verify result matches expected type
@@ -196,7 +252,29 @@ class OrchestratorAgent(CustomAgent):
                     f"reason={e.validation_result.reason}"
                 )
 
-                # Include suggested fix in error context for better replanning
+                # Track failure mode for final exception
+                failure_mode = FailureMode.VALIDATION_FAILED
+                failed_asset_name = e.validation_result.asset_name
+
+                # Build replan context from validation result
+                if self.plan_executor:
+                    iteration = attempt + 1  # First failure = iteration 1
+                    replan_context = self.plan_executor.build_replan_context(
+                        validation_result=e.validation_result,
+                        completed_assets=e.completed_assets,
+                        iteration=iteration,
+                        failed_asset_result=e.failed_asset_result,
+                    )
+                    _logger.info(
+                        f"Built replan context: iteration={iteration}, "
+                        f"completed={len(replan_context.completed_artifacts)}, "
+                        f"failure_type={replan_context.failure_type.value}"
+                    )
+                else:
+                    _logger.warning("No plan executor available to build replan context")
+                    replan_context = None
+
+                # Include suggested fix in error context for fallback
                 if e.validation_result.suggested_fix:
                     last_error = (
                         f"Validation failed for {e.validation_result.asset_name}: "
@@ -229,6 +307,10 @@ class OrchestratorAgent(CustomAgent):
                     f"{e.validation_result.reason}"
                 )
 
+                # Track failure mode for final exception
+                failure_mode = FailureMode.USER_DECISION_REQUIRED
+                failed_asset_name = e.validation_result.asset_name
+
                 # Add note requesting user decision
                 if notes is not None:
                     from yaaaf.components.data_types import Note
@@ -254,6 +336,11 @@ class OrchestratorAgent(CustomAgent):
 
             except (ValidationError, ConditionError) as e:
                 _logger.warning(f"Plan execution failed (attempt {attempt + 1}): {e}")
+                # Track failure mode based on exception type
+                if isinstance(e, ConditionError):
+                    failure_mode = FailureMode.CONDITION_FAILED
+                else:
+                    failure_mode = FailureMode.PLAN_EXECUTION_FAILED
                 last_error = str(e)
                 partial_results = (
                     self.plan_executor.get_completed_assets()
@@ -264,6 +351,7 @@ class OrchestratorAgent(CustomAgent):
 
             except Exception as e:
                 _logger.error(f"Unexpected error in plan execution: {e}")
+                failure_mode = FailureMode.UNEXPECTED_ERROR
                 last_error = f"Unexpected error: {str(e)}"
                 partial_results = (
                     self.plan_executor.get_completed_assets()
@@ -272,10 +360,39 @@ class OrchestratorAgent(CustomAgent):
                 )
                 self.current_plan = None
 
-        # All attempts failed
-        raise RuntimeError(
-            f"Failed to execute plan after {self._max_replan_attempts} attempts. Last error: {last_error}"
-        )
+        # All attempts failed - raise structured exception based on failure mode
+        if failure_mode == FailureMode.VALIDATION_FAILED:
+            raise PlanExecutionError.validation_failed(
+                attempts=self._max_replan_attempts,
+                last_error=last_error,
+                asset_name=failed_asset_name,
+                partial_results=partial_results,
+            )
+        elif failure_mode == FailureMode.USER_DECISION_REQUIRED:
+            raise PlanExecutionError.user_decision_required(
+                attempts=self._max_replan_attempts,
+                last_error=last_error,
+                asset_name=failed_asset_name,
+                partial_results=partial_results,
+            )
+        elif failure_mode == FailureMode.CONDITION_FAILED:
+            raise PlanExecutionError.condition_failed(
+                attempts=self._max_replan_attempts,
+                last_error=last_error,
+                partial_results=partial_results,
+            )
+        elif failure_mode == FailureMode.UNEXPECTED_ERROR:
+            raise PlanExecutionError.unexpected_error(
+                attempts=self._max_replan_attempts,
+                last_error=last_error,
+                partial_results=partial_results,
+            )
+        else:
+            raise PlanExecutionError.plan_failed(
+                attempts=self._max_replan_attempts,
+                last_error=last_error,
+                partial_results=partial_results,
+            )
 
     async def _extract_goal_and_type(self, messages: Messages) -> Dict[str, str]:
         """Extract goal and target artifact type from messages."""
@@ -292,8 +409,12 @@ class OrchestratorAgent(CustomAgent):
         """Generate execution plan using planner agent."""
 
         # Build planning request
-        if error_context and partial_results:
-            # Replanning with context
+        if error_context:
+            # Replanning with context (partial_results may be empty if first asset failed)
+            # Format list of successful asset names for reuse
+            successful_assets = list(partial_results.keys()) if partial_results else []
+            successful_assets_list = "\n".join(f"  - {name}" for name in successful_assets) if successful_assets else "  None"
+
             planning_request = f"""
 The following plan failed during execution:
 
@@ -301,16 +422,28 @@ The following plan failed during execution:
 {self.current_plan if self.current_plan else "No previous plan"}
 ```
 
-Error: {error_context}
+**VALIDATION FEEDBACK**: {error_context}
 
 Completed assets so far:
-{self._format_partial_results(partial_results)}
+{self._format_partial_results(partial_results) if partial_results else "None (failed on first step)"}
+
+**IMPORTANT - ASSET REUSE INSTRUCTIONS**:
+The following assets have already been executed successfully and their results are cached:
+{successful_assets_list}
+
+When creating the revised plan:
+1. **KEEP THE EXACT SAME NAMES** for any assets you want to reuse from the list above
+2. These cached assets will NOT be re-executed, saving time and resources
+3. Only rename assets if you need them to be re-executed with different parameters
+4. New assets can have any unique name
 
 Please create a revised plan that:
-1. Uses the already completed assets where possible
-2. Works around the error condition
-3. Still achieves the goal: {goal}
-4. Produces a final artifact of type: {target_type}
+1. ADDRESSES THE VALIDATION FEEDBACK above - this is critical
+2. **REUSES cached assets by keeping their exact names** (they will be skipped during execution)
+3. Only adds or modifies assets that need different behavior
+4. Works around the error condition
+5. Still achieves the goal: {goal}
+6. Produces a final artifact of type: {target_type}
 
 Original user request: {messages.utterances[-1].content}
 """
@@ -428,17 +561,30 @@ User Context: {messages.utterances[-1].content}
             return None
 
     def _format_partial_results(self, partial_results: Dict[str, Any]) -> str:
-        """Format partial results for replanning context."""
+        """Format partial results for replanning context.
+
+        Args:
+            partial_results: Dict of asset_name -> result_string from workflow executor
+        """
         if not partial_results:
             return "None"
 
         parts = []
-        for asset_name, artifact in partial_results.items():
-            artifact_type = getattr(artifact, 'type', 'UNKNOWN')
-            artifact_summary = getattr(artifact, 'summary', None) or getattr(artifact, 'description', None) or 'completed'
-            parts.append(
-                f"- {asset_name}: {artifact_type} ({artifact_summary})"
-            )
+        for asset_name, result_string in partial_results.items():
+            # Result strings look like: "Operation completed. Result: <artefact type='text'>abc123</artefact> <taskcompleted/>"
+            if isinstance(result_string, str):
+                # Extract artifact type from result string
+                type_match = re.search(r"<artefact type='([^']+)'>", result_string)
+                artifact_type = type_match.group(1).upper() if type_match else "TEXT"
+
+                # Truncate long result strings for context
+                truncated = result_string[:200] + "..." if len(result_string) > 200 else result_string
+                parts.append(f"- {asset_name}: {artifact_type}\n  Result: {truncated}")
+            else:
+                # Handle artifact objects (legacy)
+                artifact_type = getattr(result_string, 'type', 'UNKNOWN')
+                artifact_summary = getattr(result_string, 'summary', None) or getattr(result_string, 'description', None) or 'completed'
+                parts.append(f"- {asset_name}: {artifact_type} ({artifact_summary})")
 
         return "\n".join(parts)
 
@@ -457,7 +603,6 @@ User Context: {messages.utterances[-1].content}
                 "IMAGE": ["image", "IMAGE", "chart", "plot"],
                 "TEXT": ["text", "TEXT", "string", "table", "TABLE"],  # Allow TABLE as valid for TEXT
                 "MODEL": ["model", "MODEL", "sklearn"],
-                "TODO_LIST": ["todo-list", "TODO_LIST", "todo_list"],
                 "PLAN": ["plan", "PLAN"],
             }
 

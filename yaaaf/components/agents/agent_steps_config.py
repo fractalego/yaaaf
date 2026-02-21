@@ -10,25 +10,24 @@ AGENT_MAX_STEPS = {
     "answereragent": 1,
     "bravesearchagent": 1,
     "documentretrieveragent": 1,
+    "planneragent": 3,  # Allow retries if YAML format is wrong
     "revieweragent": 1,
     "todoagent": 1,
     "urlagent": 1,
     "urlrevieweragent": 1,
     "userinputagent": 1,
     "websearchagent": 1,
-    
-    # Two-step agents (one reflection allowed)
-    "bashagent": 2,
+
+    # Multi-step agents (reflection allowed)
+    "bashagent": 10,
     "mleagent": 2,
     "numericalsequencesagent": 2,
     "sqlagent": 2,
     "toolagent": 2,
     "visualizationagent": 2,
-    
-    # Three-step agents
-    # (none currently, but available if needed)
-    
-    # Multi-step agents
+
+    # Multi-step agents (can do multiple operations before completing)
+    "codeeditagent": 50,  # VIEW + STR_REPLACE (increased for complex edits)
     "orchestratoragent": 15,  # Needs many steps to coordinate other agents
 }
 

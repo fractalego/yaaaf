@@ -26,14 +26,13 @@ Extract:
 1. The user's goal (single sentence)
 2. The type of final artifact needed:
    - TABLE: If user wants data, analysis results, or structured information
-   - IMAGE: If user wants visualization, chart, or graph  
-   - TEXT: If user wants a report, summary, or explanation
+   - IMAGE: If user wants visualization, chart, or graph
+   - TEXT: If user wants a report, summary, explanation, code fix, task list, or action items
    - MODEL: If user wants a trained ML model
-   - TODO_LIST: If user wants a task list or action items
 
 Output in this exact format:
 Goal: [single sentence goal]
-Artifact Type: [TABLE|IMAGE|TEXT|MODEL|TODO_LIST]
+Artifact Type: [TABLE|IMAGE|TEXT|MODEL]
 """
 )
 

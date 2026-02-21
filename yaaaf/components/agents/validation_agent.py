@@ -5,11 +5,13 @@ import logging
 import re
 
 from yaaaf.components.agents.base_agent import CustomAgent
-from yaaaf.components.agents.prompts import validation_agent_prompt_template
+from yaaaf.components.agents.prompts import validation_agent_prompt_template, get_validation_prompt_for_agent
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.validators.validation_result import ValidationResult
 from yaaaf.components.validators.artifact_inspector import inspect_artifact
+from yaaaf.components.validators.failure_analyzer import analyze_bash_output, create_failure_summary
+from yaaaf.components.validators.replan_context import FailureType
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 
 _logger = logging.getLogger(__name__)
@@ -39,6 +41,8 @@ class ValidationAgent(CustomAgent):
         step_description: str,
         expected_type: str,
         asset_name: str = None,
+        input_context: str = None,
+        agent_name: str = None,
     ) -> ValidationResult:
         """Validate an artifact against expectations.
 
@@ -48,19 +52,26 @@ class ValidationAgent(CustomAgent):
             step_description: What this step was supposed to do
             expected_type: Expected artifact type
             asset_name: Name of the asset being validated
+            input_context: Summary of input artifacts that were fed into this step
+            agent_name: Name of the agent that produced this artifact (for specialized prompts)
 
         Returns:
             ValidationResult with confidence and recommendations
         """
         # Inspect the artifact
         artifact_content = inspect_artifact(artifact)
+        _logger.debug(f"Validation artifact content preview (first 500 chars): {artifact_content[:500] if artifact_content else 'EMPTY'}")
 
-        # Build the prompt
-        prompt = validation_agent_prompt_template.complete(
+        # Get the appropriate prompt template for this agent
+        prompt_template = get_validation_prompt_for_agent(agent_name)
+
+        # Build the prompt with input context if available
+        prompt = prompt_template.complete(
             user_goal=user_goal,
             step_description=step_description,
             expected_type=expected_type,
             artifact_content=artifact_content,
+            input_context=input_context or "No input artifacts (this is a source step)",
         )
 
         # Query the LLM
@@ -70,6 +81,36 @@ class ValidationAgent(CustomAgent):
         try:
             response = await self._client.predict(messages)
             result = self._parse_response(response.message, asset_name)
+
+            # For bash agents OR any output that looks like bash command execution,
+            # ALWAYS analyze the output to detect failures
+            # This overrides LLM validation which might miss exit codes
+            is_bash_output = (
+                agent_name in ("BashAgent", "bash", "code_edit") or  # Known bash agents
+                "Return code:" in artifact_content or  # Bash executor output format
+                "exit code" in artifact_content.lower() or  # Common bash output
+                "STDOUT:" in artifact_content or
+                "STDERR:" in artifact_content
+            )
+
+            if is_bash_output:
+                failure_type, failure_details = analyze_bash_output(artifact_content)
+
+                # If failure analyzer detects ANY failure (not just tests), override LLM
+                if failure_type in (FailureType.TESTS_FAILED, FailureType.INFRASTRUCTURE_ERROR, FailureType.TIMEOUT):
+                    result.is_valid = False
+                    result.failure_type = failure_type
+                    result.failure_details = failure_details
+                    result.reason = create_failure_summary(failure_type, failure_details)
+                    _logger.info(f"Detected failure (overriding LLM): {failure_type} for {asset_name}")
+                elif not result.is_valid:
+                    # LLM said invalid, use failure analyzer details
+                    result.failure_type = failure_type
+                    result.failure_details = failure_details
+                    if not result.reason or len(result.reason) < 20:
+                        result.reason = create_failure_summary(failure_type, failure_details)
+                    _logger.info(f"Detected failure type: {failure_type} for {asset_name}")
+
             return result
         except Exception as e:
             _logger.error(f"Validation failed: {e}")
@@ -86,6 +127,8 @@ class ValidationAgent(CustomAgent):
         step_description: str,
         expected_type: str,
         asset_name: str = None,
+        input_artifacts: dict = None,
+        agent_name: str = None,
     ) -> ValidationResult:
         """Validate an artifact from an agent result string.
 
@@ -95,6 +138,8 @@ class ValidationAgent(CustomAgent):
             step_description: What this step was supposed to do
             expected_type: Expected artifact type
             asset_name: Name of the asset being validated
+            input_artifacts: Dict of input asset names to their result strings
+            agent_name: Name of the agent that produced this artifact (for specialized prompts)
 
         Returns:
             ValidationResult with confidence and recommendations
@@ -110,14 +155,43 @@ class ValidationAgent(CustomAgent):
 
         artifact_id = match.group(1)
 
+        # Build input context from input artifacts
+        input_context = None
+        if input_artifacts:
+            context_parts = []
+            for input_name, input_result in input_artifacts.items():
+                # Extract artifact content from input result
+                input_match = re.search(r"<artefact[^>]*>([^<]+)</artefact>", input_result)
+                if input_match:
+                    input_artifact_id = input_match.group(1)
+                    try:
+                        input_artifact = self._storage.retrieve_from_id(input_artifact_id)
+                        input_content = inspect_artifact(input_artifact)
+                        # Truncate long content
+                        if len(input_content) > 500:
+                            input_content = input_content[:500] + "..."
+                        context_parts.append(f"Input '{input_name}':\n{input_content}")
+                    except Exception as e:
+                        context_parts.append(f"Input '{input_name}': (could not retrieve: {e})")
+                else:
+                    # No artifact wrapper, use raw content (truncated)
+                    truncated = input_result[:500] + "..." if len(input_result) > 500 else input_result
+                    context_parts.append(f"Input '{input_name}':\n{truncated}")
+            input_context = "\n\n".join(context_parts)
+
         try:
             artifact = self._storage.retrieve_from_id(artifact_id)
+            _logger.info(f"Retrieved artifact {artifact_id}: type={artifact.type}, "
+                        f"code_len={len(artifact.code) if artifact.code else 0}, "
+                        f"desc={artifact.description[:50] if artifact.description else 'none'}...")
             return await self.validate(
                 artifact=artifact,
                 user_goal=user_goal,
                 step_description=step_description,
                 expected_type=expected_type,
                 asset_name=asset_name,
+                input_context=input_context,
+                agent_name=agent_name,
             )
         except Exception as e:
             _logger.error(f"Failed to retrieve artifact {artifact_id}: {e}")

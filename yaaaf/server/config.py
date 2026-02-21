@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional
+from typing import List, Optional, Literal
 from enum import Enum
 
 from pydantic_settings import BaseSettings
@@ -10,11 +10,19 @@ class ToolTransportType(str, Enum):
     STDIO = "stdio"
 
 
+class ClientType(str, Enum):
+    """Supported client types."""
+    OLLAMA = "ollama"
+    VLLM = "vllm"
+
+
 class ClientSettings(BaseSettings):
+    type: ClientType = ClientType.OLLAMA  # Client type: "ollama" or "vllm"
     model: str | None = None
     temperature: float = 0.5
     max_tokens: int = 1024
-    host: str = "http://localhost:11434"
+    host: str = "http://localhost:11434"  # Default for Ollama; use http://localhost:8000 for vLLM
+    adapter: str | None = None  # LoRA adapter name (vLLM only)
     disable_thinking: bool = True
 
 
@@ -47,10 +55,12 @@ class APISettings(BaseSettings):
 
 class AgentSettings(BaseSettings):
     name: str
+    type: ClientType | None = None  # Client type override for this agent
     model: str | None = None
     temperature: float | None = None
     max_tokens: int | None = None
     host: str | None = None
+    adapter: str | None = None  # LoRA adapter name for this agent (vLLM only)
 
 
 class Settings(BaseSettings):
@@ -61,6 +71,10 @@ class Settings(BaseSettings):
     safety_filter: SafetyFilterSettings = SafetyFilterSettings()
     api_keys: APISettings = APISettings()
     generate_summary: bool = False
+    disable_user_prompts: bool = False  # If True, skip user prompts on validation failure and replan instead
+    skip_bash_safety_check: bool = False  # If True, allow all bash commands without safety filtering
+    max_replan_attempts: int = 3  # Maximum number of replan attempts before giving up
+    allow_code_edit_overwrite: bool = True  # If True, code_edit 'create' can overwrite existing files
 
 
 def _get_simple_config() -> Settings:

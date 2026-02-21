@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Optional, List, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
@@ -10,6 +11,7 @@ from yaaaf.components.agents.tokens_utils import get_first_text_between_tags
 from yaaaf.components.decorators import handle_exceptions
 from yaaaf.components.agents.agent_steps_config import AGENT_MAX_STEPS, DEFAULT_MAX_STEPS
 from yaaaf.components.agents.artefact_utils import create_prompt_from_artefacts
+from yaaaf.components.client import VLLMResponseError
 
 if TYPE_CHECKING:
     from yaaaf.components.data_types import ClientResponse
@@ -51,89 +53,239 @@ class BaseAgent(ABC):
         self._max_steps = AGENT_MAX_STEPS.get(agent_name, DEFAULT_MAX_STEPS)
     
     async def query(
-        self, messages: Messages, notes: Optional[List[Note]] = None
+        self, messages: Messages, notes: Optional[List[Note]] = None, env_path: Optional[str] = None, working_dir: Optional[str] = None
     ) -> str:
-        """Execute query using ToolExecutor or custom implementation."""
+        """Execute query using ToolExecutor or custom implementation.
+
+        Args:
+            messages: User messages
+            notes: Optional notes for streaming updates
+            env_path: Optional path to Python virtual environment for bash commands
+            working_dir: Optional working directory for file operations
+        """
         if self._executor:
-            return await self._query_with_executor(messages, notes)
+            return await self._query_with_executor(messages, notes, env_path, working_dir)
         else:
             return await self._query_custom(messages, notes)
-    
+
     @handle_exceptions
     async def _query_with_executor(
-        self, messages: Messages, notes: Optional[List[Note]] = None
+        self, messages: Messages, notes: Optional[List[Note]] = None, env_path: Optional[str] = None, working_dir: Optional[str] = None
     ) -> str:
         """Standard query implementation using ToolExecutor pattern."""
         if not self._client:
             raise ValueError("Agent with executor requires client")
-        
+
         # Prepare context using executor
         context = await self._executor.prepare_context(messages, notes)
-        
+        # Add env_path to context if provided (used by BashExecutor)
+        if env_path:
+            context["env_path"] = env_path
+        # Add working_dir to context if provided (used by BashExecutor and CodeEditExecutor)
+        if working_dir:
+            _logger.debug(f"{self.get_name()}: Setting working_dir in context: {working_dir}")
+            context["working_dir"] = working_dir
+        else:
+            _logger.debug(f"{self.get_name()}: No working_dir provided, using default: {context.get('working_dir', 'not set')}")
+
         # Add system prompt if available
         if self._system_prompt:
             # Try to complete prompt with artifacts if available
             completed_prompt = self._try_complete_prompt_with_artifacts(context)
             messages = messages.add_system_prompt(completed_prompt)
-        
+
+        # Accumulate all successful results from each step
+        all_results = []
+
         # Multi-step execution loop - abstracted reflection pattern
+        context_length_retries = 0
+        max_context_retries = 2
+
         for step_idx in range(self._max_steps):
-            response = await self._client.predict(
-                messages, stop_sequences=self._stop_sequences
-            )
-            
+            _logger.debug(f"{self.get_name()}: Starting step {step_idx + 1}/{self._max_steps}")
+            try:
+                response = await self._client.predict(
+                    messages, stop_sequences=self._stop_sequences
+                )
+            except VLLMResponseError as e:
+                error_str = str(e)
+                # Check if this is a context length error
+                if "maximum context length" in error_str or "input tokens" in error_str:
+                    context_length_retries += 1
+                    _logger.warning(f"{self.get_name()}: Context length exceeded (attempt {context_length_retries}/{max_context_retries})")
+
+                    # Extract token counts from error message
+                    token_match = re.search(r'(\d+)\s*input tokens', error_str)
+                    max_match = re.search(r'maximum context length is (\d+)', error_str)
+                    input_tokens = token_match.group(1) if token_match else "unknown"
+                    max_tokens = max_match.group(1) if max_match else "unknown"
+
+                    if context_length_retries >= max_context_retries:
+                        _logger.error(f"{self.get_name()}: Max context length retries exceeded")
+                        raise
+
+                    # Truncate conversation history - keep system prompt and last few exchanges
+                    messages = self._truncate_messages_for_context(messages)
+
+                    # Add feedback asking model to be more concise
+                    feedback = (
+                        f"⚠️ CONTEXT LENGTH ERROR: Your request used {input_tokens} tokens but the model limit is {max_tokens} tokens.\n\n"
+                        f"Please be MORE CONCISE:\n"
+                        f"- Use shorter old_str/new_str blocks (only include lines that need to change)\n"
+                        f"- Don't repeat entire files or functions\n"
+                        f"- Focus on the minimal change needed\n"
+                        f"- If viewing a file, use start_line/end_line to view only relevant sections\n\n"
+                        f"Continue with a more concise approach."
+                    )
+                    messages = messages.add_user_utterance(feedback)
+                    _logger.info(f"{self.get_name()}: Added context length feedback, retrying...")
+                    continue
+                else:
+                    # Not a context length error, re-raise
+                    _logger.error(f"{self.get_name()}: predict() failed with error: {e}")
+                    raise
+            except Exception as e:
+                _logger.error(f"{self.get_name()}: predict() failed with error: {e}")
+                raise
+
+            if not response:
+                _logger.warning(f"{self.get_name()}: Empty response from LLM at step {step_idx + 1}")
+                continue
+
             clean_message, thinking_ref = self._process_client_response(response, notes)
-            
+            _logger.debug(f"{self.get_name()}: Response length={len(clean_message)}, first 200 chars: {clean_message[:200]}")
+
             if step_idx > 0:
                 self._add_internal_message(
-                    f"Step {step_idx + 1}/{self._max_steps}: {clean_message[:100]}...",
+                    f"Step {step_idx + 1}/{self._max_steps}: {clean_message}",
                     notes,
                     f"{self.get_name()} Progress"
                 )
-            
-            if self.is_complete(clean_message):
-                return self._format_completion_response(clean_message, thinking_ref)
-            
+
+            # Try to extract instruction FIRST - execute before checking completion
+            # This ensures commands are run even if LLM prematurely says <taskcompleted/>
             instruction = self._executor.extract_instruction(clean_message)
             if not instruction:
+                # No instruction found - NOW check if task is complete
+                if self.is_complete(clean_message):
+                    _logger.warning(
+                        f"{self.get_name()}: LLM said task complete but no instruction found. "
+                        f"Response: {clean_message}"
+                    )
+                    # Return accumulated results if any, otherwise format completion
+                    if all_results:
+                        return self._create_combined_artifact(all_results, notes)
+                    return self._format_completion_response(clean_message, thinking_ref)
+                # Not complete and no instruction - ask for valid instruction
+                _logger.debug(f"{self.get_name()}: No instruction found in: {clean_message[:200]}...")
                 feedback = "No valid instruction found. Please provide a valid instruction."
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
                 continue
-            
+
             result, error = await self._executor.execute_operation(instruction, context)
-            
+
             if error:
+                # Log the full error without truncation for debugging
+                _logger.warning(f"{self.get_name()}: Operation failed: {error}")
+                # Accumulate error so it's included in final artifact for next iteration
+                all_results.append((error, instruction))
                 feedback = self._executor.get_feedback_message(error)
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
             elif self._executor.validate_result(result):
-                artifact_id = create_hash(str(result))
-                artifact = self._executor.transform_to_artifact(result, instruction, artifact_id)
-                self._storage.store_artefact(artifact_id, artifact)
-                
+                # Accumulate the result - store tuple of (raw_result, instruction) for artifact transformation
+                all_results.append((result, instruction))
+
                 self._add_internal_message(
-                    f"Created {artifact.type} artifact: {artifact_id}",
+                    f"Step {step_idx + 1} completed: {str(result)}",
                     notes,
                     "Artifact"
                 )
-                
-                return f"Operation completed. Result: <artefact type='{artifact.type}'>{artifact_id}</artefact> <taskcompleted/>"
+
+                # Force completion after mutation operations (str_replace, create, etc.)
+                # This prevents unnecessary views after the fix is applied
+                if self._executor.is_mutation_operation(instruction):
+                    return self._create_combined_artifact(all_results, notes)
+
+                # Check if LLM indicated task is complete
+                if self.is_complete(clean_message):
+                    return self._create_combined_artifact(all_results, notes)
+
+                # Operation succeeded but task not complete - feed result back to LLM
+                # Use larger limit for file views to avoid truncation issues
+                # Modern LLMs have large context windows (100k+ tokens), so be generous
+                result_str = str(result)
+                result_summary = result_str[:50000] + "..." if len(result_str) > 50000 else result_str
+                feedback = f"Operation completed successfully. Result:\n{result_summary}\n\nContinue with next operation or say <taskcompleted/> if done."
+                messages = messages.add_assistant_utterance(clean_message)
+                messages = messages.add_user_utterance(feedback)
             else:
                 feedback = "Invalid result. Please try again."
                 messages = messages.add_assistant_utterance(clean_message)
                 messages = messages.add_user_utterance(feedback)
-        
-        # For single-step agents, return whatever was produced (no reflection expected)
-        if self._max_steps == 1:
-            return f"{clean_message} {task_completed_tag}"
 
+        # Return accumulated results if any
+        if all_results:
+            _logger.info(f"{self.get_name()}: Returning combined artifact with {len(all_results)} results after {self._max_steps} steps")
+            return self._create_combined_artifact(all_results, notes)
+
+        _logger.warning(f"{self.get_name()}: Max steps ({self._max_steps}) reached with no results")
         self._add_internal_message(
-            f"Max steps ({self._max_steps}) reached",
+            f"Max steps ({self._max_steps}) reached with no results",
             notes,
             "Warning"
         )
-        return f"Could not complete task within allowed steps. Please try rephrasing. {task_completed_tag}"
+        return f"AGENT FAILED: Could not complete task within allowed steps. No valid output was produced. THIS ARTIFACT IS INVALID. {task_completed_tag}"
+
+    def _create_combined_artifact(self, results: List[tuple], notes: Optional[List[Note]]) -> str:
+        """Create artifact from accumulated results.
+
+        Args:
+            results: List of (raw_result, instruction) tuples
+            notes: Optional notes list
+
+        Returns:
+            Completion message with artifact reference
+        """
+        # For single result, try to use executor's transform_to_artifact if available
+        if len(results) == 1 and hasattr(self._executor, 'transform_to_artifact'):
+            raw_result, instruction = results[0]
+            artifact_id = create_hash(str(raw_result) + instruction)
+            try:
+                artifact = self._executor.transform_to_artifact(raw_result, instruction, artifact_id)
+                self._storage.store_artefact(artifact_id, artifact)
+                artifact_type = artifact.type.value.lower() if hasattr(artifact.type, 'value') else str(artifact.type).lower()
+
+                self._add_internal_message(
+                    f"Created {artifact_type} artifact: {artifact_id}",
+                    notes,
+                    "Artifact"
+                )
+
+                return f"Operations completed. Result: <artefact type='{artifact_type}'>{artifact_id}</artefact> {task_completed_tag}"
+            except Exception as e:
+                _logger.warning(f"Failed to transform artifact: {e}, falling back to text")
+
+        # Fall back to combined text artifact for multiple results or when transform fails
+        combined_content = "\n\n---\n\n".join(str(r[0]) for r in results)
+        artifact_id = create_hash(combined_content)
+
+        artifact = Artefact(
+            id=artifact_id,
+            type="text",
+            code=combined_content,
+            description=f"Combined results from {len(results)} operation(s)"
+        )
+        self._storage.store_artefact(artifact_id, artifact)
+
+        self._add_internal_message(
+            f"Created combined artifact from {len(results)} operations: {artifact_id}",
+            notes,
+            "Artifact"
+        )
+
+        return f"Operations completed. Result: <artefact type='text'>{artifact_id}</artefact> {task_completed_tag}"
     
     @abstractmethod
     async def _query_custom(
@@ -209,22 +361,75 @@ class BaseAgent(ABC):
         return any(tag in answer for tag in self._completing_tags)
     
     def _try_complete_prompt_with_artifacts(self, context: dict) -> str:
-        """Try to complete prompt template with artifacts if available."""
+        """Try to complete prompt template with artifacts and context variables."""
         artifacts = context.get("artifacts", [])
-        
+
+        # First, replace context variables in the prompt template BEFORE other processing
+        # This is needed because PromptTemplate.complete() uses .format() which would fail on unknown placeholders
+        prompt_template = self._system_prompt
+        if isinstance(prompt_template, PromptTemplate) and "{working_dir}" in prompt_template.prompt:
+            working_dir = context.get("working_dir", "unknown")
+            modified_prompt = prompt_template.prompt.replace("{working_dir}", str(working_dir))
+            prompt_template = PromptTemplate(prompt=modified_prompt)
+
         # Always try to complete with artifacts - if no variables exist, nothing happens
-        if isinstance(self._system_prompt, PromptTemplate):
-            return create_prompt_from_artefacts(
+        if isinstance(prompt_template, PromptTemplate):
+            prompt = create_prompt_from_artefacts(
                 artifacts,
                 filename=getattr(self, '_artifact_filename', 'output.png'),
                 prompt_with_model=getattr(self, '_system_prompt_with_model', None),
-                prompt_without_model=self._system_prompt
+                prompt_without_model=prompt_template
             )
-        
-        return self._system_prompt
+        else:
+            prompt = prompt_template
+
+        return prompt
     
     # === Utility Methods ===
-    
+
+    def _truncate_messages_for_context(self, messages: Messages) -> Messages:
+        """Truncate messages to fit within context limits.
+
+        Keeps the system prompt (if any) and the most recent exchanges,
+        removing middle conversation history to reduce token count.
+        """
+        utterances = messages.utterances
+        if len(utterances) <= 4:
+            # Too few messages to truncate meaningfully
+            return messages
+
+        # Find system prompt if present
+        system_prompt = None
+        non_system_utterances = []
+        for u in utterances:
+            if u.role == "system":
+                system_prompt = u
+            else:
+                non_system_utterances.append(u)
+
+        # Keep only the first user message and last 2 exchanges (4 messages)
+        if len(non_system_utterances) > 5:
+            first_user = non_system_utterances[0] if non_system_utterances else None
+            last_messages = non_system_utterances[-4:]  # Last 2 exchanges
+
+            truncated = []
+            if system_prompt:
+                truncated.append(system_prompt)
+            if first_user:
+                truncated.append(first_user)
+            # Add truncation marker
+            from yaaaf.components.data_types import Utterance
+            truncated.append(Utterance(
+                role="user",
+                content="[Previous conversation history truncated due to context length limits. Continue from here.]"
+            ))
+            truncated.extend(last_messages)
+
+            _logger.info(f"Truncated messages from {len(utterances)} to {len(truncated)} utterances")
+            return Messages(utterances=truncated)
+
+        return messages
+
     def _add_internal_message(
         self, message: str, notes: Optional[List[Note]], prefix: str = "Message"
     ):

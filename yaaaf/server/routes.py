@@ -29,6 +29,8 @@ _logger = logging.getLogger(__name__)
 class CreateStreamArguments(BaseModel):
     stream_id: str
     messages: List[Utterance]
+    env_path: Optional[str] = None  # Optional Python venv path for bash commands
+    working_dir: Optional[str] = None  # Optional working directory for file operations
 
 
 class NewUtteranceArguments(BaseModel):
@@ -82,10 +84,12 @@ def create_stream(arguments: CreateStreamArguments):
     try:
         stream_id = arguments.stream_id
         messages = Messages(utterances=arguments.messages)
+        env_path = arguments.env_path
+        working_dir = arguments.working_dir
 
         async def build_and_compute():
             orchestrator = await OrchestratorBuilder(get_config()).build()
-            await do_compute(stream_id, messages, orchestrator)
+            await do_compute(stream_id, messages, orchestrator, env_path=env_path, working_dir=working_dir)
 
         t = threading.Thread(target=asyncio.run, args=(build_and_compute(),))
         t.start()
@@ -729,9 +733,13 @@ async def stream_utterances(arguments: NewUtteranceArguments):
                         yield f"data: {json.dumps(note_data)}\n\n"
 
                         # Check for completion or paused state AFTER sending the message
-                        if (
-                            "taskcompleted" in note.message
-                            or "taskpaused" in note.message
+                        # End stream when ORCHESTRATOR or SYSTEM (error) sends completion
+                        agent_name = getattr(note, "agent_name", "") or ""
+                        agent_lower = agent_name.lower()
+                        is_terminal_agent = agent_lower in ("orchestrator", "system")
+                        if is_terminal_agent and (
+                            "<taskcompleted/>" in note.message.lower()
+                            or "<taskpaused/>" in note.message.lower()
                         ):
                             return
                 else:

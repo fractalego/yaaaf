@@ -5,6 +5,7 @@ from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaaf.components.data_types import Note
 from yaaaf.components.safety_filter import SafetyFilter
 from yaaaf.components.client import OllamaConnectionError, OllamaResponseError
+from yaaaf.components.exceptions import PlanExecutionError
 from yaaaf.components.executors.paused_execution import (
     PausedExecutionException,
     PausedExecutionState,
@@ -28,7 +29,7 @@ class StreamStatus:
 _stream_id_to_status: Dict[str, StreamStatus] = {}
 
 
-async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
+async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent, env_path: Optional[str] = None, working_dir: Optional[str] = None):
     try:
         notes: List[Note] = []
         _stream_id_to_messages[stream_id] = notes
@@ -54,7 +55,7 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
             _logger.info(f"Query blocked by safety filter for stream {stream_id}")
             return
 
-        result = await orchestrator.query(messages=messages, notes=notes, stream_id=stream_id)
+        result = await orchestrator.query(messages=messages, notes=notes, stream_id=stream_id, env_path=env_path, working_dir=working_dir)
 
         if result:
             import re
@@ -196,6 +197,30 @@ async def do_compute(stream_id, messages, orchestrator: OrchestratorAgent):
             _stream_id_to_status[stream_id].is_active = False
             _stream_id_to_status[stream_id].current_agent = ""
 
+    except PlanExecutionError as e:
+        # Use the structured failure information for clear error messages
+        error_message = e.failure.get_user_message()
+        _logger.warning(
+            f"Accessories: Plan execution failed for stream {stream_id}: "
+            f"mode={e.failure.mode.value}, attempts={e.failure.attempts}, "
+            f"asset={e.failure.asset_name}, error={e.failure.last_error}"
+        )
+
+        # Store error message in notes for frontend
+        error_note = Note(
+            message=error_message,
+            artefact_id=None,
+            agent_name="system",
+            model_name=None,
+        )
+        if stream_id in _stream_id_to_messages:
+            _stream_id_to_messages[stream_id].append(error_note)
+
+        # Mark stream as completed
+        if stream_id in _stream_id_to_status:
+            _stream_id_to_status[stream_id].is_active = False
+            _stream_id_to_status[stream_id].current_agent = ""
+
     except Exception as e:
         error_message = f"❌ **System Error**: An unexpected error occurred: {e}\n\n<taskcompleted/>"
         _logger.error(f"Accessories: Failed to compute for stream {stream_id}: {e}")
@@ -320,8 +345,11 @@ async def resume_paused_execution(stream_id: str, user_response: str, orchestrat
 
         _logger.info(f"Resuming execution for stream {stream_id} with user response: {user_response[:100]}")
 
-        # Get notes for this stream
-        notes = _stream_id_to_messages.get(stream_id, [])
+        # Get the live notes list for this stream (must exist from initial execution)
+        if stream_id not in _stream_id_to_messages:
+            _logger.error(f"No notes list found for stream {stream_id}, creating new one")
+            _stream_id_to_messages[stream_id] = []
+        notes = _stream_id_to_messages[stream_id]
 
         # Update stream status
         if stream_id in _stream_id_to_status:
@@ -329,12 +357,13 @@ async def resume_paused_execution(stream_id: str, user_response: str, orchestrat
             _stream_id_to_status[stream_id].current_agent = "Resuming execution"
 
         # Create a new workflow executor from the saved state
+        # IMPORTANT: Use the live notes list, not state.notes, so frontend can poll new messages
         from yaaaf.components.executors.workflow_executor import WorkflowExecutor
 
         executor = WorkflowExecutor(
             yaml_plan=state.yaml_plan,
             agents=orchestrator.agents,
-            notes=state.notes,
+            notes=notes,  # Use live notes list instead of state.notes
             stream_id=stream_id,
             original_messages=state.original_messages,
         )
@@ -434,18 +463,20 @@ async def resume_paused_execution(stream_id: str, user_response: str, orchestrat
         error_message = f"❌ **Resume Error**: Failed to resume execution: {e}\n\n<taskcompleted/>"
         _logger.error(f"Accessories: Failed to resume execution for stream {stream_id}: {e}")
 
-        # Add error to notes
-        notes = _stream_id_to_messages.get(stream_id, [])
-        if notes is not None:
-            from yaaaf.components.data_types import Note
+        # Add error to notes - ensure we use the live list
+        if stream_id not in _stream_id_to_messages:
+            _stream_id_to_messages[stream_id] = []
+        notes = _stream_id_to_messages[stream_id]
 
-            error_note = Note(
-                message=error_message,
-                artefact_id=None,
-                agent_name="system",
-                model_name=None,
-            )
-            notes.append(error_note)
+        from yaaaf.components.data_types import Note
+
+        error_note = Note(
+            message=error_message,
+            artefact_id=None,
+            agent_name="system",
+            model_name=None,
+        )
+        notes.append(error_note)
 
         # Clear paused state and mark stream as completed
         clear_paused_state(stream_id)

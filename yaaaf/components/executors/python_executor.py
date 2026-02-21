@@ -40,18 +40,13 @@ class PythonExecutor(ToolExecutor):
         Returns:
             Dictionary with artifacts and global variables
         """
-        # Use the common artifact extraction method from base class
-        artefact_list = self.extract_artifacts_from_messages(messages)
-        last_utterance = messages.utterances[-1] if messages.utterances else None
+        context = await super().prepare_context(messages, notes)
+        context["last_utterance"] = messages.utterances[-1] if messages.utterances else None
 
         # Set up global variables for execution
-        global_variables = self._setup_globals(artefact_list)
+        context["globals"] = self._setup_globals(context["artifacts"])
 
-        return {
-            "artifacts": artefact_list,
-            "globals": global_variables,
-            "last_utterance": last_utterance,
-        }
+        return context
 
     def extract_instruction(self, response: str) -> Optional[str]:
         """Extract Python code from response.

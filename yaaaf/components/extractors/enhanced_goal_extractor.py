@@ -47,7 +47,7 @@ class EnhancedGoalExtractor(BaseExtractor):
 
         # Extract artifact type
         artifact_match = re.search(
-            r"Artifact Type:\s*(TABLE|IMAGE|TEXT|MODEL|TODO_LIST)",
+            r"Artifact Type:\s*(TABLE|IMAGE|TEXT|MODEL)",
             response,
             re.IGNORECASE,
         )

@@ -459,8 +459,31 @@ class CodeEditExecutor(ToolExecutor):
                 # PERFORM REPLACEMENT: destroy old_str range, insert new_str content
                 file_lines[min_line - 1:max_line] = new_content_lines
 
-                # Write back to file
+                # Build the new file content
                 new_file_content = '\n'.join(file_lines)
+
+                # VALIDATION: Check Python syntax if this is a .py file
+                if file_path.endswith('.py'):
+                    import ast
+                    try:
+                        ast.parse(new_file_content)
+                        _logger.info("Python syntax validation: PASSED")
+                    except SyntaxError as e:
+                        _logger.error(f"Python syntax validation: FAILED at line {e.lineno}")
+                        return None, (
+                            f"ERROR: Replacement would create invalid Python syntax!\n\n"
+                            f"Syntax error at line {e.lineno}:\n"
+                            f"  {e.msg}\n\n"
+                            f"The replacement was NOT applied to avoid corrupting the file.\n\n"
+                            f"Common causes:\n"
+                            f"1. Unbalanced braces/brackets/parentheses\n"
+                            f"2. Duplicate code blocks\n"
+                            f"3. Missing commas or colons\n"
+                            f"4. Incorrect indentation\n\n"
+                            f"Please check your new_str for syntax errors and try again."
+                        )
+
+                # Write back to file
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(new_file_content)
 
@@ -512,6 +535,27 @@ class CodeEditExecutor(ToolExecutor):
 
             # Perform replacement
             new_content = content.replace(old_str, new_str, 1)
+
+            # VALIDATION: Check Python syntax if this is a .py file
+            if file_path.endswith('.py'):
+                import ast
+                try:
+                    ast.parse(new_content)
+                    _logger.info("Python syntax validation: PASSED")
+                except SyntaxError as e:
+                    _logger.error(f"Python syntax validation: FAILED at line {e.lineno}")
+                    return None, (
+                        f"ERROR: Replacement would create invalid Python syntax!\n\n"
+                        f"Syntax error at line {e.lineno}:\n"
+                        f"  {e.msg}\n\n"
+                        f"The replacement was NOT applied to avoid corrupting the file.\n\n"
+                        f"Common causes:\n"
+                        f"1. Unbalanced braces/brackets/parentheses\n"
+                        f"2. Duplicate code blocks\n"
+                        f"3. Missing commas or colons\n"
+                        f"4. Incorrect indentation\n\n"
+                        f"Please check your new_str for syntax errors and try again."
+                    )
 
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(new_content)

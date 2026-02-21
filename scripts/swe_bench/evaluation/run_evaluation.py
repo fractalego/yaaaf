@@ -35,6 +35,7 @@ from datasets import load_dataset
 
 from repo_manager import RepoManager
 from yaaaf_runner import YaaafRunner
+from test_path_corrections import fix_test_paths
 
 _logger = logging.getLogger(__name__)
 
@@ -130,6 +131,10 @@ def evaluate_instance(
     gold_patch = instance["patch"]
     fail_to_pass = json.loads(instance["FAIL_TO_PASS"])
     pass_to_pass = json.loads(instance["PASS_TO_PASS"])
+
+    # Fix known incorrect test paths in SWE-bench dataset
+    fail_to_pass = fix_test_paths(instance_id, fail_to_pass)
+    pass_to_pass = fix_test_paths(instance_id, pass_to_pass)
 
     _logger.info(f"\n{'='*60}")
     _logger.info(f"Evaluating: {instance_id}")

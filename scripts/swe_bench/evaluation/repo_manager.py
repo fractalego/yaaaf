@@ -631,8 +631,14 @@ class RepoManager:
                 env["DJANGO_SETTINGS_MODULE"] = "tests.test_sqlite"
                 _logger.warning(f"Django test settings not found in {repo_path_obj}, using fallback: tests.test_sqlite")
 
-        # If editable install failed, add repo to PYTHONPATH
-        if (env_path / ".use_pythonpath").exists():
+        # Django ALWAYS needs PYTHONPATH to prioritize repository code over site-packages
+        # (even if editable install succeeded, version mismatches can cause import errors)
+        if "django" in repo.lower():
+            existing_pythonpath = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = f"{repo_path}:{existing_pythonpath}" if existing_pythonpath else str(repo_path)
+            _logger.debug(f"Django detected - PYTHONPATH set: {env['PYTHONPATH']}")
+        # For other repos, only set if editable install failed
+        elif (env_path / ".use_pythonpath").exists():
             existing_pythonpath = env.get("PYTHONPATH", "")
             env["PYTHONPATH"] = f"{repo_path}:{existing_pythonpath}" if existing_pythonpath else str(repo_path)
             _logger.debug(f"Using PYTHONPATH for {repo}: {env['PYTHONPATH']}")

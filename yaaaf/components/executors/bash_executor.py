@@ -99,6 +99,8 @@ class BashExecutor(ToolExecutor):
             # Set up environment with optional virtual environment PATH
             env = os.environ.copy()
             env_path = context.get("env_path")
+            pythonpath_set = False
+
             if env_path:
                 # Prepend venv bin directory to PATH so tools like pytest are found
                 env["PATH"] = f"{env_path}/bin:{env['PATH']}"
@@ -108,59 +110,62 @@ class BashExecutor(ToolExecutor):
                 # Check if we need to use PYTHONPATH fallback (for packages where editable install failed)
                 import pathlib
                 use_pythonpath_marker = pathlib.Path(env_path) / ".use_pythonpath"
-                pythonpath_set = False
                 if use_pythonpath_marker.exists() and working_dir:
                     existing_pythonpath = env.get("PYTHONPATH", "")
                     env["PYTHONPATH"] = f"{working_dir}:{existing_pythonpath}" if existing_pythonpath else working_dir
                     _logger.info(f"Using PYTHONPATH fallback: {env['PYTHONPATH']}")
                     pythonpath_set = True
 
-                # Django-specific: Always use PYTHONPATH to prioritize repo code over site-packages
-                # This is critical because Django's test runner imports from django.utils.deprecation
-                # which may have different classes in different Django versions (e.g., RemovedInDjango40Warning)
-                if working_dir and "django" in working_dir.lower() and not pythonpath_set:
+            # Django-specific: Always use PYTHONPATH to prioritize repo code over site-packages
+            # This is critical because Django's test runner imports from django.utils.deprecation
+            # which may have different classes in different Django versions (e.g., RemovedInDjango40Warning)
+            # This should work even if env_path is not provided
+            if working_dir and "django" in working_dir.lower():
+                # Set PYTHONPATH if not already set
+                if not pythonpath_set:
                     existing_pythonpath = env.get("PYTHONPATH", "")
                     env["PYTHONPATH"] = f"{working_dir}:{existing_pythonpath}" if existing_pythonpath else working_dir
                     _logger.info(f"Django detected - setting PYTHONPATH to prioritize repo: {env['PYTHONPATH']}")
+                    pythonpath_set = True
 
-                # Django-specific: Set minimal settings for pytest-django
-                if working_dir and "django" in working_dir.lower():
-                    # pytest-django requires a valid Django settings module
-                    # Try to find the test settings in common locations
-                    if "DJANGO_SETTINGS_MODULE" not in env:
-                        import pathlib
-                        work_path = pathlib.Path(working_dir)
+                # Set Django settings module for pytest-django
+                # pytest-django requires a valid Django settings module
+                # Try to find the test settings in common locations
+                if "DJANGO_SETTINGS_MODULE" not in env:
+                    import pathlib
+                    work_path = pathlib.Path(working_dir)
 
-                        # Common Django test settings patterns
-                        test_settings_candidates = [
-                            "tests.test_sqlite",      # Most common in Django repo
-                            "test_sqlite",            # Alternative
-                            "tests.settings",         # Generic test settings
-                            "django.conf.settings",   # Main Django settings
-                        ]
+                    # Common Django test settings patterns
+                    test_settings_candidates = [
+                        "tests.test_sqlite",      # Most common in Django repo
+                        "test_sqlite",            # Alternative
+                        "tests.settings",         # Generic test settings
+                        "django.conf.settings",   # Main Django settings
+                    ]
 
-                        # Check if any of these modules exist
-                        found_settings = None
-                        for candidate in test_settings_candidates:
-                            # Convert module path to file path (e.g., tests.test_sqlite -> tests/test_sqlite.py)
-                            module_file = candidate.replace(".", "/") + ".py"
-                            if (work_path / module_file).exists():
-                                found_settings = candidate
-                                _logger.info(f"Found Django test settings: {found_settings}")
-                                break
+                    # Check if any of these modules exist
+                    found_settings = None
+                    for candidate in test_settings_candidates:
+                        # Convert module path to file path (e.g., tests.test_sqlite -> tests/test_sqlite.py)
+                        module_file = candidate.replace(".", "/") + ".py"
+                        if (work_path / module_file).exists():
+                            found_settings = candidate
+                            _logger.info(f"Found Django test settings: {found_settings}")
+                            break
 
-                        if found_settings:
-                            env["DJANGO_SETTINGS_MODULE"] = found_settings
-                        else:
-                            # Fallback: create minimal settings on the fly
-                            # Don't use global_settings - it's not a valid settings module
-                            # Instead, let pytest-django fail gracefully or skip Django setup
-                            _logger.warning("No Django test settings found, pytest-django may fail")
-                            env["DJANGO_SETTINGS_MODULE"] = "tests.test_sqlite"  # Try anyway
+                    if found_settings:
+                        env["DJANGO_SETTINGS_MODULE"] = found_settings
+                    else:
+                        # Fallback: create minimal settings on the fly
+                        # Don't use global_settings - it's not a valid settings module
+                        # Instead, let pytest-django fail gracefully or skip Django setup
+                        _logger.warning("No Django test settings found, pytest-django may fail")
+                        env["DJANGO_SETTINGS_MODULE"] = "tests.test_sqlite"  # Try anyway
 
-                        _logger.info(f"Set DJANGO_SETTINGS_MODULE={env['DJANGO_SETTINGS_MODULE']}")
-                    # Disable Django debug mode for tests
-                    env["DJANGO_DEBUG"] = "False"
+                    _logger.info(f"Set DJANGO_SETTINGS_MODULE={env['DJANGO_SETTINGS_MODULE']}")
+
+                # Disable Django debug mode for tests
+                env["DJANGO_DEBUG"] = "False"
 
             # Execute the command asynchronously to avoid blocking the event loop
             process = await asyncio.create_subprocess_shell(

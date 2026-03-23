@@ -208,17 +208,11 @@ assets:
     description: "..."
     type: table | text
     inputs: [<asset_name>, ...]   # omit if no inputs
-    checks:
-      - "<condition>"
 
 NAMING RULES:
 - Use descriptive snake_case names (e.g., "fusion_energy_news", "openai_homepage_content").
 - BAD: "result1", "data", "output".
-
-ACCEPTANCE CONDITIONS (checks):
-- table: row_count >= N, columns: [title, url, snippet], no_empty_values: [title, url]
-- text: length > 100, contains_expected_content: true
-- final answerer table: row_count >= 1, columns: [summary], no_null_values: [summary]
+- DO NOT add a "checks:" field. Each asset needs only: agent, description, type, and optionally inputs.
 
 TARGET FOR THIS EXAMPLE:
 - Pattern: {bucket.pattern}
@@ -237,34 +231,22 @@ assets:
     agent: brave_search
     description: "Search for economic impact of remote work in the US"
     type: table
-    checks:
-      - "row_count >= 5"
-      - "columns: [title, url, snippet]"
 
   europe_remote_work_data:
     agent: brave_search
     description: "Search for economic impact of remote work in Europe"
     type: table
-    checks:
-      - "row_count >= 5"
-      - "columns: [title, url, snippet]"
 
   asia_remote_work_data:
     agent: brave_search
     description: "Search for economic impact of remote work in Asia"
     type: table
-    checks:
-      - "row_count >= 5"
-      - "columns: [title, url, snippet]"
 
   comparative_report:
     agent: answerer
     description: "Synthesise findings from all three regions into a comparative report"
     type: table
     inputs: [us_remote_work_data, europe_remote_work_data, asia_remote_work_data]
-    checks:
-      - "row_count >= 1"
-      - "columns: [region, key_findings, economic_impact]"
 
 Example 2 — chained_search (search → read URL → follow-up search → synthesise):
 assets:
@@ -272,35 +254,24 @@ assets:
     agent: brave_search
     description: "Search for latest fusion energy breakthroughs"
     type: table
-    checks:
-      - "row_count >= 5"
-      - "columns: [title, url, snippet]"
 
   top_fusion_article:
     agent: url
     description: "Read the most cited recent fusion energy article found in search"
     type: text
     inputs: [fusion_breakthrough_search]
-    checks:
-      - "length > 200"
 
   fusion_companies_search:
     agent: brave_search
     description: "Search for leading fusion energy companies based on article findings"
     type: table
     inputs: [top_fusion_article]
-    checks:
-      - "row_count >= 3"
-      - "columns: [title, url, snippet]"
 
   fusion_research_report:
     agent: answerer
     description: "Combine breakthrough findings and company landscape into a report"
     type: table
     inputs: [fusion_breakthrough_search, top_fusion_article, fusion_companies_search]
-    checks:
-      - "row_count >= 1"
-      - "columns: [summary, key_companies, recent_breakthroughs]"
 
 Now generate the workflow for the scenario above.
 Output ONLY valid YAML starting with "assets:". No markdown, no explanations."""

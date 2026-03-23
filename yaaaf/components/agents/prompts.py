@@ -668,9 +668,13 @@ WHEN TO USE LOOPS:
 - Iterative refinement tasks (fix until valid, retry until success)
 - Multi-file changes that need validation at each step
 
-EXAMPLES showing correct type usage from agent specifications:
+EXAMPLES showing correct YAML structure and type usage — FORMAT REFERENCE ONLY:
+CRITICAL: These examples demonstrate the YAML format and agent wiring ONLY.
+You MUST plan for the user's ACTUAL query. NEVER copy, adapt, or be influenced by the topics or scenarios shown in these examples.
 
 {examples}
+
+REMINDER: The examples above are structural templates. Your plan must address the user's actual goal, not the topics shown in the examples.
 
 Optional features you can include:
 - validation: Data quality checks (row_count, columns, constraints)

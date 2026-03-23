@@ -153,6 +153,30 @@ class PlannerExampleRetriever:
 
         return examples
 
+    @staticmethod
+    def _strip_checks(workflow_yaml: str) -> str:
+        """Remove 'checks:' blocks from a workflow YAML string.
+
+        The planner prompt does not require checks, and their presence in
+        retrieved examples causes the model to copy the format incorrectly
+        (e.g. generating ``- row_count: >=5`` which is invalid YAML because
+        ``>`` is a YAML block-scalar indicator).
+        """
+        try:
+            import yaml as _yaml
+
+            data = _yaml.safe_load(workflow_yaml)
+            if not isinstance(data, dict) or "assets" not in data:
+                return workflow_yaml
+
+            for asset in data["assets"].values():
+                if isinstance(asset, dict):
+                    asset.pop("checks", None)
+
+            return _yaml.dump(data, default_flow_style=False, allow_unicode=True)
+        except Exception:
+            return workflow_yaml
+
     def format_examples_for_prompt(self, query: str, topn: int = 3) -> str:
         """Retrieve and format examples for inclusion in a prompt.
 
@@ -170,10 +194,11 @@ class PlannerExampleRetriever:
 
         formatted_parts = []
         for i, (scenario, workflow_yaml) in enumerate(examples, 1):
+            clean_yaml = self._strip_checks(workflow_yaml)
             formatted_parts.append(
                 f"Example {i}:\n"
                 f"Scenario: {scenario}\n"
-                f"```yaml\n{workflow_yaml}\n```"
+                f"```yaml\n{clean_yaml}\n```"
             )
 
         return "\n\n".join(formatted_parts)

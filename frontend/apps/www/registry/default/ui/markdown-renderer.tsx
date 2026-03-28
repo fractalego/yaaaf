@@ -26,6 +26,7 @@ import { UrlReviewerAgent } from "@/registry/custom/url-reviewer-agent"
 import { UserInputAgent } from "@/registry/custom/user-input-agent"
 import { VisualizationAgent } from "@/registry/custom/visualization-agent"
 import { WorkflowAgent } from "@/registry/custom/workflow-agent"
+import { IntensityScheduler } from "@/registry/custom/intensity-scheduler"
 import { CopyButton } from "@/registry/default/ui/copy-button"
 
 interface MarkdownRendererProps {
@@ -171,6 +172,9 @@ function childrenTakeAllStringContents(element: any): string {
 
 function getComponents(onArtifactClick?: (artifactId: string) => void) {
   return {
+    intensityscheduler: ({ children }: any) => {
+      return <IntensityScheduler text={children}></IntensityScheduler>
+    },
     planner: ({ children, ...props }: any) => {
       return (
         <PlannerAgent

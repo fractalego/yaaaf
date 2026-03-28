@@ -128,6 +128,13 @@ class PlannerAgent(ToolBasedAgent):
             "{agent_descriptions}", agent_descriptions
         )
 
+        # Swap the example retriever to only return examples matching this palette.
+        # PlannerExampleRetriever caches instances by palette hash, so this is cheap.
+        allowed_class_names = [
+            a.get("class_name", a.get("name")) for a in filtered_agents
+        ]
+        self._example_retriever = PlannerExampleRetriever(allowed_class_names)
+
         # Build preamble injected at the top of the system prompt
         level_name = prior_context[2] if prior_context else "first attempt"
         preamble_lines = [

@@ -55,6 +55,7 @@ class OrchestratorAgent(CustomAgent):
         self._validation_agent = validation_agent
         self._original_goal = None  # Store for validation context
         self._disable_user_prompts = disable_user_prompts
+        self._preset_plan: Optional[str] = None  # Set by IntensityScheduler to bypass planner
 
         # Extract planner from agents
         for agent_name, agent in agents.items():
@@ -98,6 +99,13 @@ class OrchestratorAgent(CustomAgent):
         _logger.info(f"Starting new query (stream_id={stream_id}), resetting plan state...")
         self.current_plan = None
         self.plan_executor = None
+
+        # If the IntensityScheduler pre-built a plan (e.g. hardcoded Easy plan), inject it now
+        # and consume the preset so it doesn't leak into subsequent attempts.
+        if self._preset_plan:
+            self.current_plan = self._preset_plan
+            self._preset_plan = None
+            _logger.info("Using preset plan (planner bypassed)")
 
         # Step 1: Extract goal and target artifact type
         goal_info = await self._extract_goal_and_type(messages)

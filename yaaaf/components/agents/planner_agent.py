@@ -24,6 +24,9 @@ class PlannerAgent(ToolBasedAgent):
         """
         super().__init__(client, PlannerExecutor(available_agents))
 
+        # Store full list for palette overrides at runtime
+        self._available_agents = available_agents
+
         # Create agent descriptions with taxonomy info
         agent_descriptions = self._create_agent_descriptions(available_agents)
 
@@ -33,6 +36,9 @@ class PlannerAgent(ToolBasedAgent):
             "{agent_descriptions}", agent_descriptions
         )
         self._system_prompt = self._system_prompt_template  # Will be completed at query time
+
+        # Intensity state — set by IntensityScheduler before each call
+        self._intensity_preamble: Optional[str] = None
 
         # Extract class names for retriever filtering
         available_class_names = [
@@ -96,6 +102,56 @@ class PlannerAgent(ToolBasedAgent):
         
         return "\n\n".join(descriptions)
 
+    def set_active_palette(
+        self,
+        agent_names: List[str],
+        directive: str,
+        prior_context: Optional[tuple] = None,
+    ) -> None:
+        """Reconfigure the planner for a specific intensity level.
+
+        Called by IntensityScheduler before each query. Filters agent descriptions
+        to the given palette and builds an intensity preamble that will be prepended
+        to the system prompt.
+
+        Args:
+            agent_names: Agent names (as in config) allowed at this level
+            directive: Complexity directive for this level
+            prior_context: Optional (result, reason, level_name) from the previous level
+        """
+        allowed = set(agent_names)
+
+        # Rebuild agent descriptions restricted to this palette
+        filtered_agents = [a for a in self._available_agents if a.get("name") in allowed]
+        agent_descriptions = self._create_agent_descriptions(filtered_agents)
+        self._system_prompt_template = planner_agent_prompt_template.prompt.replace(
+            "{agent_descriptions}", agent_descriptions
+        )
+
+        # Build preamble injected at the top of the system prompt
+        level_name = prior_context[2] if prior_context else "first attempt"
+        preamble_lines = [
+            f"[INTENSITY LEVEL: {', '.join(agent_names)}]",
+            f"STRICT CONSTRAINT: You may ONLY use these agents: {', '.join(agent_names)}. "
+            "Do NOT include any other agent even if described below.",
+            f"COMPLEXITY DIRECTIVE: {directive}",
+        ]
+
+        if prior_context:
+            prior_result, reason, prior_level = prior_context
+            prior_snippet = (prior_result or "")[:500]
+            if len(prior_result or "") > 500:
+                prior_snippet += "..."
+            preamble_lines += [
+                "",
+                f"[ESCALATED FROM {prior_level}]",
+                f"Prior answer: \"{prior_snippet}\"",
+                f"Judged insufficient because: {reason}",
+                "Generate a more thorough plan that addresses this gap.",
+            ]
+
+        self._intensity_preamble = "\n".join(preamble_lines) + "\n\n"
+
     @staticmethod
     def get_info() -> str:
         """Get a brief description of what this agent does."""
@@ -144,6 +200,10 @@ The agent will output a workflow in YAML format with asset-based dependencies.
 
         # Complete the prompt with examples
         completed_prompt = self._system_prompt_template.replace("{examples}", examples)
+
+        # Prepend intensity preamble if set by IntensityScheduler
+        if self._intensity_preamble:
+            completed_prompt = self._intensity_preamble + completed_prompt
 
         return completed_prompt
 

@@ -40,10 +40,13 @@ class TestOrchestratorBuilder(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(orchestrator)
 
         # Verify that the document retriever agent was subscribed
-        self.assertEqual(len(orchestrator._agents_map), 1)
+        # build() returns an IntensityScheduler wrapping the OrchestratorAgent
+        inner = orchestrator._orchestrator if hasattr(orchestrator, "_orchestrator") else orchestrator
+        agents = inner.agents
+        self.assertIn("document_retriever", agents)
 
         # Get the document retriever agent
-        rag_agent = list(orchestrator._agents_map.values())[0]
+        rag_agent = agents["document_retriever"]
         self.assertEqual(rag_agent.__class__.__name__, "DocumentRetrieverAgent")
 
         # Verify the document retriever agent has sources

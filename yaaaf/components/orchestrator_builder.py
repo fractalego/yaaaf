@@ -3,6 +3,7 @@ import logging
 from typing import List
 from yaaaf.components.agents.orchestrator_agent import OrchestratorAgent
 from yaaaf.components.agents.planner_agent import PlannerAgent
+from yaaaf.components.agents.intensity_scheduler import IntensityScheduler
 from yaaaf.components.agents.reviewer_agent import ReviewerAgent
 from yaaaf.components.agents.sql_agent import SqlAgent
 from yaaaf.components.agents.document_retriever_agent import DocumentRetrieverAgent
@@ -391,7 +392,16 @@ class OrchestratorBuilder:
         )
         _logger.info(f"Created plan-driven orchestrator with validation (disable_user_prompts={self.config.disable_user_prompts}, max_replan_attempts={self.config.max_replan_attempts})")
 
-        return orchestrator
+        # Wrap in IntensityScheduler for progressive complexity escalation
+        configured_agent_names = [self._get_agent_name(a) for a in self.config.agents]
+        scheduler = IntensityScheduler(
+            orchestrator=orchestrator,
+            validation_agent=validation_agent,
+            configured_agents=configured_agent_names,
+        )
+        _logger.info("Wrapped orchestrator in IntensityScheduler")
+
+        return scheduler
 
     def _create_agent(
         self,

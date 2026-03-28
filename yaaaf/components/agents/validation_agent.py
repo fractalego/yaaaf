@@ -5,7 +5,7 @@ import logging
 import re
 
 from yaaaf.components.agents.base_agent import CustomAgent
-from yaaaf.components.agents.prompts import validation_agent_prompt_template, get_validation_prompt_for_agent
+from yaaaf.components.agents.prompts import validation_agent_prompt_template, get_validation_prompt_for_agent, sufficiency_check_prompt_template
 from yaaaf.components.client import BaseClient
 from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.validators.validation_result import ValidationResult
@@ -268,6 +268,41 @@ class ValidationAgent(CustomAgent):
             result = ValidationResult.valid(reason="Direct query not fully supported")
             return json.dumps(result.to_dict())
         return json.dumps(ValidationResult.valid().to_dict())
+
+    async def check_sufficiency(
+        self,
+        result: str,
+        original_goal: str,
+        level_name: str,
+    ) -> tuple[bool, str]:
+        """Check whether a final result sufficiently answers the user's goal.
+
+        Args:
+            result: The answer produced by the orchestrator
+            original_goal: Original user goal
+            level_name: Current intensity level name (for context)
+
+        Returns:
+            Tuple of (is_sufficient, reason)
+        """
+        prompt = sufficiency_check_prompt_template.complete(
+            user_goal=original_goal,
+            level_name=level_name,
+            answer=result[:3000] + ("..." if len(result) > 3000 else ""),
+        )
+
+        messages = Messages()
+        messages.utterances.append(Utterance(role="user", content=prompt))
+
+        try:
+            response = await self._client.predict(messages)
+            json_match = re.search(r"```json\s*(.*?)\s*```", response.message, re.DOTALL)
+            json_str = json_match.group(1) if json_match else response.message.strip()
+            data = json.loads(json_str)
+            return bool(data.get("is_sufficient", True)), data.get("reason", "")
+        except Exception as e:
+            _logger.warning(f"Sufficiency check failed: {e} — defaulting to sufficient")
+            return True, f"Check skipped: {e}"
 
     @staticmethod
     def get_info() -> str:

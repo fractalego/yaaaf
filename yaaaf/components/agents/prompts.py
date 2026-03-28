@@ -1106,6 +1106,36 @@ Output ONLY the JSON block, no other text.
 )
 
 
+sufficiency_check_prompt_template = PromptTemplate(
+    prompt="""You are a sufficiency judge. Determine whether an answer fully addresses a user's question.
+
+USER'S QUESTION: {user_goal}
+
+CURRENT INTENSITY LEVEL: {level_name}
+
+ANSWER PROVIDED:
+{answer}
+
+Does this answer FULLY and SATISFACTORILY address the user's question?
+
+Be LENIENT. Mark as sufficient if the answer provides a reasonable, complete response.
+Mark as insufficient ONLY if:
+- The answer is clearly incomplete or missing key information the user asked for
+- The answer explicitly says it cannot find information that could be found with more research
+- The answer is too vague or generic to be useful
+- The answer is based on outdated information when recency clearly matters
+
+Respond with ONLY a JSON block:
+```json
+{{
+  "is_sufficient": true or false,
+  "reason": "one sentence explanation"
+}}
+```
+"""
+)
+
+
 def get_validation_prompt_for_agent(agent_name: str) -> PromptTemplate:
     """Get the appropriate validation prompt template for a given agent.
 

@@ -1044,6 +1044,44 @@ Output ONLY the JSON block, no other text.
 )
 
 
+answerer_validation_prompt_template = PromptTemplate(
+    prompt="""You are a validation agent evaluating the output of the Answerer agent.
+
+IMPORTANT: The Answerer agent ALWAYS produces a markdown table with exactly two columns: | paragraph | source |
+This is its fixed output format. Do NOT reject the output because it uses paragraphs instead of raw data rows.
+
+ORIGINAL USER GOAL:
+{user_goal}
+
+WORKFLOW STEP DESCRIPTION:
+{step_description}
+
+INPUT ARTIFACTS (what was provided to this step):
+{input_context}
+
+OUTPUT ARTIFACT (what this step produced):
+{artifact_content}
+
+Evaluate whether the paragraphs in the table address the user goal and step description.
+Accept if the paragraphs contain relevant information related to the topic, even if approximate or partial.
+Reject only if the table is empty or the content is completely unrelated to the user goal.
+
+Provide a JSON response with EXACTLY this structure:
+```json
+{{
+  "is_valid": true or false,
+  "confidence": 0.0 to 1.0,
+  "reason": "Brief explanation of your evaluation",
+  "should_ask_user": false,
+  "suggested_fix": null
+}}
+```
+
+Output ONLY the JSON block, no other text.
+    """
+)
+
+
 validation_agent_prompt_template = PromptTemplate(
     prompt="""You are a validation agent. Your job is to evaluate whether an artifact produced by a workflow step achieves AT MINIMUM what was expected.
 
@@ -1123,6 +1161,9 @@ def get_validation_prompt_for_agent(agent_name: str) -> PromptTemplate:
     # Specialized prompts for specific agents
     if "code_edit" in agent_lower or "codeedit" in agent_lower:
         return code_edit_validation_prompt_template
+
+    if "answerer" in agent_lower:
+        return answerer_validation_prompt_template
 
     # Default prompt for all other agents
     return validation_agent_prompt_template

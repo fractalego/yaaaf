@@ -62,8 +62,9 @@ class ArtifactProcessorExecutor(ToolExecutor):
             # If instruction contains specific processing logic, apply it here
             # For now, return the basic artifact summary table
             
+            _logger.info(f"Answerer output:\n{df.to_markdown(index=False)}")
             return df, None
-            
+
         except Exception as e:
             error_msg = f"Error processing artifacts: {str(e)}"
             _logger.error(error_msg)

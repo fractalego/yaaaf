@@ -587,7 +587,7 @@ CRITICAL RULES:
 2. The 'type' field in each asset MUST match what that asset's agent "Produces". NOT what it accepts.
 3. BraveSearchAgent Produces: TABLE → type: table (NEVER text)
 4. DuckDuckGoSearchAgent Produces: TABLE → type: table (NEVER text)
-5. AnswererAgent Produces: TEXT → type: text
+5. AnswererAgent Produces: TABLE → type: table (NEVER text)
 6. VisualizationAgent Produces: IMAGE → type: image
 7. NEVER use a type that is not in the agent's "Produces" list.
 

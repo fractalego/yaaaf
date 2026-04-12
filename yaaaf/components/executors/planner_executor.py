@@ -1,6 +1,8 @@
 import logging
 from typing import Dict, Any, Optional, Tuple, List
 
+import yaml
+
 from yaaaf.components.executors.base import ToolExecutor
 from yaaaf.components.data_types import Messages, Note
 from yaaaf.components.agents.artefacts import Artefact
@@ -38,8 +40,6 @@ class PlannerExecutor(ToolExecutor):
     async def execute_operation(self, instruction: str, context: Dict[str, Any]) -> Tuple[Any, Optional[str]]:
         """Process the generated workflow."""
         try:
-            import yaml
-            
             # The instruction should be a valid YAML workflow
             # Basic validation
             if not instruction:
@@ -105,12 +105,29 @@ class PlannerExecutor(ToolExecutor):
                 return None, f"Invalid YAML format: {str(e)}"
             
             # The workflow is valid - return it
-            return instruction, None
+            return self._correct_plan(workflow_data), None
             
         except Exception as e:
             error_msg = f"Error processing workflow: {str(e)}"
             _logger.error(error_msg)
             return None, error_msg
+
+    def _correct_plan(self, workflow_data: dict) -> str:
+        """Correct known planner mistakes in a parsed workflow.
+
+        Currently fixes: answerer agent always produces type 'table', not 'text'.
+        """
+        assets = workflow_data.get("assets", {})
+        for asset_name, asset_config in assets.items():
+            if (
+                isinstance(asset_config, dict)
+                and asset_config.get("agent") == "answerer"
+                and asset_config.get("type") == "text"
+            ):
+                asset_config["type"] = "table"
+                _logger.info(f"Corrected asset '{asset_name}': answerer type text -> table")
+
+        return yaml.dump(workflow_data, default_flow_style=False, allow_unicode=True)
 
     def validate_result(self, result: Any) -> bool:
         """Validate workflow result."""

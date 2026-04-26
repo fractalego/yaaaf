@@ -590,6 +590,7 @@ CRITICAL RULES:
 5. AnswererAgent Produces: TABLE → type: table (NEVER text)
 6. VisualizationAgent Produces: IMAGE → type: image
 7. NEVER use a type that is not in the agent's "Produces" list.
+8. user_input agent is NEVER the final step of a workflow. It pauses execution to ask the user a question and must always feed into another agent. If the user's query is self-contained, do NOT use user_input at all.
 
 Instructions for creating the workflow:
 1. Analyze the user's goal to identify the required FINAL ARTIFACT type

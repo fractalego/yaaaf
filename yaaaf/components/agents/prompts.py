@@ -476,6 +476,7 @@ Requirements:
 - Cite sources accurately (use artifact descriptions, URLs, table names, document names, etc.)
 - Ensure comprehensive coverage of the research query
 - Maintain logical flow between paragraphs
+- CRITICAL: The table MUST have EXACTLY 2 columns: `paragraph` and `source`. No more, no fewer. Every row must have exactly these 2 cells separated by `|`.
 
 This output *must* be between the markdown tags ```table ... ```.
 

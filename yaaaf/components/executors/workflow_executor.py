@@ -2,6 +2,7 @@ import logging
 import yaml
 import re
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
+import pandas as pd
 from yaaaf.components.data_types import Messages, Utterance
 from yaaaf.components.agents.artefacts import Artefact, ArtefactStorage
 from yaaaf.components.executors.paused_execution import (
@@ -123,12 +124,13 @@ class WorkflowExecutor:
         for asset_name, asset_config in assets.items():
             inputs = asset_config.get("inputs", [])
 
-            # Filter out special loop inputs - they're not DAG dependencies
-            # __previous__* references previous iteration (not a dependency in this iteration)
-            # __loop_input__* references parent scope (injected externally)
+            # Filter out special injected variables - they're not DAG dependencies
+            # __previous__*   → previous loop iteration result
+            # __loop_input__* → parent scope input for loop bodies
+            # __row__         → current row injected by for_each (map-reduce)
             real_dependencies = [
                 inp for inp in inputs
-                if not inp.startswith("__previous__") and not inp.startswith("__loop_input__")
+                if not inp.startswith("__")
             ]
 
             dependencies[asset_name] = real_dependencies
@@ -209,6 +211,11 @@ class WorkflowExecutor:
             # Check for loop node
             if asset_config.get("type") == "loop":
                 await self._execute_loop(asset_name, asset_config, messages)
+                continue
+
+            # Check for for_each (map-reduce) node
+            if asset_config.get("type") == "for_each":
+                await self._execute_map_reduce(asset_name, asset_config, messages)
                 continue
 
             # Check conditions
@@ -583,6 +590,161 @@ class WorkflowExecutor:
         self.asset_results[loop_name] = final_result
 
         _logger.info(f"Loop '{loop_name}' completed. Returning output from '{output_asset_name}'")
+
+    async def _execute_map_reduce(
+        self, node_name: str, config: Dict, messages: Messages
+    ) -> None:
+        """Execute a for_each (map-reduce) node sequentially over rows of an input table.
+
+        Args:
+            node_name: Name of the for_each asset
+            config: Node configuration dict (must contain row_chain, row_output, inputs)
+            messages: Original messages for context
+        """
+        inputs = self._gather_inputs(config.get("inputs", []))
+        if not inputs:
+            raise ValueError(f"for_each node '{node_name}' requires at least one input")
+
+        input_name = next(iter(inputs))
+        input_result = inputs[input_name]
+
+        # Resolve the table artifact
+        input_artifact = self.artefact_storage.retrieve_first_from_utterance_string(input_result)
+        if input_artifact is None or input_artifact.data is None:
+            raise ValueError(
+                f"for_each node '{node_name}': input '{input_name}' must be a table artifact"
+            )
+
+        df = input_artifact.data
+        _logger.info(f"for_each '{node_name}': iterating over {len(df)} rows")
+
+        row_chain = config.get("row_chain")
+        if not row_chain or "assets" not in row_chain:
+            raise ValueError(f"for_each node '{node_name}': missing or invalid 'row_chain'")
+
+        row_output = config.get("row_output") or list(row_chain["assets"].keys())[-1]
+
+        from yaaaf.components.agents.hash_utils import create_hash
+        from yaaaf.components.agents.settings import task_completed_tag
+
+        collected_results: List[str] = []
+
+        for idx, (_, row) in enumerate(df.iterrows()):
+            _logger.info(f"for_each '{node_name}': row {idx + 1}/{len(df)}")
+
+            if self._notes is not None:
+                from yaaaf.components.data_types import Note
+                self._notes.append(Note(
+                    message=f"🔄 Map-reduce '{node_name}' — row {idx + 1}/{len(df)}",
+                    artefact_id=None,
+                    agent_name="workflow",
+                ))
+
+            # Store the single-row table as an artifact so sub-agents can use it
+            row_df = pd.DataFrame([row])
+            row_artifact_id = create_hash(f"{node_name}_row_{idx}_{row_df.to_dict()}")
+            row_artefact = Artefact(
+                id=row_artifact_id,
+                type=Artefact.Types.TABLE,
+                data=row_df,
+                description=f"Row {idx} from {input_name}",
+            )
+            self.artefact_storage.store_artefact(row_artifact_id, row_artefact)
+            row_result_string = (
+                f"Row {idx + 1} of {input_name}: "
+                f"<artefact type='table'>{row_artifact_id}</artefact> {task_completed_tag}"
+            )
+
+            # Build and run the sub-workflow for this row
+            row_chain_yaml = yaml.dump(row_chain)
+            sub_executor = WorkflowExecutor(
+                yaml_plan=row_chain_yaml,
+                agents=self.agents,
+                notes=self._notes,
+                stream_id=self._stream_id,
+                validation_agent=self._validation_agent,
+                original_goal=self._original_goal,
+                disable_user_prompts=self._disable_user_prompts,
+                env_path=self._env_path,
+                working_dir=self._working_dir,
+                disable_validation_replan=True,
+            )
+            sub_executor.asset_results["__row__"] = row_result_string
+
+            try:
+                await sub_executor.execute(messages)
+            except Exception as e:
+                _logger.error(f"for_each '{node_name}' row {idx} failed: {e}. Skipping row.")
+                continue
+
+            row_assets = sub_executor.get_completed_assets()
+            if row_output in row_assets:
+                collected_results.append(row_assets[row_output])
+            else:
+                _logger.warning(
+                    f"for_each '{node_name}': row_output '{row_output}' not found in row {idx} results"
+                )
+
+        result_string = self._concatenate_map_results(node_name, collected_results)
+        self.asset_results[node_name] = result_string
+        _logger.info(
+            f"for_each '{node_name}' complete: {len(collected_results)} rows collected"
+        )
+
+    def _concatenate_map_results(self, node_name: str, collected_results: List[str]) -> str:
+        """Concatenate artifacts from all map iterations into a single table artifact."""
+        from yaaaf.components.agents.hash_utils import create_hash
+        from yaaaf.components.agents.settings import task_completed_tag
+
+        dfs: List[pd.DataFrame] = []
+        texts: List[str] = []
+
+        for result in collected_results:
+            try:
+                artefacts = self.artefact_storage.retrieve_from_utterance_string(result)
+                for artefact in artefacts:
+                    if artefact.data is not None:
+                        dfs.append(artefact.data)
+                    elif artefact.code is not None:
+                        texts.append(artefact.code)
+            except Exception as e:
+                _logger.warning(f"_concatenate_map_results: could not retrieve artifact: {e}")
+
+        if dfs:
+            combined_df = pd.concat(dfs, ignore_index=True)
+            artifact_id = create_hash(f"{node_name}_map_result_{len(dfs)}")
+            self.artefact_storage.store_artefact(
+                artifact_id,
+                Artefact(
+                    id=artifact_id,
+                    type=Artefact.Types.TABLE,
+                    data=combined_df,
+                    description=f"Map-reduce result from '{node_name}': {len(combined_df)} rows",
+                ),
+            )
+            return (
+                f"Map-reduce '{node_name}' completed: "
+                f"<artefact type='table'>{artifact_id}</artefact> {task_completed_tag}"
+            )
+        elif texts:
+            combined_text = "\n\n---\n\n".join(texts)
+            artifact_id = create_hash(f"{node_name}_map_result_text_{len(texts)}")
+            self.artefact_storage.store_artefact(
+                artifact_id,
+                Artefact(
+                    id=artifact_id,
+                    type=Artefact.Types.TEXT,
+                    code=combined_text,
+                    description=f"Map-reduce text result from '{node_name}'",
+                ),
+            )
+            return (
+                f"Map-reduce '{node_name}' completed: "
+                f"<artefact type='text'>{artifact_id}</artefact> {task_completed_tag}"
+            )
+        else:
+            _logger.warning(f"_concatenate_map_results: no artifacts collected for '{node_name}'")
+            return f"Map-reduce '{node_name}' produced no results {task_completed_tag}"
 
     def _load_external_artifact(self, asset_name: str, asset_config: Dict) -> None:
         """Load an external artifact from a prior plan execution.

@@ -671,6 +671,50 @@ WHEN TO USE LOOPS:
 - Iterative refinement tasks (fix until valid, retry until success)
 - Multi-file changes that need validation at each step
 
+FOR-EACH CONSTRUCTS (map-reduce over table rows):
+Use for_each when you have a table of items and need to apply the same agent chain to every row, then aggregate results.
+
+for_each structure:
+```yaml
+assets:
+  search_results:
+    agent: brave_search
+    description: "Search for top Python frameworks"
+    type: table
+
+  framework_details:
+    type: for_each
+    description: "For each framework, fetch its homepage content"
+    inputs: [search_results]
+    row_output: page_content
+    row_chain:
+      assets:
+        page_content:
+          agent: url
+          description: "Fetch the homepage URL from this row"
+          type: text
+          inputs: [__row__]
+
+  final_answer:
+    agent: answerer
+    description: "Synthesise all fetched content into a comparison table"
+    type: table
+    inputs: [framework_details]
+```
+
+Key for_each features:
+- type: for_each (identifies this as a map-reduce node, no 'agent' field)
+- inputs: the table asset to iterate over (one row at a time)
+- row_chain: sub-workflow applied to each row (must have 'assets' key)
+- row_output: which asset inside row_chain to collect from each row
+- __row__: special reference inside row_chain that holds the current single-row table
+- All row outputs are concatenated into a single table artifact
+
+WHEN TO USE FOR-EACH:
+- You have a table of items and need to process each one independently (fetch URL per row, query per row, etc.)
+- Results per row are homogeneous and can be concatenated (all text, all tables)
+- Followed by an answerer that synthesises all collected results
+
 EXAMPLES showing correct YAML structure and type usage — FORMAT REFERENCE ONLY:
 CRITICAL: These examples demonstrate the YAML format and agent wiring ONLY.
 You MUST plan for the user's ACTUAL query. NEVER copy, adapt, or be influenced by the topics or scenarios shown in these examples.

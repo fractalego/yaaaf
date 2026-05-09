@@ -67,6 +67,7 @@ class PlannerExecutor(ToolExecutor):
                     # Check asset type
                     is_external_artifact = "external_artifact_id" in asset_config
                     is_loop = asset_config.get("type") == "loop"
+                    is_for_each = asset_config.get("type") == "for_each"
 
                     if is_loop:
                         # Loop nodes have special requirements
@@ -84,6 +85,21 @@ class PlannerExecutor(ToolExecutor):
                         exit_condition = asset_config.get("exit_condition", {})
                         if not isinstance(exit_condition, dict) or "type" not in exit_condition:
                             return None, f"Invalid loop asset '{asset_name}': exit_condition must have 'type' field"
+
+                    elif is_for_each:
+                        # for_each nodes iterate over table rows
+                        required_fields = ["type", "description", "row_chain", "row_output"]
+                        for field in required_fields:
+                            if field not in asset_config:
+                                return None, f"Invalid for_each node '{asset_name}': missing required field '{field}'"
+
+                        row_chain = asset_config.get("row_chain", {})
+                        if not isinstance(row_chain, dict) or "assets" not in row_chain:
+                            return None, f"Invalid for_each node '{asset_name}': row_chain must be a dict with 'assets' key"
+
+                        row_output = asset_config.get("row_output")
+                        if row_output not in row_chain.get("assets", {}):
+                            return None, f"Invalid for_each node '{asset_name}': row_output '{row_output}' not in row_chain assets"
 
                     elif is_external_artifact:
                         # External artifacts don't need 'agent' field

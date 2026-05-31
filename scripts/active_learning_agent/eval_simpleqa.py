@@ -44,7 +44,7 @@ def get_model():
         _tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
         _model = AutoModelForCausalLM.from_pretrained(
             MODEL_NAME,
-            dtype=torch.float16,
+            dtype=torch.bfloat16,
             device_map="auto",
         )
         _model.eval()
@@ -249,44 +249,83 @@ def compute_efe(action, candidates, context, question):
 
 
 def run_foraging(question, api_key, threshold=0.5, max_iterations=3, k=5):
+    trace = {"candidates": [], "iterations": [], "final": {}}
+
     candidates = generate_candidates(question, k=k)
     if not candidates:
-        return run_single_search(question, api_key)
+        return run_single_search(question, api_key), {"fallback": "no candidates"}
+
+    trace["candidates"] = candidates
 
     context = ""
-    search_count = 0
+    searches = []
 
     for t in range(max_iterations):
         scores = score_candidates(candidates, context, question)
         H = entropy(scores)
+        p = softmax(scores)
+
+        iteration = {
+            "t": t,
+            "entropy": round(float(H), 4),
+            "beliefs": {c: round(float(p[i]), 4) for i, c in enumerate(candidates)},
+            "log_scores": {c: round(float(scores[i]), 2) for i, c in enumerate(candidates)},
+        }
 
         if H < threshold:
+            iteration["action"] = "converged"
+            trace["iterations"].append(iteration)
             break
 
-        # generate candidate actions
         actions = generate_search_queries(question, context)
         if not actions:
+            iteration["action"] = "no queries generated"
+            trace["iterations"].append(iteration)
             break
 
-        # select action with minimum EFE
         G_values = []
         for a in actions:
             G = compute_efe(a, candidates, context, question)
             G_values.append(G)
 
-        best_action = actions[np.argmin(G_values)]
+        best_idx = int(np.argmin(G_values))
+        best_action = actions[best_idx]
+        searches.append(best_action)
 
-        # execute real search
+        iteration["candidate_queries"] = [
+            {"query": a, "G": round(float(G_values[i]), 4)}
+            for i, a in enumerate(actions)
+        ]
+        iteration["selected_query"] = best_action
+        iteration["selected_G"] = round(float(G_values[best_idx]), 4)
+
         results = brave_search(best_action, api_key, count=5)
-        search_count += 1
         evidence = format_search_results(results)
         context += f"\n\n---\nSearch: {best_action}\nResults:\n{evidence}"
 
+        iteration["search_results"] = [
+            {"title": r["title"], "snippet": r["snippet"][:120]}
+            for r in results[:5]
+        ]
+        iteration["num_results"] = len(results)
+
+        trace["iterations"].append(iteration)
+
     # final scoring
     scores = score_candidates(candidates, context, question)
-    winner = candidates[np.argmax(scores)]
+    p = softmax(scores)
+    winner_idx = int(np.argmax(scores))
+    winner = candidates[winner_idx]
 
-    return winner
+    trace["final"] = {
+        "entropy": round(float(entropy(scores)), 4),
+        "beliefs": {c: round(float(p[i]), 4) for i, c in enumerate(candidates)},
+        "log_scores": {c: round(float(scores[i]), 2) for i, c in enumerate(candidates)},
+        "winner": winner,
+        "num_searches": len(searches),
+    }
+
+    return winner, trace
 
 
 # ---------------------------------------------------------------------------
@@ -362,13 +401,14 @@ def main():
 
         for mode in modes:
             t0 = time.time()
+            trace = None
             try:
                 if mode == "baseline":
                     predicted = run_baseline(question)
                 elif mode == "single_search":
                     predicted = run_single_search(question, api_key)
                 elif mode == "foraging":
-                    predicted = run_foraging(
+                    predicted, trace = run_foraging(
                         question,
                         api_key,
                         threshold=args.threshold,
@@ -392,6 +432,8 @@ def main():
                 "time": round(elapsed, 2),
                 "mode": mode,
             }
+            if trace is not None:
+                detail["trace"] = trace
             results[mode]["details"].append(detail)
 
             mark = "OK" if correct else "WRONG"

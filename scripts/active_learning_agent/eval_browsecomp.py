@@ -26,7 +26,7 @@ import torch
 import pandas as pd
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-MODEL_NAME = "google/gemma-3-4b-it"
+MODEL_NAME = "Qwen/Qwen3.5-27B"
 
 
 # ---------------------------------------------------------------------------
@@ -75,10 +75,12 @@ def get_model():
     if _model is None:
         print(f"Loading {MODEL_NAME}...")
         _tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+        from transformers import BitsAndBytesConfig
+        quantization_config = BitsAndBytesConfig(load_in_8bit=True)
         _model = AutoModelForCausalLM.from_pretrained(
             MODEL_NAME,
-            dtype=torch.float16,
-            device_map="auto",
+            quantization_config=quantization_config,
+            device_map="cuda",
         )
         _model.eval()
         print("Model loaded.")
@@ -92,7 +94,9 @@ def get_model():
 
 def generate(prompt, max_new_tokens=256, temperature=0.7):
     model, tokenizer = get_model()
-    inputs = tokenizer(prompt, return_tensors="pt", return_attention_mask=True).to(model.device)
+    messages = [{"role": "user", "content": prompt}]
+    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = tokenizer(text, return_tensors="pt", return_attention_mask=True).to(model.device)
     gen_kwargs = dict(
         max_new_tokens=max_new_tokens,
         pad_token_id=tokenizer.eos_token_id,
@@ -213,13 +217,23 @@ def run_single_search(question, api_key):
 # ---------------------------------------------------------------------------
 
 
-def generate_candidates(question, k=5):
-    prompt = (
-        f"Given this question, generate {k} diverse possible answers.\n"
-        f"Each answer should be short and direct (a few words).\n"
-        f"One per line, numbered 1-{k}.\n\n"
-        f"Question: {question}\n\n"
-    )
+def generate_candidates(question, k=5, search_context=None):
+    if search_context:
+        prompt = (
+            f"Based on the following search results, generate {k} diverse possible "
+            f"answers to the question below.\n"
+            f"Each answer should be short and direct (a few words).\n"
+            f"One per line, numbered 1-{k}.\n\n"
+            f"Search results:\n{search_context}\n\n"
+            f"Question: {question}\n\n"
+        )
+    else:
+        prompt = (
+            f"Given this question, generate {k} diverse possible answers.\n"
+            f"Each answer should be short and direct (a few words).\n"
+            f"One per line, numbered 1-{k}.\n\n"
+            f"Question: {question}\n\n"
+        )
     raw = generate(prompt, temperature=0.9)
     candidates = []
     for line in raw.split("\n"):
@@ -280,22 +294,71 @@ def compute_efe(action, candidates, context, question):
 
 
 def run_foraging(question, api_key, threshold=0.5, max_iterations=5, k=5):
-    candidates = generate_candidates(question, k=k)
-    if not candidates:
-        return run_single_search(question, api_key)
+    trace = {"candidates": [], "iterations": [], "final": {}}
 
-    context = ""
-    searches = []
+    # Phase 0: initial search to ground candidate generation
+    # Summarise long questions into a short search query
+    initial_query = generate(
+        f"Write a 10-word web search query for this question.\n\n"
+        f"Question: {question}\n\n"
+        f"10-word query:",
+        max_new_tokens=64,
+        temperature=0.0,
+    )
+    # Strip thinking tags if present (Qwen3.5 thinking mode)
+    if "</think>" in initial_query:
+        initial_query = initial_query.split("</think>")[-1]
+    initial_query = initial_query.split("\n")[0].strip().strip('"').strip("'")
+    # Enforce Brave limits: 400 chars, 50 words
+    words = initial_query.split()
+    if len(words) > 15:
+        initial_query = " ".join(words[:15])
+    if len(initial_query) > 400:
+        initial_query = initial_query[:400]
+    if not initial_query:
+        initial_query = " ".join(question.split()[:10])
+    initial_results = brave_search(initial_query, api_key, count=10)
+    initial_evidence = format_search_results(initial_results)
+    trace["initial_search"] = {
+        "query": initial_query,
+        "num_results": len(initial_results),
+        "results": [
+            {"title": r["title"], "snippet": r["snippet"][:120]}
+            for r in initial_results[:5]
+        ],
+    }
+
+    # Generate candidates informed by search results
+    candidates = generate_candidates(question, k=k, search_context=initial_evidence)
+    if not candidates:
+        return run_single_search(question, api_key), {"fallback": "no candidates"}
+
+    trace["candidates"] = candidates
+
+    context = f"---\nSearch: {initial_query}\nResults:\n{initial_evidence}"
+    searches = [initial_query]
 
     for t in range(max_iterations):
         scores = score_candidates(candidates, context, question)
         H = entropy(scores)
+        p = softmax(scores)
+
+        iteration = {
+            "t": t,
+            "entropy": round(float(H), 4),
+            "beliefs": {c: round(float(p[i]), 4) for i, c in enumerate(candidates)},
+            "log_scores": {c: round(float(scores[i]), 2) for i, c in enumerate(candidates)},
+        }
 
         if H < threshold:
+            iteration["action"] = "converged"
+            trace["iterations"].append(iteration)
             break
 
         actions = generate_search_queries(question, context)
         if not actions:
+            iteration["action"] = "no queries generated"
+            trace["iterations"].append(iteration)
             break
 
         # select action with minimum EFE
@@ -304,19 +367,45 @@ def run_foraging(question, api_key, threshold=0.5, max_iterations=5, k=5):
             G = compute_efe(a, candidates, context, question)
             G_values.append(G)
 
-        best_action = actions[np.argmin(G_values)]
+        best_idx = int(np.argmin(G_values))
+        best_action = actions[best_idx]
         searches.append(best_action)
+
+        iteration["candidate_queries"] = [
+            {"query": a, "G": round(float(G_values[i]), 4)}
+            for i, a in enumerate(actions)
+        ]
+        iteration["selected_query"] = best_action
+        iteration["selected_G"] = round(float(G_values[best_idx]), 4)
 
         # execute real search
         results = brave_search(best_action, api_key, count=10)
         evidence = format_search_results(results)
         context += f"\n\n---\nSearch: {best_action}\nResults:\n{evidence}"
 
+        iteration["search_results"] = [
+            {"title": r["title"], "snippet": r["snippet"][:120]}
+            for r in results[:5]
+        ]
+        iteration["num_results"] = len(results)
+
+        trace["iterations"].append(iteration)
+
     # final scoring
     scores = score_candidates(candidates, context, question)
-    winner = candidates[np.argmax(scores)]
+    p = softmax(scores)
+    winner_idx = int(np.argmax(scores))
+    winner = candidates[winner_idx]
 
-    return winner
+    trace["final"] = {
+        "entropy": round(float(entropy(scores)), 4),
+        "beliefs": {c: round(float(p[i]), 4) for i, c in enumerate(candidates)},
+        "log_scores": {c: round(float(scores[i]), 2) for i, c in enumerate(candidates)},
+        "winner": winner,
+        "num_searches": len(searches),
+    }
+
+    return winner, trace
 
 
 # ---------------------------------------------------------------------------
@@ -420,13 +509,14 @@ def main():
 
         for mode in modes:
             t0 = time.time()
+            trace = None
             try:
                 if mode == "baseline":
                     predicted = run_baseline(question)
                 elif mode == "single_search":
                     predicted = run_single_search(question, api_key)
                 elif mode == "foraging":
-                    predicted = run_foraging(
+                    predicted, trace = run_foraging(
                         question,
                         api_key,
                         threshold=args.threshold,
@@ -457,6 +547,8 @@ def main():
                 "mode": mode,
                 "topic": topic,
             }
+            if trace is not None:
+                detail["trace"] = trace
             results[mode]["details"].append(detail)
 
             mark = "OK" if correct else "WRONG"

@@ -95,7 +95,7 @@ def get_model():
 def generate(prompt, max_new_tokens=256, temperature=0.7):
     model, tokenizer = get_model()
     messages = [{"role": "user", "content": prompt}]
-    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
     inputs = tokenizer(text, return_tensors="pt", return_attention_mask=True).to(model.device)
     gen_kwargs = dict(
         max_new_tokens=max_new_tokens,
@@ -413,28 +413,39 @@ def run_foraging(question, api_key, threshold=0.5, max_iterations=5, k=5):
 # ---------------------------------------------------------------------------
 
 
-def grade_answer(question, predicted, gold):
-    """Grade using the LLM as judge (same model, following BrowseComp approach)."""
+def grade_answer_ollama(question, predicted, gold, ollama_url="http://localhost:11434", judge_model="qwen2.5:32b"):
+    """Grade using a separate LLM via ollama as judge (avoids circular self-grading)."""
     prompt = (
-        f"You are grading an answer to a question. Check if the predicted "
-        f"answer is essentially the same as the correct answer.\n\n"
+        f"You are grading an answer. Check if the predicted answer is "
+        f"essentially the same as the correct answer. Minor differences in "
+        f"formatting, capitalization, or phrasing are OK.\n\n"
         f"Question: {question}\n"
         f"Correct answer: {gold}\n"
         f"Predicted answer: {predicted}\n\n"
         f"Is the predicted answer correct? Reply with ONLY 'yes' or 'no'."
     )
-    response = generate(prompt, max_new_tokens=8, temperature=0.0).lower().strip()
-    return "yes" in response
+    try:
+        resp = requests.post(
+            f"{ollama_url}/api/generate",
+            json={"model": judge_model, "prompt": prompt, "stream": False,
+                  "options": {"temperature": 0.0, "num_predict": 8}},
+            timeout=30,
+        )
+        return "yes" in resp.json().get("response", "").lower()
+    except Exception:
+        return False
 
 
 def normalize(text):
     return text.strip().lower().rstrip(".")
 
 
-def is_correct_substring(predicted, gold):
-    """Fallback: substring match."""
+def is_correct(predicted, gold):
+    """Check correctness: normalized substring match with minimum length guard."""
     p = normalize(predicted)
     g = normalize(gold)
+    if len(p) < 3 or len(g) < 3:
+        return p == g
     return g in p or p in g
 
 
@@ -529,9 +540,9 @@ def main():
             elapsed = time.time() - t0
 
             # score with both methods
-            correct_sub = is_correct_substring(predicted, gold)
-            correct_llm = grade_answer(question, predicted, gold)
-            correct = correct_sub or correct_llm
+            correct_str = is_correct(predicted, gold)
+            correct_llm = grade_answer_ollama(question, predicted, gold)
+            correct = correct_str or correct_llm
 
             results[mode]["correct"] += int(correct)
             results[mode]["total"] += 1
@@ -541,7 +552,7 @@ def main():
                 "gold": gold,
                 "predicted": predicted,
                 "correct": correct,
-                "correct_substring": correct_sub,
+                "correct_string": correct_str,
                 "correct_llm": correct_llm,
                 "time": round(elapsed, 2),
                 "mode": mode,

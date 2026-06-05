@@ -136,9 +136,21 @@ Switching to `Qwen/Qwen3.5-27B` — on the BrowseComp leaderboard at 61.0% (with
 
 ### First Qwen3.5-27B results (partial, with bugs)
 
-Result: **2/10 correct = 20%** (BrowseComp Sports). But 5/10 failed with 422 errors (query summarization still broken due to thinking mode). Very slow (600s per question on CPU-offloaded run).
+Result: **0/10 correct** (BrowseComp Sports). Initially reported as 2/10 but both "correct" answers were false positives: the model outputted `1` (garbage from thinking mode leak) and the substring matcher matched `"1"` inside `"1990 May 08"`. Fixed scorer to require minimum 3 characters for substring match.
 
-Still, 2/10 is a real signal — the model has enough knowledge to sometimes generate correct candidates and the foraging loop can work. Fixing the remaining issues (thinking mode stripping, GPU-only loading) and re-running.
+5/10 failed with 422 errors (query summarization broken — thinking mode consumed all tokens). Remaining 5 produced garbage answers from leaked thinking content. Very slow (600s per question on CPU-offloaded run).
+
+### Fixes applied
+
+1. **8-bit quantization**: Switched from bfloat16 to 8-bit via `BitsAndBytesConfig(load_in_8bit=True)`. Halves memory to ~27GB, fits comfortably on A6000 80GB. Requires `bitsandbytes>=0.46.1`.
+
+2. **Thinking mode disabled**: Qwen3.5 has a thinking mode that outputs `<think>...</think>` tags before the actual response. This caused two problems:
+   - Query summarization consumed all `max_new_tokens` on thinking, never producing the actual query
+   - Generated answers started with `**Analyze the Request:**` (thinking content leaking through after tag stripping)
+
+   Fix: `tokenizer.apply_chat_template(..., enable_thinking=False)`. This skips the thinking phase entirely and outputs the answer directly. Also saves tokens and latency.
+
+3. **Brave API limits**: Brave Search has a 400 character / 50 word limit on queries. Added hard truncation and fallback (first 10 words of question) after LLM-based query summarization.
 
 ### Staged files
 

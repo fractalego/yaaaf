@@ -314,6 +314,71 @@ Implemented in `scripts/active_learning_agent/eval_browsecomp.py`:
 rewritten `run_foraging` controller. Knobs: `--tau-regen` (default 0.4),
 `--max-regen` (default 3). See the experiment log for results.
 
+## Decomposition: when the Evidence (not the Model) is the Bottleneck
+
+Regeneration changes the hypothesis space using *existing* evidence. But on
+multi-hop questions the answer is not in the evidence at all — no amount of
+re-mining surfaces it. The empirical signature (sixth run) is sharp: **escape
+mass stays high across multiple regenerations and never falls**. The agent has
+expanded its model and the model still cannot explain the evidence, because the
+evidence lacks the answer.
+
+This gives a clean control signal. Two distinct uncertainties drive two distinct
+actions:
+
+- **Model-inadequacy that re-mining can fix** → `escape_mass` high, but *falling*
+  after regeneration → keep regenerating.
+- **Model-inadequacy that re-mining cannot fix** → `escape_mass` high and *not
+  falling* after regeneration → the evidence is the bottleneck → **gather
+  different observations** (decompose).
+
+In active-inference terms: when model expansion stops reducing expected free
+energy, the EFE-minimising action switches from changing the generative model to
+sampling new observations. Decomposition is that observation-gathering action,
+specialised for multi-hop: resolve one intermediate latent at a time.
+
+### The decomposition action
+
+A multi-hop question is a chain of latents
+`question → e_1 → e_2 → ... → answer` (referee → their matches → the match with
+four yellow cards → the teams). Searching the literal question is single-hop and
+retrieves nothing. Instead, resolve the chain link by link:
+
+```
+next_subquestion(question, known_facts)  -- pick the single most useful next latent e_i
+gather_evidence(subquestion)             -- search + fetch page bodies for e_i
+extract_fact(subquestion, evidence)      -- resolve e_i to a short entity
+known_facts += (subquestion, e_i)        -- substitute into subsequent hops
+mine_candidates(question, enriched C)    -- candidates now informed by resolved chain
+```
+
+`known_facts` is the scratchpad of resolved latents; each resolution conditions
+the next sub-question, so the chain narrows toward the answer.
+
+### The escalating control law
+
+On a high escape mass, the controller tries actions in increasing cost, gated by
+a **staleness** test (did the previous regeneration actually lower escape mass?):
+
+```
+if escape_mass > τ_regen:
+    if regeneration not yet stale and budget left:   regenerate   (cheap: re-mine current C)
+    elif decompose budget left:                      decompose    (costly: resolve a new latent)
+else if H low and escape low and searched:           converge
+else:                                                search (EFE) (fall-through)
+```
+
+After a decompose, the staleness counter resets — fresh evidence may make
+re-mining productive again — so the loop alternates regenerate ↔ decompose until
+either budget is spent. Knobs: `--max-decomp` (default 3), `--regen-patience`
+(default 1, i.e. one stale regeneration before switching to decompose).
+
+This is a three-level hierarchy of action by what each one changes:
+**belief** (search, within a fixed model) ⊂ **model structure** (regenerate, new
+candidates from same evidence) ⊂ **evidence** (decompose, new observations of
+new latents) — each invoked only when the cheaper level stops reducing free
+energy.
+
 ---
 
 ## Evaluation Plan

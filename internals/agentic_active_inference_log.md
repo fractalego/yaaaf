@@ -222,7 +222,40 @@ Changes to `eval_browsecomp.py`:
 
 4. **Page-body fetching** — `fetch_page()` (requests + BeautifulSoup/lxml, cached) pulls the top-N result pages; `extract_passages()` keeps the highest keyword-overlap windows (so the answer-bearing region survives the context budget); `gather_evidence()` wraps search + fetch and now feeds the initial search, every foraging search, and `single_search`. New knob `--n-fetch` (default 3, 0 = snippets only). Verified offline: fetching the Amr Zaki Wikipedia page + keyword extraction surfaces "born 1983 … Wigan Athletic …" — exactly the evidence that was previously absent.
 
-Net: ceiling 1 is fixed (gate can fire, belief is length-fair), and ceiling 2 is attacked (answers now reachable in page bodies). Runtime caveat: page bodies lengthen the context, and scoring runs a forward pass per candidate per iteration, so wall-time per question will rise — reduce `--max-iter` or `--n-fetch` if needed. Eval rerun pending.
+Net: ceiling 1 is fixed (gate can fire, belief is length-fair), and ceiling 2 is attacked (answers now reachable in page bodies). Runtime caveat: page bodies lengthen the context, and scoring runs a forward pass per candidate per iteration, so wall-time per question will rise — reduce `--max-iter` or `--n-fetch` if needed.
+
+### Sixth run result: 1/10 — first non-zero, the loop works end-to-end
+
+Ran it (Qwen3.5-27B, foraging, 10 Sports, `--max-iter 4 --n-fetch 3`). **1/10**, first non-zero score.
+
+**The gate now works.** `escape_mass` is live (0.05–0.85) and well-behaved: high when the candidate set is wrong (Q1 0.77, Q3 0.60, Q9 0.81), low when the model believes the answer is present (Q5 0.08). Regeneration fires 1–3× on most questions. The length-bias fix (YES/NO probe) was the unlock.
+
+**Q8 is the existence proof.** The only correct answer ran the full chain: `escape 0.72 → regenerate → gold enters evidence (the only question with gold_in_evidence=True) → escape drops to 0.11 → correct ("26 AUG 1999")`. When evidence contains the gold, sentinel-gate + mining + scoring delivers.
+
+**The ceiling is still retrieval — but sharper.** `gold_in_evidence` is False in 8/9. The decisive new signal: on the multi-hop questions (Q1, Q3, Q4, Q9), **escape_mass stays high across multiple regenerations and searches and never drops**. The gate honestly reports "answer not here," but regeneration just re-mines the same gold-less evidence. *Persistent-high escape after regeneration means the bottleneck is the evidence, not the candidate set.* These questions need intermediate-entity resolution (find the Brazilian referee → then their matches → the one with four yellow cards); we only ever search the literal question, which is single-hop.
+
+This is the coupling to build next: when model-expansion fails to reduce escape mass, the EFE-minimizing action should switch from "expand hypothesis space" (regenerate) to "gather different observations" (decompose into sub-questions).
+
+**Robustness leaks fixed** (cost whole questions in this run):
+- Q2 mining returned empty → bailed to `single_search`. Now falls back to prior-based `generate_candidates` to keep the foraging loop alive.
+- Q7 ended on "no queries generated" (parse failure). `generate_search_queries` now uses `_parse_numbered_list` with a keyword-query fallback instead of terminating.
+
+## Seventh run: escape-gated multi-hop decomposition
+
+`gold_in_evidence` 8/9 False, and the persistent-high-escape signal both point at the same fix: decompose multi-hop questions, resolve intermediate entities sequentially, accumulate evidence, then mine. Implemented it gated by the meta-belief.
+
+**The control law now has three actions on a high escape mass**, in escalating cost:
+1. **regenerate** (cheap) — re-mine the *current* evidence for new candidates.
+2. **decompose** (when regeneration goes stale) — `next_subquestion()` picks the single most useful intermediate fact given the facts resolved so far; `gather_evidence()` searches+fetches for it; `extract_fact()` resolves it to a short entity appended to a `known_facts` scratchpad; candidates are re-mined from the enriched evidence.
+3. **search** (EFE) — fall-through when both above are exhausted.
+
+**Staleness detection** is the trigger: after a regeneration, the next iteration checks whether escape mass actually dropped (`escape_mass > prev_escape - 0.05` ⇒ stale). Once `stale_regens >= regen_patience` (default 1), the agent stops re-mining and decomposes instead. After a decompose, `stale_regens` resets — new evidence may make regeneration useful again, so the loop naturally alternates regenerate ↔ decompose until either budget (`--max-regen`, `--max-decomp`, both default 3) is spent. This is the intended active-inference move: model-expansion failing to reduce the meta-belief flips the EFE-minimizing action to observation-gathering.
+
+New knobs: `--max-decomp` (3), `--regen-patience` (1). Trace now records `action: "decompose"`, `subquestion`, `resolved_fact`, plus `num_decompositions` and `known_facts` in `final`.
+
+Also fixed two robustness leaks from the sixth run: empty initial mining now falls back to prior-based candidates instead of bailing to `single_search`; `generate_search_queries` uses `_parse_numbered_list` with a keyword-query fallback instead of terminating on a parse failure.
+
+Eval rerun pending. Key metrics to watch: do decompositions fire on the multi-hop questions (Q1/Q3/Q4/Q9), does `known_facts` accumulate correct intermediate entities, and does `gold_in_evidence` rise above 1/9.
 
 ### Open questions / next
 

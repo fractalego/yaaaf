@@ -417,15 +417,47 @@ def generate_search_queries(question, context):
         f"Evidence: {context if context else '(none yet)'}\n\n"
     )
     raw = generate(prompt, temperature=0.7)
-    actions = []
-    for line in raw.split("\n"):
-        line = line.strip()
-        if line and line[0].isdigit():
-            text = line.split(".", 1)[-1].strip() if "." in line[:3] else line
-            text = text.split(")", 1)[-1].strip() if ")" in text[:3] else text
-            if text:
-                actions.append(text)
-    return actions[:3]
+    actions = _parse_numbered_list(raw)[:3]
+    if not actions:
+        # parse failure -> don't kill the question; fall back to a keyword query
+        actions = [" ".join(question.split()[:12])]
+    return actions
+
+
+def next_subquestion(question, known_facts):
+    """Pick the single most useful intermediate fact to resolve next.
+
+    Used when escape mass stays high after regeneration -- the evidence (not the
+    candidate set) is the bottleneck, so we resolve one hop of the chain.
+    """
+    facts = "\n".join(f"- {q} => {a}" for q, a in known_facts) or "(none yet)"
+    prompt = (
+        f"You are answering a hard multi-step question by resolving one "
+        f"intermediate fact at a time.\n"
+        f"Main question: {question}\n\n"
+        f"Facts resolved so far:\n{facts}\n\n"
+        f"What is the SINGLE most useful next intermediate fact to look up that "
+        f"moves toward the final answer? Phrase it as one specific, searchable "
+        f"sub-question. Output only the sub-question, nothing else.\n\n"
+    )
+    raw = generate(prompt, max_new_tokens=48, temperature=0.5)
+    if "</think>" in raw:
+        raw = raw.split("</think>")[-1]
+    subq = raw.strip().split("\n")[0].strip().strip('"').strip("'")
+    return subq
+
+
+def extract_fact(subquestion, evidence):
+    """Resolve a sub-question from evidence to a short entity, or 'unknown'."""
+    prompt = (
+        f"Based ONLY on the evidence, answer the sub-question with a short, "
+        f"specific answer (a name, date, or short phrase). If the evidence does "
+        f"not answer it, reply exactly 'unknown'.\n\n"
+        f"Sub-question: {subquestion}\n\n"
+        f"Evidence:\n{evidence}\n\n"
+        f"Answer:"
+    )
+    return generate(prompt, max_new_tokens=32, temperature=0.0).strip()
 
 
 def predict_observation(action, context):
@@ -468,6 +500,15 @@ def set_adequacy(candidates, context, question):
     return float(p[0])  # escape mass = P(NO)
 
 
+def cap_pool(candidates, context, question, pool_cap):
+    """Keep the pool_cap most-believed candidates (by length-normalized score)."""
+    if len(candidates) <= pool_cap:
+        return candidates
+    rs = score_candidates(candidates, context, question)
+    keep = np.argsort(rs)[::-1][:pool_cap]
+    return [candidates[i] for i in sorted(keep)]
+
+
 def score_with_sentinel(candidates, context, question):
     """Returns (real_scores, escape_mass, H).
 
@@ -489,6 +530,8 @@ def run_foraging(
     k=5,
     tau_regen=0.4,
     max_regen=3,
+    max_decomp=3,
+    regen_patience=1,
     pool_cap=12,
 ):
     trace = {"candidates": [], "iterations": [], "final": {}}
@@ -532,13 +575,22 @@ def run_foraging(
     # Candidates are MINED from the evidence, not sampled from priors.
     candidates = mine_candidates(question, context, k=k)
     if not candidates:
+        # mining parse failed -> keep the loop alive with prior-based candidates
+        # (the regeneration gate will replace them once evidence improves)
+        candidates = generate_candidates(question, k=k, search_context=initial_evidence)
+    if not candidates:
         return run_single_search(question, api_key), {"fallback": "no candidates"}
     trace["candidates"] = list(candidates)
 
     regenerations = 0
+    decompositions = 0
     real_searches = 0
+    known_facts = []
+    stale_regens = 0          # consecutive regenerations that failed to drop escape
+    prev_escape = None
+    last_was_regen = False
     step = 0
-    max_steps = max_iterations + max_regen + 2
+    max_steps = max_iterations + max_regen + max_decomp + 2
 
     while step < max_steps and real_searches < max_iterations:
         step += 1
@@ -546,6 +598,15 @@ def run_foraging(
             candidates, context, question
         )
         p = softmax(real_scores)
+
+        # Did the previous regeneration actually reduce the meta-belief? If not,
+        # re-mining is exhausted -- the EVIDENCE is the bottleneck, not the set.
+        if last_was_regen:
+            if prev_escape is not None and escape_mass > prev_escape - 0.05:
+                stale_regens += 1
+            else:
+                stale_regens = 0
+        last_was_regen = False
 
         iteration = {
             "step": step,
@@ -558,23 +619,67 @@ def run_foraging(
             },
         }
 
-        # --- META GATE: candidate set inadequate -> regenerate (expand-only) ---
-        if escape_mass > tau_regen and regenerations < max_regen:
-            new = mine_candidates(question, context, k=k, existing=candidates)
-            new = [c for c in new if c not in candidates]
-            if new:
-                candidates = candidates + new
-                # cap the pool to the most-believed candidates
-                if len(candidates) > pool_cap:
-                    rs, _, _ = score_with_sentinel(candidates, context, question)
-                    keep = np.argsort(rs)[::-1][:pool_cap]
-                    candidates = [candidates[i] for i in sorted(keep)]
-                regenerations += 1
-                iteration["action"] = "regenerate"
-                iteration["new_candidates"] = new
-                trace["iterations"].append(iteration)
-                continue
-            # no new candidates surfaced -> fall through to search for more evidence
+        # --- META GATE: candidate set inadequate (escape mass high) ---
+        if escape_mass > tau_regen:
+            # (a) cheap first: re-mine current evidence (regenerate, expand-only)
+            if stale_regens < regen_patience and regenerations < max_regen:
+                new = [
+                    c
+                    for c in mine_candidates(question, context, k=k, existing=candidates)
+                    if c not in candidates
+                ]
+                if new:
+                    candidates = cap_pool(
+                        candidates + new, context, question, pool_cap
+                    )
+                    regenerations += 1
+                    last_was_regen = True
+                    prev_escape = escape_mass
+                    iteration["action"] = "regenerate"
+                    iteration["new_candidates"] = new
+                    trace["iterations"].append(iteration)
+                    continue
+                stale_regens = regen_patience  # nothing new -> regeneration is stale
+
+            # (b) regeneration stale/exhausted: resolve one intermediate hop
+            #     (decompose) to get genuinely NEW evidence
+            if decompositions < max_decomp:
+                subq = next_subquestion(question, known_facts)
+                if subq:
+                    ev, res = gather_evidence(subq, api_key, question=question)
+                    fact = extract_fact(subq, ev)
+                    context += (
+                        f"\n\n---\nSub-question: {subq}\nResolved: {fact}\n"
+                        f"Evidence:\n{ev}"
+                    )
+                    if fact and fact.lower() != "unknown":
+                        known_facts.append((subq, fact))
+                    new = [
+                        c
+                        for c in mine_candidates(
+                            question, context, k=k, existing=candidates
+                        )
+                        if c not in candidates
+                    ]
+                    if new:
+                        candidates = cap_pool(
+                            candidates + new, context, question, pool_cap
+                        )
+                    decompositions += 1
+                    real_searches += 1
+                    stale_regens = 0      # new evidence may make regen useful again
+                    prev_escape = None
+                    iteration["action"] = "decompose"
+                    iteration["subquestion"] = subq
+                    iteration["resolved_fact"] = fact
+                    iteration["new_candidates"] = new
+                    iteration["search_results"] = [
+                        {"title": r["title"], "snippet": r["snippet"][:120]}
+                        for r in res[:5]
+                    ]
+                    trace["iterations"].append(iteration)
+                    continue
+            # both regenerate and decompose exhausted -> fall through
 
         # --- CONVERGE: set adequate, confident, and we actually foraged ---
         if H < threshold and escape_mass <= tau_regen and real_searches >= 1:
@@ -630,6 +735,8 @@ def run_foraging(
         "winner": winner,
         "num_searches": len(searches),
         "num_regenerations": regenerations,
+        "num_decompositions": decompositions,
+        "known_facts": [{"q": q, "a": a} for q, a in known_facts],
     }
 
     return winner, trace
@@ -712,6 +819,14 @@ def main():
         "--n-fetch", type=int, default=3,
         help="Page bodies to fetch per search (0 = snippets only)",
     )
+    parser.add_argument(
+        "--max-decomp", type=int, default=3,
+        help="Max multi-hop decomposition steps per question",
+    )
+    parser.add_argument(
+        "--regen-patience", type=int, default=1,
+        help="Regenerations to try before switching to decomposition",
+    )
     parser.add_argument("--output", type=str, default="browsecomp_results.jsonl")
     parser.add_argument(
         "--dataset", type=str, default="browse_comp_test_set.csv",
@@ -776,6 +891,8 @@ def main():
                         max_iterations=args.max_iter,
                         tau_regen=args.tau_regen,
                         max_regen=args.max_regen,
+                        max_decomp=args.max_decomp,
+                        regen_patience=args.regen_patience,
                     )
                 else:
                     continue

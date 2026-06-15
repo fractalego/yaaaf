@@ -315,6 +315,12 @@ False-case breakdown: wrong-chain decomposition (Q4/Q7/Q9 resolve a plausible-bu
 
 **Next lever is retrieval correctness, not the belief machinery:** verify that resolved sub-facts satisfy ALL question constraints (catch wrong-chain), force foraging when the question presents constraints rather than a direct lookup (catch Q5), and reject non-entity candidates (catch Q6). Deferred — switching to a small model (Qwen2.5-3B) next to probe how much of this stack survives at 3B.
 
+### Ninth run: Qwen2.5-3B-Instruct (bf16, no quant) — 0/10, the stack collapses
+
+Switched to `Qwen/Qwen2.5-3B-Instruct`, full bf16 (8-bit quant removed — pointless on 80GB for a 3B model). **0/10**, and notably **even the type latent broke**: e.g. Q8 returned "Tegla Loroupe" (the person) when the gold is a *date*, and answers across the board were the wrong *kind* of thing. Runs were fast (~80–290s vs ~400–1300s at 27B), consistent with premature convergence / shallow foraging.
+
+**Finding for the project goal:** the harness has a **minimum-capability floor**. The active-inference machinery (type inference, sub-question generation, clean entity mining, structured output) all assume a model competent enough to drive them; at 3B those steps degrade and the controller has nothing coherent to work with. The harness can recover *agency* from a non-agentic model, but not *base competence* from a model that lacks it. This bounds the thesis: the target is capable-but-non-agentic models, not arbitrarily small ones. Moving up to Qwen2.5-14B-Instruct (bf16) to find where the stack starts working.
+
 ### Open questions / next
 
 - **Calibrating `τ_regen`.** The sentinel string's wording sets `s_0`'s baseline logprob, hence the effective threshold. Needs tuning on a few real traces.

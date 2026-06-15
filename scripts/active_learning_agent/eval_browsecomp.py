@@ -27,7 +27,7 @@ import torch
 import pandas as pd
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-MODEL_NAME = "Qwen/Qwen2.5-3B-Instruct"
+MODEL_NAME = "Qwen/Qwen2.5-14B-Instruct"
 
 
 # ---------------------------------------------------------------------------
@@ -514,18 +514,27 @@ def generate_search_queries(question, context):
     return actions
 
 
-def next_subquestion(question, known_facts):
+def next_subquestion(question, known_facts, focus_constraint=None):
     """Pick the single most useful intermediate fact to resolve next.
 
     Used when escape mass stays high after regeneration -- the evidence (not the
-    candidate set) is the bottleneck, so we resolve one hop of the chain.
+    candidate set) is the bottleneck, so we resolve one hop of the chain. When a
+    focus_constraint is given (the constraint no current candidate satisfies),
+    the sub-question is directed at finding an entity that satisfies it.
     """
     facts = "\n".join(f"- {q} => {a}" for q, a in known_facts) or "(none yet)"
+    focus = (
+        f"Focus on finding an entity that satisfies THIS specific constraint, "
+        f"which no current candidate satisfies:\n  {focus_constraint}\n\n"
+        if focus_constraint
+        else ""
+    )
     prompt = (
         f"You are answering a hard multi-step question by resolving one "
         f"intermediate fact at a time.\n"
         f"Main question: {question}\n\n"
         f"Facts resolved so far:\n{facts}\n\n"
+        f"{focus}"
         f"What is the SINGLE most useful next intermediate fact to look up that "
         f"moves toward the final answer? Phrase it as one specific, searchable "
         f"sub-question. Output only the sub-question, nothing else.\n\n"
@@ -565,6 +574,75 @@ def compute_efe(action, candidates, context, question):
     updated_context = f"{context}\n\n{o_predicted}" if context else o_predicted
     updated_scores = score_candidates(candidates, updated_context, question)
     return entropy(updated_scores)
+
+
+# ---------------------------------------------------------------------------
+# Constraint-grounded belief
+#
+# A BrowseComp question is a conjunction of constraints. Instead of scoring a
+# candidate by raw answer-string logprob, we score it by how many constraints
+# the evidence verifiably supports -- a product of per-constraint satisfaction
+# probabilities. This (a) crushes famous-but-wrong entities that fail specific
+# constraints, and (b) tells us which constraint no candidate satisfies, so
+# foraging can be directed at it.
+# ---------------------------------------------------------------------------
+
+
+def extract_constraints(question, max_constraints=6):
+    """Decompose the question into its individual factual constraints."""
+    prompt = (
+        f"Break this question into its individual factual constraints -- the "
+        f"separate conditions the correct answer must satisfy.\n"
+        f"List up to {max_constraints}, one per line, numbered. Each should be a "
+        f"single checkable condition, phrased as a statement.\n\n"
+        f"Question: {question}\n\n"
+    )
+    raw = generate(prompt, temperature=0.3)
+    return _parse_numbered_list(raw)[:max_constraints]
+
+
+def yes_no_prob(prompt):
+    """P(Yes) from a single forward pass -- next-token Yes/No probability."""
+    model, tokenizer = get_model()
+    ids = tokenizer.encode(prompt, add_special_tokens=False)
+    input_ids = torch.tensor([ids], device=model.device)
+    with torch.no_grad():
+        logits = model(input_ids).logits[0, -1]
+    lp = torch.log_softmax(logits, dim=-1)
+    yes_id = tokenizer.encode(" Yes", add_special_tokens=False)[0]
+    no_id = tokenizer.encode(" No", add_special_tokens=False)[0]
+    p = softmax(np.array([lp[no_id].item(), lp[yes_id].item()]))
+    return float(p[1])
+
+
+def candidate_constraint_sat(candidate, context, constraints):
+    """Vector of P(constraint_j satisfied | candidate, evidence)."""
+    sat = np.zeros(len(constraints))
+    for j, c in enumerate(constraints):
+        prompt = (
+            f"Evidence:\n{context}\n\n"
+            f"Candidate answer: {candidate}\n"
+            f"Constraint: {c}\n\n"
+            f"Based on the evidence, does the candidate answer satisfy this "
+            f"constraint? Answer Yes or No.\nAnswer:"
+        )
+        sat[j] = yes_no_prob(prompt)
+    return sat
+
+
+def constraint_belief(pool, context, constraints):
+    """Returns (scores, sat_matrix, escape).
+
+    scores      -- aggregate log-satisfaction Σ_j log p(c_j|s_i) per candidate
+    sat_matrix  -- (n_candidates, n_constraints) satisfaction probabilities
+    escape      -- 1 - (best candidate's mean satisfaction); high when no
+                   candidate satisfies the constraints
+    """
+    eps = 1e-3
+    sat = np.array([candidate_constraint_sat(c, context, constraints) for c in pool])
+    scores = np.log(sat + eps).sum(axis=1)
+    escape = 1.0 - float(sat.mean(axis=1).max()) if len(pool) else 1.0
+    return scores, sat, escape
 
 
 def set_adequacy(candidates, context, question):
@@ -697,6 +775,12 @@ def run_foraging(
     # and conditioned on the type (predictions flowing down T -> s).
     types = generate_types(question, m=n_types)
     trace["types"] = list(types)
+
+    # Constraint decomposition: the conjunction of conditions the answer must
+    # satisfy. Drives constraint-grounded scoring, escape, and directed search.
+    constraints = extract_constraints(question)
+    trace["constraints"] = list(constraints)
+
     pool, ptype = [], []
     mine_typed(question, context, types, k_per_type, pool, ptype)
     if not pool:
@@ -723,16 +807,34 @@ def run_foraging(
     max_steps = max_iterations + max_regen + max_decomp + 2
 
     def belief_state():
-        """Recompute the full hierarchical belief over the current typed pool."""
-        scores = score_candidates(pool, context, question)
-        escape = set_adequacy(pool, context, question)
+        """Recompute the full hierarchical belief over the current typed pool.
+
+        When constraints exist, candidate scores are constraint-grounded
+        (Σ_j log p(constraint_j | candidate, evidence)) and escape mass is
+        constraint-based; otherwise fall back to answer-string logprob + the
+        YES/NO adequacy probe. Returns sat (satisfaction matrix) for directing
+        foraging at the weakest constraint.
+        """
+        if constraints:
+            scores, sat, escape = constraint_belief(pool, context, constraints)
+        else:
+            scores = score_candidates(pool, context, question)
+            sat = None
+            escape = set_adequacy(pool, context, question)
         qT, H_T, _, _ = infer_type_belief(question, types, ptype, scores, lam=type_lam)
         qs = marginal_belief(types, ptype, scores, qT)
-        return scores, escape, qT, H_T, qs, entropy_p(qs)
+        return scores, escape, qT, H_T, qs, entropy_p(qs), sat
+
+    def weakest_constraint(sat):
+        """The constraint least satisfied by ANY candidate -- the one to forage
+        for. Returns the constraint string, or None."""
+        if sat is None or not constraints or sat.size == 0:
+            return None
+        return constraints[int(np.argmin(sat.max(axis=0)))]
 
     while step < max_steps and real_searches < max_iterations:
         step += 1
-        scores, escape_mass, qT, H_T, qs, H_s = belief_state()
+        scores, escape_mass, qT, H_T, qs, H_s, sat = belief_state()
         map_type = types[int(np.argmax(qT))]
 
         # Did the previous regeneration actually reduce the meta-belief? If not,
@@ -744,6 +846,7 @@ def run_foraging(
                 stale_regens = 0
         last_was_regen = False
 
+        weak_c = weakest_constraint(sat)
         iteration = {
             "step": step,
             "escape_mass": round(escape_mass, 4),
@@ -754,6 +857,13 @@ def run_foraging(
             "type_belief": {types[i]: round(float(qT[i]), 4) for i in range(len(types))},
             "beliefs": {pool[j]: round(float(qs[j]), 4) for j in range(len(pool))},
         }
+        if weak_c is not None:
+            iteration["weakest_constraint"] = weak_c
+            lead = int(np.argmax(qs))
+            iteration["leader_sat"] = {
+                constraints[j]: round(float(sat[lead][j]), 3)
+                for j in range(len(constraints))
+            }
 
         # --- META GATE: candidate set inadequate (escape mass high) ---
         if escape_mass > tau_regen:
@@ -784,7 +894,7 @@ def run_foraging(
             # (b) regeneration stale/exhausted: resolve one intermediate hop
             #     (decompose) to get genuinely NEW evidence
             if decompositions < max_decomp:
-                subq = next_subquestion(question, known_facts)
+                subq = next_subquestion(question, known_facts, focus_constraint=weak_c)
                 if subq:
                     ev, res = gather_evidence(subq, api_key, question=question)
                     fact = extract_fact(subq, ev)
@@ -858,8 +968,8 @@ def run_foraging(
         iteration["num_results"] = len(results)
         trace["iterations"].append(iteration)
 
-    # final answer -- argmax of the type-marginalized belief q(s|C)
-    scores, escape_mass, qT, H_T, qs, H_s = belief_state()
+    # final answer -- argmax of the type-marginalized, constraint-grounded belief
+    scores, escape_mass, qT, H_T, qs, H_s, sat = belief_state()
     winner_idx = int(np.argmax(qs))
     winner = pool[winner_idx]
 
@@ -877,6 +987,11 @@ def run_foraging(
         "num_decompositions": decompositions,
         "known_facts": [{"q": q, "a": a} for q, a in known_facts],
     }
+    if sat is not None and constraints:
+        trace["final"]["winner_sat"] = {
+            constraints[j]: round(float(sat[winner_idx][j]), 3)
+            for j in range(len(constraints))
+        }
 
     return winner, trace
 

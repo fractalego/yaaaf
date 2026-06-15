@@ -27,7 +27,7 @@ import torch
 import pandas as pd
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-MODEL_NAME = "Qwen/Qwen3.5-27B"
+MODEL_NAME = "Qwen/Qwen2.5-3B-Instruct"
 
 
 # ---------------------------------------------------------------------------
@@ -76,11 +76,12 @@ def get_model():
     if _model is None:
         print(f"Loading {MODEL_NAME}...")
         _tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-        from transformers import BitsAndBytesConfig
-        quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+        # Full bf16 -- no quantization. Small models (e.g. Qwen2.5-3B) fit easily
+        # on an 80GB GPU and run faster un-quantized; logprob scoring is also
+        # cleaner without 8-bit rounding.
         _model = AutoModelForCausalLM.from_pretrained(
             MODEL_NAME,
-            quantization_config=quantization_config,
+            dtype=torch.bfloat16,
             device_map="cuda",
         )
         _model.eval()
@@ -327,11 +328,14 @@ def _parse_numbered_list(raw):
     return items
 
 
-def mine_candidates(question, context, k=5, existing=None):
+def mine_candidates(question, context, k=5, existing=None, answer_type=None):
     """Candidate generation as an action: extract specific entities from the
     accumulated evidence C that could answer the question. Candidates are
     grounded in retrieved text, NOT sampled from parametric priors -- this is
     what lets obscure gold answers enter the state space.
+
+    When answer_type is given, mining is conditioned on it (predictions flowing
+    DOWN the hierarchy T -> s): only entities that are an instance of that type.
     """
     existing = existing or []
     avoid = ""
@@ -341,13 +345,21 @@ def mine_candidates(question, context, k=5, existing=None):
             + "\n".join(f"- {c}" for c in existing)
             + "\nFind DIFFERENT specific entities.\n\n"
         )
+    type_line = (
+        f"Each candidate MUST be a {answer_type} (this is the kind of thing the "
+        f"answer is).\n"
+        if answer_type
+        else ""
+    )
+    kind = answer_type if answer_type else "names, places, dates, titles"
     prompt = (
         f"You are answering a hard trivia question by extracting candidate "
         f"answers from web search evidence.\n"
-        f"List up to {k} SPECIFIC entities (exact names, places, dates, titles) "
+        f"List up to {k} SPECIFIC entities ({kind}) "
         f"that actually appear in the evidence below and could plausibly be the "
         f"answer to the question.\n"
         f"Rules:\n"
+        f"{type_line}"
         f"- Only list things actually mentioned in the evidence.\n"
         f"- Be specific and exact (full names, exact titles/dates).\n"
         f"- Do NOT invent answers. Do NOT write 'not found' or similar.\n"
@@ -359,6 +371,84 @@ def mine_candidates(question, context, k=5, existing=None):
     raw = generate(prompt, temperature=0.7)
     candidates = [c for c in _parse_numbered_list(raw) if not is_refusal(c)]
     return candidates[:k]
+
+
+# ---------------------------------------------------------------------------
+# Hierarchical type latent  T -> s  (answer type above the answer)
+#
+# The answer type is a latent variable, not a one-shot extraction. We maintain
+# a belief q(T|C) and infer it the same way as the answer: prior from the
+# question + evidence fit (model selection). Predictions flow down (mining is
+# type-conditioned); prediction-errors flow up (a type whose candidates misfit
+# the evidence is down-weighted). See internals/active_inference.md.
+# ---------------------------------------------------------------------------
+
+
+def logsumexp(x):
+    x = np.asarray(x, dtype=float)
+    m = np.max(x)
+    return float(m + np.log(np.sum(np.exp(x - m))))
+
+
+def entropy_p(p):
+    p = np.asarray(p, dtype=float)
+    return float(-np.sum(p * np.log(p + 1e-10)))
+
+
+def generate_types(question, m=3):
+    """Sample candidate answer types T_1..T_M from the question."""
+    prompt = (
+        f"What KIND of thing is the answer to this question? "
+        f"List {m} possible answer types as short labels "
+        f"(e.g. 'city', \"person's name\", 'date', 'pair of football teams', "
+        f"'organization', 'film title').\n"
+        f"One per line, numbered 1-{m}. Just the short type label.\n\n"
+        f"Question: {question}\n\n"
+    )
+    raw = generate(prompt, temperature=0.8)
+    types = [t for t in _parse_numbered_list(raw) if len(t) < 60][:m]
+    return types or ["the answer"]
+
+
+def type_prior(question, type_label):
+    """log p(T | question), length-normalized -- what the question asks for."""
+    _, tokenizer = get_model()
+    prefix = f"Question: {question}\n\nThe answer to this question is a"
+    cand = " " + type_label + "."
+    ntok = max(1, len(tokenizer.encode(cand, add_special_tokens=False)))
+    return log_likelihood(prefix, cand) / ntok
+
+
+def infer_type_belief(question, types, ptype, scores, lam=1.0):
+    """q(T|C) ∝ p(T|question) · p(C|T).
+
+    scores: length-normalized log q(s_i|C) for every pooled candidate.
+    ptype:  the type label of each pooled candidate.
+    Returns (qT, H_T, prior, fit).
+    """
+    prior = np.array([type_prior(question, T) for T in types])
+    fit = np.full(len(types), -1e9)
+    for i, T in enumerate(types):
+        idx = [j for j in range(len(ptype)) if ptype[j] == T]
+        if idx:
+            fit[i] = logsumexp(scores[idx])
+    log_qT = prior + lam * fit
+    qT = softmax(log_qT)
+    return qT, entropy_p(qT), prior, fit
+
+
+def marginal_belief(types, ptype, scores, qT):
+    """q(s|C) = Σ_T q(T|C) q(s|T,C). Returns per-candidate marginal probs."""
+    q = np.zeros(len(ptype))
+    for i, T in enumerate(types):
+        idx = [j for j in range(len(ptype)) if ptype[j] == T]
+        if not idx:
+            continue
+        w = softmax(scores[idx])
+        for local, j in enumerate(idx):
+            q[j] = qT[i] * w[local]
+    s = q.sum()
+    return q / s if s > 0 else q
 
 
 def generate_candidates(question, k=5, search_context=None):
@@ -509,6 +599,32 @@ def cap_pool(candidates, context, question, pool_cap):
     return [candidates[i] for i in sorted(keep)]
 
 
+def mine_typed(question, context, types, k_per_type, pool, ptype, only=None):
+    """Mine candidates per type (predictions flowing down T -> s) and append the
+    new ones to the typed pool. `only` restricts to a subset of types. Returns
+    the list of (candidate, type) added."""
+    added = []
+    for T in only if only is not None else types:
+        for c in mine_candidates(
+            question, context, k=k_per_type, existing=pool, answer_type=T
+        ):
+            if c not in pool:
+                pool.append(c)
+                ptype.append(T)
+                added.append((c, T))
+    return added
+
+
+def cap_typed(pool, ptype, context, question, pool_cap):
+    """Keep the pool_cap best candidates by length-normalized score, keeping the
+    parallel type tags aligned."""
+    if len(pool) <= pool_cap:
+        return pool, ptype
+    rs = score_candidates(pool, context, question)
+    keep = sorted(np.argsort(rs)[::-1][:pool_cap])
+    return [pool[i] for i in keep], [ptype[i] for i in keep]
+
+
 def score_with_sentinel(candidates, context, question):
     """Returns (real_scores, escape_mass, H).
 
@@ -533,6 +649,10 @@ def run_foraging(
     max_decomp=3,
     regen_patience=1,
     pool_cap=12,
+    n_types=3,
+    k_per_type=4,
+    type_threshold=0.6,
+    type_lam=1.0,
 ):
     trace = {"candidates": [], "iterations": [], "final": {}}
 
@@ -572,15 +692,25 @@ def run_foraging(
     context = f"---\nSearch: {initial_query}\nResults:\n{initial_evidence}"
     searches = [initial_query]
 
-    # Candidates are MINED from the evidence, not sampled from priors.
-    candidates = mine_candidates(question, context, k=k)
-    if not candidates:
-        # mining parse failed -> keep the loop alive with prior-based candidates
-        # (the regeneration gate will replace them once evidence improves)
-        candidates = generate_candidates(question, k=k, search_context=initial_evidence)
-    if not candidates:
+    # Hierarchical latent: infer candidate answer TYPES, then mine instances of
+    # each type. Candidates are MINED from evidence (not sampled from priors),
+    # and conditioned on the type (predictions flowing down T -> s).
+    types = generate_types(question, m=n_types)
+    trace["types"] = list(types)
+    pool, ptype = [], []
+    mine_typed(question, context, types, k_per_type, pool, ptype)
+    if not pool:
+        # typed mining failed -> untyped mining, then prior-based candidates
+        for c in mine_candidates(question, context, k=k):
+            pool.append(c)
+            ptype.append(types[0])
+    if not pool:
+        for c in generate_candidates(question, k=k, search_context=initial_evidence):
+            pool.append(c)
+            ptype.append(types[0])
+    if not pool:
         return run_single_search(question, api_key), {"fallback": "no candidates"}
-    trace["candidates"] = list(candidates)
+    trace["candidates"] = list(pool)
 
     regenerations = 0
     decompositions = 0
@@ -592,12 +722,18 @@ def run_foraging(
     step = 0
     max_steps = max_iterations + max_regen + max_decomp + 2
 
+    def belief_state():
+        """Recompute the full hierarchical belief over the current typed pool."""
+        scores = score_candidates(pool, context, question)
+        escape = set_adequacy(pool, context, question)
+        qT, H_T, _, _ = infer_type_belief(question, types, ptype, scores, lam=type_lam)
+        qs = marginal_belief(types, ptype, scores, qT)
+        return scores, escape, qT, H_T, qs, entropy_p(qs)
+
     while step < max_steps and real_searches < max_iterations:
         step += 1
-        real_scores, escape_mass, H = score_with_sentinel(
-            candidates, context, question
-        )
-        p = softmax(real_scores)
+        scores, escape_mass, qT, H_T, qs, H_s = belief_state()
+        map_type = types[int(np.argmax(qT))]
 
         # Did the previous regeneration actually reduce the meta-belief? If not,
         # re-mining is exhausted -- the EVIDENCE is the bottleneck, not the set.
@@ -611,32 +747,36 @@ def run_foraging(
         iteration = {
             "step": step,
             "escape_mass": round(escape_mass, 4),
-            "entropy": round(H, 4),
-            "n_candidates": len(candidates),
-            "beliefs": {c: round(float(p[i]), 4) for i, c in enumerate(candidates)},
-            "log_scores": {
-                c: round(float(real_scores[i]), 2) for i, c in enumerate(candidates)
-            },
+            "H_answer": round(H_s, 4),
+            "H_type": round(H_T, 4),
+            "map_type": map_type,
+            "n_candidates": len(pool),
+            "type_belief": {types[i]: round(float(qT[i]), 4) for i in range(len(types))},
+            "beliefs": {pool[j]: round(float(qs[j]), 4) for j in range(len(pool))},
         }
 
         # --- META GATE: candidate set inadequate (escape mass high) ---
         if escape_mass > tau_regen:
-            # (a) cheap first: re-mine current evidence (regenerate, expand-only)
+            # (a) cheap first: re-mine current evidence (regenerate, expand-only).
+            #     Type-uncertain -> re-mine across ALL types (resolve which type);
+            #     type-confident -> re-mine instances of the MAP type only.
             if stale_regens < regen_patience and regenerations < max_regen:
-                new = [
-                    c
-                    for c in mine_candidates(question, context, k=k, existing=candidates)
-                    if c not in candidates
-                ]
-                if new:
-                    candidates = cap_pool(
-                        candidates + new, context, question, pool_cap
+                only = None if H_T > type_threshold else [map_type]
+                added = mine_typed(
+                    question, context, types, k_per_type, pool, ptype, only=only
+                )
+                if added:
+                    pool[:], ptype[:] = cap_typed(
+                        pool, ptype, context, question, pool_cap
                     )
                     regenerations += 1
                     last_was_regen = True
                     prev_escape = escape_mass
                     iteration["action"] = "regenerate"
-                    iteration["new_candidates"] = new
+                    iteration["regen_scope"] = (
+                        "all_types" if only is None else f"map:{map_type}"
+                    )
+                    iteration["new_candidates"] = [c for c, _ in added]
                     trace["iterations"].append(iteration)
                     continue
                 stale_regens = regen_patience  # nothing new -> regeneration is stale
@@ -654,16 +794,10 @@ def run_foraging(
                     )
                     if fact and fact.lower() != "unknown":
                         known_facts.append((subq, fact))
-                    new = [
-                        c
-                        for c in mine_candidates(
-                            question, context, k=k, existing=candidates
-                        )
-                        if c not in candidates
-                    ]
-                    if new:
-                        candidates = cap_pool(
-                            candidates + new, context, question, pool_cap
+                    added = mine_typed(question, context, types, k_per_type, pool, ptype)
+                    if added:
+                        pool[:], ptype[:] = cap_typed(
+                            pool, ptype, context, question, pool_cap
                         )
                     decompositions += 1
                     real_searches += 1
@@ -672,7 +806,7 @@ def run_foraging(
                     iteration["action"] = "decompose"
                     iteration["subquestion"] = subq
                     iteration["resolved_fact"] = fact
-                    iteration["new_candidates"] = new
+                    iteration["new_candidates"] = [c for c, _ in added]
                     iteration["search_results"] = [
                         {"title": r["title"], "snippet": r["snippet"][:120]}
                         for r in res[:5]
@@ -681,8 +815,13 @@ def run_foraging(
                     continue
             # both regenerate and decompose exhausted -> fall through
 
-        # --- CONVERGE: set adequate, confident, and we actually foraged ---
-        if H < threshold and escape_mass <= tau_regen and real_searches >= 1:
+        # --- CONVERGE: answer confident AND type confident AND set adequate ---
+        if (
+            H_s < threshold
+            and H_T < type_threshold
+            and escape_mass <= tau_regen
+            and real_searches >= 1
+        ):
             iteration["action"] = "converged"
             trace["iterations"].append(iteration)
             break
@@ -694,8 +833,8 @@ def run_foraging(
             trace["iterations"].append(iteration)
             break
 
-        # select action with minimum EFE (ambiguity over real candidates)
-        G_values = [compute_efe(a, candidates, context, question) for a in actions]
+        # select action with minimum EFE (ambiguity over the flat pool)
+        G_values = [compute_efe(a, pool, context, question) for a in actions]
         best_idx = int(np.argmin(G_values))
         best_action = actions[best_idx]
         searches.append(best_action)
@@ -719,19 +858,19 @@ def run_foraging(
         iteration["num_results"] = len(results)
         trace["iterations"].append(iteration)
 
-    # final scoring -- argmax over REAL candidates only (never the sentinel)
-    real_scores, escape_mass, H = score_with_sentinel(candidates, context, question)
-    p = softmax(real_scores)
-    winner_idx = int(np.argmax(real_scores))
-    winner = candidates[winner_idx]
+    # final answer -- argmax of the type-marginalized belief q(s|C)
+    scores, escape_mass, qT, H_T, qs, H_s = belief_state()
+    winner_idx = int(np.argmax(qs))
+    winner = pool[winner_idx]
 
     trace["final"] = {
-        "entropy": round(H, 4),
+        "H_answer": round(H_s, 4),
+        "H_type": round(H_T, 4),
         "escape_mass": round(escape_mass, 4),
-        "beliefs": {c: round(float(p[i]), 4) for i, c in enumerate(candidates)},
-        "log_scores": {
-            c: round(float(real_scores[i]), 2) for i, c in enumerate(candidates)
-        },
+        "map_type": types[int(np.argmax(qT))],
+        "winner_type": ptype[winner_idx],
+        "type_belief": {types[i]: round(float(qT[i]), 4) for i in range(len(types))},
+        "beliefs": {pool[j]: round(float(qs[j]), 4) for j in range(len(pool))},
         "winner": winner,
         "num_searches": len(searches),
         "num_regenerations": regenerations,
@@ -827,6 +966,14 @@ def main():
         "--regen-patience", type=int, default=1,
         help="Regenerations to try before switching to decomposition",
     )
+    parser.add_argument(
+        "--n-types", type=int, default=3,
+        help="Number of candidate answer types (hierarchical latent T)",
+    )
+    parser.add_argument(
+        "--type-threshold", type=float, default=0.6,
+        help="Type-entropy H[q(T|C)] below which the answer type is 'confident'",
+    )
     parser.add_argument("--output", type=str, default="browsecomp_results.jsonl")
     parser.add_argument(
         "--dataset", type=str, default="browse_comp_test_set.csv",
@@ -893,6 +1040,8 @@ def main():
                         max_regen=args.max_regen,
                         max_decomp=args.max_decomp,
                         regen_patience=args.regen_patience,
+                        n_types=args.n_types,
+                        type_threshold=args.type_threshold,
                     )
                 else:
                     continue

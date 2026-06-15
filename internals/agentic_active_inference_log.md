@@ -255,13 +255,86 @@ New knobs: `--max-decomp` (3), `--regen-patience` (1). Trace now records `action
 
 Also fixed two robustness leaks from the sixth run: empty initial mining now falls back to prior-based candidates instead of bailing to `single_search`; `generate_search_queries` uses `_parse_numbered_list` with a keyword-query fallback instead of terminating on a parse failure.
 
-Eval rerun pending. Key metrics to watch: do decompositions fire on the multi-hop questions (Q1/Q3/Q4/Q9), does `known_facts` accumulate correct intermediate entities, and does `gold_in_evidence` rise above 1/9.
+### Seventh run result: 2/10 — decomposition cracks the multi-hops
+
+Ran it (Qwen3.5-27B, foraging, 10 Sports). **2/10**, up from 1/10. The wins are exactly the multi-hop cases decomposition was built for:
+- Q1 ✓ "Ireland v Romania" — sub-question "which 1990–94 matches had a Brazilian referee" resolved straight to the answer; gold entered evidence and candidate set.
+- Q8 ✓ a clean two-hop chain: champion → Tegla Loroupe → her PB date → 26 AUG 1999.
+
+The regenerate↔decompose alternation fires as intended; `known_facts` accumulates real intermediate entities.
+
+**Three new failure modes:**
+1. **Answer-type drift (Q4, Q7, Q10).** The agent resolves the chain but returns the wrong *type*. Q10's gold "St. Louis" was in the evidence, but the winner was "American Poolplayers Association" — an intermediate entity, not the city asked for. Q4 returned a match+score where the gold was player names; Q7 returned a competition where the gold was a club.
+2. **Confidently wrong, never forages (Q5).** Rakhmonov: 0 regen, 0 decomp — escape mass stayed low because the YES/NO probe *believes* the answer is in the set.
+3. **Entity too obscure even with hops (Q2, Q3, Q9).** Full budget spent but gold never retrieved.
+
+Encouragingly, Q4/Q6/Q7/Q10 are now near-misses in the right neighborhood (right event/city/competition/association), qualitatively different from the random famous names of early runs.
+
+## Eighth run: answer type as a hierarchical latent (active-inference type selection)
+
+Failure mode 1 (answer-type drift) is the cheapest high-yield target. Rather than bolt on a one-shot type extraction, made the answer **type a latent variable** inferred through the same free-energy machinery — realizing the "Hierarchical Models" idea the doc opens with. Generative model is now `T → s → o` (type above answer above evidence).
+
+**Implementation** in `eval_browsecomp.py`:
+- `generate_types()` samples M candidate answer types from the question (e.g. {city, organization, person}).
+- `type_prior()` = length-normalized `log p(T|question)` — what the question asks for.
+- Candidates are mined **per type** (`mine_typed`, `mine_candidates(..., answer_type=T)`) — predictions flowing down T→s. Each pooled candidate carries its type tag (`ptype`).
+- `infer_type_belief()`: `q(T|C) ∝ p(T|question) · p(C|T)`, where the evidence-fit `p(C|T) ≈ logsumexp_i log q(s_i^T|C)` over that type's candidates (Bayesian model selection; prediction-errors flowing up — a type whose instances misfit the evidence is down-weighted).
+- `marginal_belief()`: the answer belief is the type-marginalized mixture `q(s|C) = Σ_T q(T|C) q(s|T,C)`; the final answer is its argmax.
+- **Type uncertainty drives action** (selection *through* active inference, not a hard extraction): `H[q(T|C)]` enters the control law. A high escape mass with high type-entropy re-mines across *all* types (resolve which type); with low type-entropy it re-mines instances of the MAP type only. Convergence now requires answer-entropy AND type-entropy AND escape mass all low.
+
+This is a three-level hierarchy by what each action changes: **belief** (search) ⊂ **structure** (regenerate) ⊂ **type** (re-mine across types) ⊂ **evidence** (decompose) — each invoked when the cheaper level stops reducing free energy.
+
+New knobs: `--n-types` (3), `--type-threshold` (0.6). Trace now logs `type_belief`, `H_type`, `map_type`, `winner_type` per iteration and in `final`.
+
+**Offline validation** (mocked scores, Q10 scenario): with an "organization" candidate that fits evidence best and a "city" candidate that fits less, the old flat argmax returns the organization, but the type-marginalized belief returns "St. Louis" because the question-prior favors *city*. The fix works through belief, not a rule.
+
+Runtime caveat: per-type mining + M type-prior passes ≈ 2× the LLM calls of the seventh run; expect longer per-question wall time (reduce `--n` or `--max-iter` for quick checks).
+
+### Eighth run result: 3/10 — type drift solved, retrieval is now the SOLE ceiling
+
+Ran it (Qwen3.5-27B, foraging, 10 Sports). **3/10** (Q1, Q8, Q10), up from 2/10. Q10 flipped exactly as predicted: "St. Louis" (`winner_type: city`), where the previous run returned the better-fitting *organization*. The type latent works.
+
+**Type drift is solved.** `winner_type` matches the gold's type in 9/10:
+- Q4: now `pair of basketball players` (Barkley & Jordan) — was an *event* last run.
+- Q7: now `football club` (VfB Stuttgart) — was a *competition*.
+- Q9: now `TV episode title` — was a date.
+- Q10: now `city` → correct.
+
+`H_type` collapses sharply to the right type (Q7 → 1.0 on "football club", Q1 → 0.99 on "pair of football teams"). The hierarchical type belief does its job.
+
+**The decisive finding — conditional on retrieval, accuracy is 100%:**
+
+| `gold_in_evidence` | result |
+|---|---|
+| True (Q1, Q8, Q10) | **3/3 correct** |
+| False (Q2,3,4,5,6,7,9) | **0/7 correct** |
+
+Every remaining error is a retrieval failure — the gold entity never enters the evidence, so the (now correctly-typed) candidate pool cannot contain it. The belief stack (structure learning + type latent + marginalization) is working; **retrieval is the only binding ceiling left.**
+
+False-case breakdown: wrong-chain decomposition (Q4/Q7/Q9 resolve a plausible-but-wrong branch — e.g. Q4 returns the famous Dream Team players when the gold players were on the *opposing* team); obscure-entity-never-surfaced (Q2/Q3); confidently-wrong-never-forages (Q5: 0 regen / 0 decomp, escape stayed low); junk non-entity candidate (Q6: mining produced a question-paraphrase).
+
+**Next lever is retrieval correctness, not the belief machinery:** verify that resolved sub-facts satisfy ALL question constraints (catch wrong-chain), force foraging when the question presents constraints rather than a direct lookup (catch Q5), and reject non-entity candidates (catch Q6). Deferred — switching to a small model (Qwen2.5-3B) next to probe how much of this stack survives at 3B.
 
 ### Open questions / next
 
 - **Calibrating `τ_regen`.** The sentinel string's wording sets `s_0`'s baseline logprob, hence the effective threshold. Needs tuning on a few real traces.
 - **Evidence sufficiency.** Mining only helps once the gold entity has been *retrieved*. BrowseComp answers are buried across multiple sources — may need more constraint-targeted searches before mining succeeds. Consider searching several times before the first mine.
 - **Unified EFE (deferred).** Currently regeneration is a gate, not scored in the same `argmin` as search. A principled version would put both actions in one EFE using a state-space-comparable currency (expected best-candidate log-evidence `E[max_i log p(s_i|C')]` rather than entropy).
+
+### TODO: native-agent baseline (we are using the leaderboard model itself)
+
+We load `Qwen/Qwen3.5-27B` — the **exact instruct model that scores 61.0% on the BrowseComp leaderboard** (rank #25; verified June 2026 on llm-stats.com/benchmarks/browsecomp). So our 2/10 vs the leaderboard 61% is *entirely a harness difference on identical weights*. Crucially, our harness likely *suppresses* the abilities that earn the 61%:
+- the leaderboard score comes from the model's **RL-trained native agency** (it emits its own tool calls and decides when to search) — we never let it; we drive the loop externally and use the model as a **logprob oracle**;
+- we set `enable_thinking=False` — the agentic RL likely depends on the thinking phase;
+- leaderboard harnesses use **256k context-folding over many turns**; we use short snippets/passages and a handful of turns.
+
+How Qwen3.5 actually gets the score (refs below): native tool-calling agent + search/browse tools + context management, where the *context strategy alone* swings results massively — the 397B flagship scores 69.0 with context-folding vs 78.6 with a "discard-all" strategy. The agency is in the weights (RL), not the scaffold.
+
+**Implication:** the epistemic-foraging eval is implicitly testing a different hypothesis than the leaderboard — "can a *frozen, non-thinking* model + an external active-inference controller recover agency the weights were RL-trained to provide?" The 2/10-vs-61% comparison only makes sense once we know what this model does *unshackled in our environment*.
+
+**TODO — add a `native_agent` eval mode**: thinking ON, give the model real `search(query)`/`fetch(url)` tools, let it run its own loop and answer autonomously, using the *same* Brave API and machine. This establishes the true ceiling for our setup and tells us whether foraging is helping or fighting the model. (Not implementing now — deliberately deferred.)
+
+Refs: [BrowseComp leaderboard](https://llm-stats.com/benchmarks/browsecomp) · [Qwen3.5: Towards Native Multimodal Agents](https://www.alibabacloud.com/blog/qwen3-5-towards-native-multimodal-agents_602894) · [BrowseComp-Plus (fixed-corpus, fairer harness comparison)](https://arxiv.org/pdf/2508.06600)
 
 ### Staged files
 

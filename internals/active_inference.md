@@ -379,6 +379,77 @@ candidates from same evidence) ⊂ **evidence** (decompose, new observations of
 new latents) — each invoked only when the cheaper level stops reducing free
 energy.
 
+## Answer Type as a Hierarchical Latent
+
+Decomposition fixed multi-hop *retrieval*, but a new failure appeared (seventh
+run): the agent resolves the chain yet returns the wrong *kind* of thing. Q10's
+gold "St. Louis" was in the evidence, but the winner was "American Poolplayers
+Association" — an intermediate entity that fit the evidence better than the city
+the question actually asked for. The flat `argmax_i q(s_i|C)` has no notion of
+what kind of answer is wanted.
+
+The fix is the **hierarchical model** this document opened with: introduce the
+answer *type* `T` as a slow latent above the answer `s`:
+
+```
+T   answer type   (city, person, date, team-pair, organization, …)
+↓
+s   the answer    (an instance of T)
+↓
+o   evidence
+```
+
+Type is **not** extracted in one shot — it is a latent inferred through the same
+free-energy machinery as the answer, with its own belief and entropy.
+
+### The type belief
+
+```
+q(T, s | C) = q(T|C) · q(s|T,C)
+q(s|C)      = Σ_T q(T|C) · q(s|T,C)        answer belief = mixture over types
+q(T|C)      ∝ p(T | question) · p(C | T)
+```
+
+Both factors reuse the logprob scorer:
+
+- **Prior from the question** `p(T|question)` — length-normalized logprob of
+  "The answer to this question is a {T}." This is what the question *asks for*
+  (Q10: "city" scores high because the question says "what city"). Predictions
+  flow **down**: `mine_candidates` is conditioned on `T`, so candidates are
+  instances of the type.
+- **Evidence fit** `p(C|T) ≈ logsumexp_i log q(s_i^T | C)` over the candidates of
+  type `T` — Bayesian model selection over type-sub-models, the same
+  unnormalized, cross-space-commensurable quantity used for escape mass.
+  Prediction-errors flow **up**: a type whose instances misfit the evidence is
+  down-weighted.
+
+The final answer is `argmax_s Σ_T q(T|C) q(s|T,C)` — the type-marginalized
+belief, so the answer integrates type uncertainty rather than committing to the
+single best-fitting string. (Verified: when an organization fits the evidence
+better than a city but the question asks for a city, the flat argmax returns the
+organization while the marginalized belief returns the city.)
+
+### Type selected through active inference
+
+The type is not just inferred (perception) — its uncertainty drives action. The
+type entropy `H[q(T|C)]` is a distinct source of expected free energy: a high
+value means "I don't even know what kind of answer I'm hunting." It enters the
+control law on a high escape mass:
+
+- `H[q(T|C)]` high → re-mine across **all** types (resolve *which type*).
+- `H[q(T|C)]` low  → re-mine instances of the **MAP type** only.
+
+and convergence requires the type entropy low as well as the answer entropy and
+escape mass. So type discovery is itself an EFE-reducing action, not a
+preprocessing step.
+
+This adds the top tier to the hierarchy of actions by what each changes:
+**belief** (search) ⊂ **structure** (regenerate within a type) ⊂ **type**
+(re-mine across types) ⊂ **evidence** (decompose). Implemented in
+`eval_browsecomp.py`: `generate_types()`, `type_prior()`, `mine_typed()`,
+`infer_type_belief()`, `marginal_belief()`. Knobs: `--n-types` (3),
+`--type-threshold` (0.6).
+
 ---
 
 ## Evaluation Plan

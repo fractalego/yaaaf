@@ -152,6 +152,84 @@ Result: **0/10 correct** (BrowseComp Sports). Initially reported as 2/10 but bot
 
 3. **Brave API limits**: Brave Search has a 400 character / 50 word limit on queries. Added hard truncation and fallback (first 10 words of question) after LLM-based query summarization.
 
+### Fourth run analysis: the candidate-set bottleneck is structural
+
+Inspected the staged `browsecomp_results.jsonl` (Qwen3.5-27B, foraging, 10 Sports questions). Still **0/10**, and the traces make the root cause undeniable: **the gold answer is in the candidate set 0/10 times**. Two distinct sub-patterns:
+
+1. **Confident-wrong.** The set holds plausible famous entities, none correct, and the loop converges fast. E.g. gold `Abdisalam Ibrahim`, candidates `[Peter Ndlovu, Arthur Wharton, Abedi Pele, ...]`, winner `Peter Ndlovu` at H=0.029. Low entropy looks like success but means "confident *which* candidate", not "the truth is *in* the set".
+
+2. **Collapse-to-refusal** (6/10). The candidate set degenerates into `[Information not found, Data unavailable, No such game recorded, ...]` and the returned "winner" is literally a refusal string.
+
+Sub-pattern 2 is the key clue: the model *spontaneously signals* "none of these fit", but the architecture treats that signal as an **answer** instead of a **trigger to change the state space**. And entropy is the wrong gauge throughout — it measures uncertainty *within* a fixed set, and cannot detect a missing gold.
+
+### Root cause restated
+
+The loop has uncertainty *within* a fixed generative model (which `s_i`) but zero uncertainty *about* the model (whether `{s_1...s_K}` even contains the truth). Candidates are sampled before/at the start of evidence, from priors that for BrowseComp are nearly useless. `s* = argmax_i q(s_i|C)` over a fixed set is structurally capped: if gold ∉ candidates, accuracy is bounded at 0 no matter how good the search.
+
+## Fifth run: candidate generation as an action (structure learning)
+
+Implemented Option B from `active_inference.md` — making the candidate set itself revisable, driven by a **meta-belief** about model adequacy. Three changes to `eval_browsecomp.py`:
+
+**1. The `s₀` sentinel.** Added a catch-all candidate `s_0 = "None of the above; the answer is not present in this list."`, scored with the *same* token-level logprob machinery as any real candidate. Its posterior mass `q(s_0|C)` (the "escape mass") is a direct, cheap readout of the meta-belief that the candidate set needs expanding. `score_with_sentinel()` returns `(real_scores, escape_mass, H)` where `H` is entropy over the **real** candidates only.
+
+Why it works: softmax is a competition. `q(s_0|C)` is high only when the sentinel's likelihood is competitive with every real candidate — i.e. when the evidence matches none of them. Once a real candidate genuinely fits, its logprob dominates and `q(s_0|C)` collapses toward 0. Crucially, escape mass is **commensurable across state spaces** (it's normalized; adding candidates can only pull mass off `s_0`), which raw entropy is not — a bigger set can have higher `H` while being strictly better.
+
+**2. Evidence-mined candidates.** `mine_candidates()` replaces prior-sampled `generate_candidates` in the foraging path. It extracts specific entities (names, dates, titles) that *actually appear* in the accumulated evidence `C`, with explicit instructions not to invent and not to write refusals. This is the strongest form of "candidate generation as action": the hypothesis space is *defined by what's been retrieved*. Obscure gold like `Amr Zaki` will never be sampled from a prior but will appear verbatim in snippets once the constraints are searched. An `is_refusal()` filter strips "not found"-type strings so they can never be winners — that role belongs to `s_0`.
+
+**3. The hierarchical gate.** Rewrote `run_foraging` as a meta-controller. Each step scores candidates ∪ {s₀}, then:
+- **regenerate** (expand-only) if `escape_mass > τ_regen` — candidate generation *as an action*. New candidates appended, pool capped to 12 by likelihood, budget `max_regen` (default 3).
+- else **converge** if `H < threshold AND escape_mass ≤ τ_regen AND real_searches ≥ 1` — the `real_searches ≥ 1` and escape-mass conditions kill the premature t=0 confident-wrong exits.
+- else **search** via the existing EFE argmin over generated queries.
+
+Final answer is `argmax` over **real candidates only** (never `s_0`). Traces now log `escape_mass`, per-step `action`, `new_candidates` on regeneration, and `num_regenerations`. New CLI knobs: `--tau-regen` (0.4), `--max-regen` (3).
+
+### Why this attacks the bottleneck directly
+
+The regenerate gate keeps expanding the state space while the evidence says "the answer isn't here yet", instead of committing to a wrong fixed set. Combined with evidence-mining, gold can now *enter* the candidate set mid-loop. The sentinel is self-terminating: once a good candidate lands, escape mass drops and the loop proceeds to search/converge.
+
+### Validation (logic only, model not yet run)
+
+Offline checks of the pure-Python pieces confirm the intended behaviour:
+- Refusal filter drops `Information not found`.
+- Gold-missing set (real log-scores `[-8.0,-9.2,-10.1,-11.0,-12.3]`, sentinel `-7.5`) → `escape_mass = 0.53 > 0.4` → **regenerate**.
+- Gold-found set (`[-1.2, ...]`, sentinel `-7.5`) → `escape_mass = 0.002`, `H = 0.006` → **converge**.
+
+Full eval run on Qwen3.5-27B pending (needs `BRAVE_API_KEY`). Key metric to watch: does gold now enter the candidate set, and at which regeneration step (trace `escape_mass` trajectory + `new_candidates`).
+
+### Fifth run result: still 0/10 — two ceilings exposed
+
+Ran it (Qwen3.5-27B, foraging, 10 Sports). **0/10**, and the traces exposed two independent problems, one in our gate and one deeper.
+
+**Ceiling 1 — the gate was inert (length bias).** `escape_mass = 0.0` in *every step of every question*; regeneration never fired once. Cause: `log_likelihood` **sums** token logprobs, so the 12-token sentinel string `s_0` can never compete with 1–3 token candidates ("Italy", "Brazil") in the softmax. `q(s_0|C)` was pinned at ~0, the meta-gate was dead, candidates stayed frozen at the initial mining, and gold could never enter. The same length bias also tilted the within-set belief toward short candidates.
+
+**Ceiling 2 — gold is never retrieved (dominant).** Checked whether the gold string ever appeared in the retrieved snippets: **0/9** — in 7/9 not even a single word matched. So even a perfectly working gate has nothing to mine. Two causes:
+- *Snippets only.* Evidence was `title + ~120-char description`. BrowseComp answers live in page *bodies*, not snippets.
+- *Single-hop queries against multi-hop questions.* The questions are designed so the answer is reachable only by chaining facts; searching the literal (often quoted) description returns nothing.
+
+Also a robustness bug: `brave_search` didn't enforce Brave's 50-word/400-char limit, so when the query generator echoed the full question, the request 422'd and killed the whole question (Q2).
+
+**Key lesson:** the candidate-generation mechanism is necessary but was downstream of a binding retrieval ceiling. Fixing the gate alone provably cannot move 0/10 while gold is absent from the evidence.
+
+## Sixth run: fix the gate + deepen retrieval
+
+Changes to `eval_browsecomp.py`:
+
+1. **Brave length guard** inside `brave_search` — truncates to 45 words / 380 chars at every call site (fixes the 422 crash).
+
+2. **Length-normalized scoring** — `score_candidates` now returns mean per-token logprob, so multi-token answers compete fairly in the belief and final argmax.
+
+3. **YES/NO adequacy probe** — replaced the length-crippled sentinel *string* with `set_adequacy()`: a single-token probe ("is the correct answer present among these candidates? YES/NO") read directly from one next-token distribution. `escape_mass = P(NO)`, free of length bias. This is what makes the regeneration gate actually capable of firing.
+
+4. **Page-body fetching** — `fetch_page()` (requests + BeautifulSoup/lxml, cached) pulls the top-N result pages; `extract_passages()` keeps the highest keyword-overlap windows (so the answer-bearing region survives the context budget); `gather_evidence()` wraps search + fetch and now feeds the initial search, every foraging search, and `single_search`. New knob `--n-fetch` (default 3, 0 = snippets only). Verified offline: fetching the Amr Zaki Wikipedia page + keyword extraction surfaces "born 1983 … Wigan Athletic …" — exactly the evidence that was previously absent.
+
+Net: ceiling 1 is fixed (gate can fire, belief is length-fair), and ceiling 2 is attacked (answers now reachable in page bodies). Runtime caveat: page bodies lengthen the context, and scoring runs a forward pass per candidate per iteration, so wall-time per question will rise — reduce `--max-iter` or `--n-fetch` if needed. Eval rerun pending.
+
+### Open questions / next
+
+- **Calibrating `τ_regen`.** The sentinel string's wording sets `s_0`'s baseline logprob, hence the effective threshold. Needs tuning on a few real traces.
+- **Evidence sufficiency.** Mining only helps once the gold entity has been *retrieved*. BrowseComp answers are buried across multiple sources — may need more constraint-targeted searches before mining succeeds. Consider searching several times before the first mine.
+- **Unified EFE (deferred).** Currently regeneration is a gate, not scored in the same `argmin` as search. A principled version would put both actions in one EFE using a state-space-comparable currency (expected best-candidate log-evidence `E[max_i log p(s_i|C')]` rather than entropy).
+
 ### Staged files
 
 - `scripts/active_learning_agent/eval_browsecomp.py` — BrowseComp eval with traces

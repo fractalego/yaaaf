@@ -14,6 +14,7 @@ Usage:
 """
 
 import os
+import re
 import sys
 import json
 import argparse
@@ -140,6 +141,13 @@ def log_likelihood(context, candidate):
 
 
 def brave_search(query, api_key, count=5):
+    # Brave rejects queries over ~50 words / 400 chars (HTTP 422). Guard here so
+    # every call site is safe, not just the initial-query summarizer.
+    words = query.split()
+    if len(words) > 45:
+        query = " ".join(words[:45])
+    if len(query) > 380:
+        query = query[:380]
     resp = requests.get(
         "https://api.search.brave.com/res/v1/web/search",
         headers={
@@ -163,6 +171,73 @@ def brave_search(query, api_key, count=5):
 
 def format_search_results(results):
     return "\n".join(f"- {r['title']}: {r['snippet']}" for r in results)
+
+
+# ---------------------------------------------------------------------------
+# Page-body fetching + passage extraction
+#
+# BrowseComp answers live in page bodies, not 120-char snippets. We fetch the
+# top result URLs, strip HTML, and keep only the passages whose keywords overlap
+# the question -- so the answer-bearing region survives the context budget.
+# ---------------------------------------------------------------------------
+
+_page_cache = {}
+_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+N_FETCH = 3  # number of top result pages to fetch per search (0 = snippets only)
+
+
+def fetch_page(url, timeout=10, max_chars=20000):
+    if url in _page_cache:
+        return _page_cache[url]
+    text = ""
+    try:
+        resp = requests.get(url, timeout=timeout, headers={"User-Agent": _UA})
+        ctype = resp.headers.get("content-type", "")
+        if resp.ok and ("html" in ctype or "text" in ctype or not ctype):
+            from bs4 import BeautifulSoup
+
+            soup = BeautifulSoup(resp.text, "lxml")
+            for tag in soup(
+                ["script", "style", "nav", "header", "footer", "aside", "form", "noscript"]
+            ):
+                tag.decompose()
+            text = " ".join(soup.get_text(separator=" ", strip=True).split())[:max_chars]
+    except Exception:
+        text = ""
+    _page_cache[url] = text
+    return text
+
+
+def extract_passages(text, query, max_passages=2, window=500):
+    """Keep the highest keyword-overlap windows of a page."""
+    if not text:
+        return ""
+    kws = {w for w in re.findall(r"[a-z0-9]+", query.lower()) if len(w) > 3}
+    if not kws:
+        return text[:window]
+    chunks = [text[i : i + window] for i in range(0, len(text), window)]
+    scored = []
+    for ch in chunks:
+        low = ch.lower()
+        score = sum(1 for kw in kws if kw in low)
+        if score:
+            scored.append((score, ch))
+    scored.sort(key=lambda x: -x[0])
+    return " … ".join(ch for _, ch in scored[:max_passages])
+
+
+def gather_evidence(query, api_key, question=None, count=10, n_fetch=None):
+    """Search + fetch top page bodies. Returns (evidence_text, raw_results)."""
+    if n_fetch is None:
+        n_fetch = N_FETCH
+    results = brave_search(query, api_key, count=count)
+    parts = [format_search_results(results)]
+    target = question or query
+    for r in results[:n_fetch]:
+        passages = extract_passages(fetch_page(r["url"]), target)
+        if passages:
+            parts.append(f"[{r['title']}] {passages}")
+    return "\n".join(parts), results
 
 
 # ---------------------------------------------------------------------------
@@ -200,8 +275,7 @@ def run_baseline(question):
 
 
 def run_single_search(question, api_key):
-    results = brave_search(question, api_key, count=10)
-    evidence = format_search_results(results)
+    evidence, results = gather_evidence(question, api_key, question=question)
 
     prompt = (
         f"Based on the following search results, answer the question "
@@ -215,6 +289,76 @@ def run_single_search(question, api_key):
 # ---------------------------------------------------------------------------
 # Mode 3: epistemic foraging
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Sentinel + evidence-mined candidates (structure learning)
+# ---------------------------------------------------------------------------
+
+# s_0: the catch-all hypothesis "the answer is not in this list". Scored with
+# the same logprob machinery as any real candidate; its posterior mass
+# q(s_0|C) is the meta-belief that the candidate set needs to be regenerated.
+SENTINEL = "None of the above; the answer is not present in this list."
+
+# Refusal-type strings must never be real candidates -- they are exactly what
+# the sentinel is for. If the model emits one anyway, drop it.
+_REFUSAL_MARKERS = (
+    "not found", "not in", "unavailable", "no such", "cannot determine",
+    "insufficient", "missing", "not provided", "not mentioned", "does not exist",
+    "no match", "not identified", "unknown", "incomplete", "not listed",
+    "no answer", "fictional", "data not", "results mismatch", "not enough",
+)
+
+
+def is_refusal(text):
+    t = text.strip().lower()
+    return any(m in t for m in _REFUSAL_MARKERS)
+
+
+def _parse_numbered_list(raw):
+    items = []
+    for line in raw.split("\n"):
+        line = line.strip()
+        if line and line[0].isdigit():
+            text = line.split(".", 1)[-1].strip() if "." in line[:3] else line
+            text = text.split(")", 1)[-1].strip() if ")" in text[:3] else text
+            if text:
+                items.append(text)
+    return items
+
+
+def mine_candidates(question, context, k=5, existing=None):
+    """Candidate generation as an action: extract specific entities from the
+    accumulated evidence C that could answer the question. Candidates are
+    grounded in retrieved text, NOT sampled from parametric priors -- this is
+    what lets obscure gold answers enter the state space.
+    """
+    existing = existing or []
+    avoid = ""
+    if existing:
+        avoid = (
+            "Do NOT repeat any of these already-considered answers:\n"
+            + "\n".join(f"- {c}" for c in existing)
+            + "\nFind DIFFERENT specific entities.\n\n"
+        )
+    prompt = (
+        f"You are answering a hard trivia question by extracting candidate "
+        f"answers from web search evidence.\n"
+        f"List up to {k} SPECIFIC entities (exact names, places, dates, titles) "
+        f"that actually appear in the evidence below and could plausibly be the "
+        f"answer to the question.\n"
+        f"Rules:\n"
+        f"- Only list things actually mentioned in the evidence.\n"
+        f"- Be specific and exact (full names, exact titles/dates).\n"
+        f"- Do NOT invent answers. Do NOT write 'not found' or similar.\n"
+        f"- One per line, numbered 1-{k}. Just the entity, no explanation.\n\n"
+        f"{avoid}"
+        f"Question: {question}\n\n"
+        f"Evidence:\n{context}\n\n"
+    )
+    raw = generate(prompt, temperature=0.7)
+    candidates = [c for c in _parse_numbered_list(raw) if not is_refusal(c)]
+    return candidates[:k]
 
 
 def generate_candidates(question, k=5, search_context=None):
@@ -247,10 +391,18 @@ def generate_candidates(question, k=5, search_context=None):
 
 
 def score_candidates(candidates, context, question):
+    """Length-normalized log-likelihood (mean per-token logprob).
+
+    Summed logprob is length-biased: a 1-token candidate ("Italy") always beats
+    a multi-token one regardless of fit. Dividing by token count makes candidates
+    of different lengths comparable in the softmax.
+    """
+    _, tokenizer = get_model()
     prefix = f"Question: {question}\n\nEvidence:\n{context}\n\nAnswer:"
     scores = np.zeros(len(candidates))
     for i, c in enumerate(candidates):
-        scores[i] = log_likelihood(prefix, " " + c)
+        ntok = max(1, len(tokenizer.encode(" " + c, add_special_tokens=False)))
+        scores[i] = log_likelihood(prefix, " " + c) / ntok
     return scores
 
 
@@ -293,11 +445,56 @@ def compute_efe(action, candidates, context, question):
     return entropy(updated_scores)
 
 
-def run_foraging(question, api_key, threshold=0.5, max_iterations=5, k=5):
+def set_adequacy(candidates, context, question):
+    """Meta-belief escape_mass = P(answer NOT among candidates | evidence).
+
+    A single-token YES/NO probe instead of scoring the s_0 sentinel *string*.
+    A sentinel answer-string is ~12 tokens and, under summed (or even averaged)
+    logprob, cannot compete with 1-3 token candidates -- so q(s_0|C) was pinned
+    at 0 and the gate never fired. The YES/NO probe reads the meta-belief
+    directly from a single next-token distribution, free of length bias.
+    """
+    cand_list = "\n".join(f"- {c}" for c in candidates)
+    prompt = (
+        f"Question: {question}\n\n"
+        f"Evidence:\n{context}\n\n"
+        f"Candidate answers:\n{cand_list}\n\n"
+        f"Based ONLY on the evidence above, is the correct answer present among "
+        f"the candidate answers? Answer YES or NO.\nAnswer:"
+    )
+    ll_yes = log_likelihood(prompt, " YES")
+    ll_no = log_likelihood(prompt, " NO")
+    p = softmax(np.array([ll_no, ll_yes]))
+    return float(p[0])  # escape mass = P(NO)
+
+
+def score_with_sentinel(candidates, context, question):
+    """Returns (real_scores, escape_mass, H).
+
+    real_scores  -- length-normalized log p(s_i|C) for the real candidates
+    escape_mass  -- P(answer not in set | C), the meta-belief gating regeneration
+    H            -- entropy of the belief over real candidates only
+    """
+    real_scores = score_candidates(candidates, context, question)
+    escape_mass = set_adequacy(candidates, context, question)
+    H = float(entropy(real_scores))
+    return real_scores, escape_mass, H
+
+
+def run_foraging(
+    question,
+    api_key,
+    threshold=0.5,
+    max_iterations=5,
+    k=5,
+    tau_regen=0.4,
+    max_regen=3,
+    pool_cap=12,
+):
     trace = {"candidates": [], "iterations": [], "final": {}}
 
-    # Phase 0: initial search to ground candidate generation
-    # Summarise long questions into a short search query
+    # Phase 0: initial search to seed the evidence corpus.
+    # Summarise long questions into a short search query.
     initial_query = generate(
         f"Write a 10-word web search query for this question.\n\n"
         f"Question: {question}\n\n"
@@ -317,8 +514,9 @@ def run_foraging(question, api_key, threshold=0.5, max_iterations=5, k=5):
         initial_query = initial_query[:400]
     if not initial_query:
         initial_query = " ".join(question.split()[:10])
-    initial_results = brave_search(initial_query, api_key, count=10)
-    initial_evidence = format_search_results(initial_results)
+    initial_evidence, initial_results = gather_evidence(
+        initial_query, api_key, question=question
+    )
     trace["initial_search"] = {
         "query": initial_query,
         "num_results": len(initial_results),
@@ -328,49 +526,76 @@ def run_foraging(question, api_key, threshold=0.5, max_iterations=5, k=5):
         ],
     }
 
-    # Generate candidates informed by search results
-    candidates = generate_candidates(question, k=k, search_context=initial_evidence)
-    if not candidates:
-        return run_single_search(question, api_key), {"fallback": "no candidates"}
-
-    trace["candidates"] = candidates
-
     context = f"---\nSearch: {initial_query}\nResults:\n{initial_evidence}"
     searches = [initial_query]
 
-    for t in range(max_iterations):
-        scores = score_candidates(candidates, context, question)
-        H = entropy(scores)
-        p = softmax(scores)
+    # Candidates are MINED from the evidence, not sampled from priors.
+    candidates = mine_candidates(question, context, k=k)
+    if not candidates:
+        return run_single_search(question, api_key), {"fallback": "no candidates"}
+    trace["candidates"] = list(candidates)
+
+    regenerations = 0
+    real_searches = 0
+    step = 0
+    max_steps = max_iterations + max_regen + 2
+
+    while step < max_steps and real_searches < max_iterations:
+        step += 1
+        real_scores, escape_mass, H = score_with_sentinel(
+            candidates, context, question
+        )
+        p = softmax(real_scores)
 
         iteration = {
-            "t": t,
-            "entropy": round(float(H), 4),
+            "step": step,
+            "escape_mass": round(escape_mass, 4),
+            "entropy": round(H, 4),
+            "n_candidates": len(candidates),
             "beliefs": {c: round(float(p[i]), 4) for i, c in enumerate(candidates)},
-            "log_scores": {c: round(float(scores[i]), 2) for i, c in enumerate(candidates)},
+            "log_scores": {
+                c: round(float(real_scores[i]), 2) for i, c in enumerate(candidates)
+            },
         }
 
-        if H < threshold:
+        # --- META GATE: candidate set inadequate -> regenerate (expand-only) ---
+        if escape_mass > tau_regen and regenerations < max_regen:
+            new = mine_candidates(question, context, k=k, existing=candidates)
+            new = [c for c in new if c not in candidates]
+            if new:
+                candidates = candidates + new
+                # cap the pool to the most-believed candidates
+                if len(candidates) > pool_cap:
+                    rs, _, _ = score_with_sentinel(candidates, context, question)
+                    keep = np.argsort(rs)[::-1][:pool_cap]
+                    candidates = [candidates[i] for i in sorted(keep)]
+                regenerations += 1
+                iteration["action"] = "regenerate"
+                iteration["new_candidates"] = new
+                trace["iterations"].append(iteration)
+                continue
+            # no new candidates surfaced -> fall through to search for more evidence
+
+        # --- CONVERGE: set adequate, confident, and we actually foraged ---
+        if H < threshold and escape_mass <= tau_regen and real_searches >= 1:
             iteration["action"] = "converged"
             trace["iterations"].append(iteration)
             break
 
+        # --- SEARCH: gather evidence within the current state space ---
         actions = generate_search_queries(question, context)
         if not actions:
             iteration["action"] = "no queries generated"
             trace["iterations"].append(iteration)
             break
 
-        # select action with minimum EFE
-        G_values = []
-        for a in actions:
-            G = compute_efe(a, candidates, context, question)
-            G_values.append(G)
-
+        # select action with minimum EFE (ambiguity over real candidates)
+        G_values = [compute_efe(a, candidates, context, question) for a in actions]
         best_idx = int(np.argmin(G_values))
         best_action = actions[best_idx]
         searches.append(best_action)
 
+        iteration["action"] = "search"
         iteration["candidate_queries"] = [
             {"query": a, "G": round(float(G_values[i]), 4)}
             for i, a in enumerate(actions)
@@ -378,31 +603,33 @@ def run_foraging(question, api_key, threshold=0.5, max_iterations=5, k=5):
         iteration["selected_query"] = best_action
         iteration["selected_G"] = round(float(G_values[best_idx]), 4)
 
-        # execute real search
-        results = brave_search(best_action, api_key, count=10)
-        evidence = format_search_results(results)
+        evidence, results = gather_evidence(best_action, api_key, question=question)
         context += f"\n\n---\nSearch: {best_action}\nResults:\n{evidence}"
+        real_searches += 1
 
         iteration["search_results"] = [
             {"title": r["title"], "snippet": r["snippet"][:120]}
             for r in results[:5]
         ]
         iteration["num_results"] = len(results)
-
         trace["iterations"].append(iteration)
 
-    # final scoring
-    scores = score_candidates(candidates, context, question)
-    p = softmax(scores)
-    winner_idx = int(np.argmax(scores))
+    # final scoring -- argmax over REAL candidates only (never the sentinel)
+    real_scores, escape_mass, H = score_with_sentinel(candidates, context, question)
+    p = softmax(real_scores)
+    winner_idx = int(np.argmax(real_scores))
     winner = candidates[winner_idx]
 
     trace["final"] = {
-        "entropy": round(float(entropy(scores)), 4),
+        "entropy": round(H, 4),
+        "escape_mass": round(escape_mass, 4),
         "beliefs": {c: round(float(p[i]), 4) for i, c in enumerate(candidates)},
-        "log_scores": {c: round(float(scores[i]), 2) for i, c in enumerate(candidates)},
+        "log_scores": {
+            c: round(float(real_scores[i]), 2) for i, c in enumerate(candidates)
+        },
         "winner": winner,
         "num_searches": len(searches),
+        "num_regenerations": regenerations,
     }
 
     return winner, trace
@@ -471,7 +698,19 @@ def main():
         "--threshold", type=float, default=0.5, help="Entropy threshold"
     )
     parser.add_argument(
-        "--max-iter", type=int, default=5, help="Max foraging iterations"
+        "--max-iter", type=int, default=5, help="Max foraging (search) iterations"
+    )
+    parser.add_argument(
+        "--tau-regen", type=float, default=0.4,
+        help="Escape-mass threshold q(s_0|C) above which candidates are regenerated",
+    )
+    parser.add_argument(
+        "--max-regen", type=int, default=3,
+        help="Max candidate-regeneration actions per question",
+    )
+    parser.add_argument(
+        "--n-fetch", type=int, default=3,
+        help="Page bodies to fetch per search (0 = snippets only)",
     )
     parser.add_argument("--output", type=str, default="browsecomp_results.jsonl")
     parser.add_argument(
@@ -485,6 +724,9 @@ def main():
     args = parser.parse_args()
 
     MODEL_NAME = args.model
+
+    global N_FETCH
+    N_FETCH = args.n_fetch
 
     api_key = args.brave_key or os.getenv("BRAVE_API_KEY")
     if not api_key and args.mode in ("single_search", "foraging", "all"):
@@ -532,6 +774,8 @@ def main():
                         api_key,
                         threshold=args.threshold,
                         max_iterations=args.max_iter,
+                        tau_regen=args.tau_regen,
+                        max_regen=args.max_regen,
                     )
                 else:
                     continue

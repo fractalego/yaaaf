@@ -155,7 +155,7 @@ If you regenerate candidates mid-loop, the state space changes — old `q(s)` sc
 2. **Expand only** — add candidates, never remove. Preserves existing beliefs, set grows.
 3. **Full regeneration** — regenerate and try to map old beliefs onto new candidates. Messy.
 
-For the first implementation: fixed candidates.
+For the first implementation: fixed candidates. **Superseded** — see "Candidate Generation as an Action" below. Fixed candidates proved to be the dominant failure mode on BrowseComp (gold answer in the candidate set 0/10), so we adopted **expand-only** regeneration driven by a meta-belief.
 
 ### What is the final output?
 
@@ -193,6 +193,126 @@ The search is always executed — one per iteration. The only decision is WHICH 
 - Single sample approximation for E_{q(o|a)} — we predict one observation, not a distribution.
 - Risk term D_KL[q(o|a) || p~(o)] is omitted. Only the ambiguity term is computed.
 - Candidates are fixed upfront — no expansion or regeneration.
+
+---
+
+## Candidate Generation as an Action (Structure Learning)
+
+The fixed-candidate loop above has a structural ceiling: the answer is
+`s* = argmax_i q(s_i|C)` over a set fixed before evidence arrives. If the gold
+answer is not in `{s_1...s_K}`, accuracy is bounded at 0 no matter how good the
+search. On BrowseComp this is the dominant failure — gold is in the set 0/10,
+because the answers are deliberately obscure and the model's priors generate
+plausible-but-wrong famous entities (see the experiment log).
+
+The fix is to give the agent uncertainty not just *within* the generative model
+(which `s_i`) but *about* the model itself (whether the candidate set is even
+adequate). In active-inference terms this is **structure learning / Bayesian
+model expansion**: some actions change the hypothesis space, not just the belief
+over a fixed one. Concretely, **candidate generation becomes an action** the
+agent can select, alongside search.
+
+### The meta-belief: escape mass q(s₀|C)
+
+Add a catch-all sentinel candidate to the set:
+
+```
+s_0 = "None of the above; the answer is not present in this list."
+```
+
+`s_0` is scored with the *same* token-level logprob machinery as any real
+candidate — it is just one extra row in the softmax:
+
+```
+q(s_i | C) = softmax(log p_LLM(s_0|C), log p_LLM(s_1|C), ..., log p_LLM(s_K|C))
+escape_mass = q(s_0 | C)
+```
+
+`escape_mass` is a direct, cheap readout of the meta-belief that the candidate
+set is inadequate. Because softmax is a competition, `q(s_0|C)` is large only
+when the sentinel's likelihood is competitive with every real candidate — i.e.
+when the evidence `C` matches none of them. Once a real candidate genuinely fits
+the evidence, its logprob dominates and `q(s_0|C)` collapses toward 0.
+
+**Key property: escape mass is commensurable across state spaces.** This is what
+makes it the right control signal and resolves the "regenerating breaks old
+q(s) scores" problem. It is normalized, and adding candidates can only pull mass
+*off* `s_0` — so a falling escape mass cleanly means "the set is getting
+better". Raw entropy `H` lacks this property: a larger set can have higher `H`
+while being strictly better, so entropy can only be trusted for the
+*within-set* decision (which query to search), never for the *which-set*
+decision (regenerate or not).
+
+**Implementation caveat — do not score `s_0` as a string.** The first
+implementation scored `s_0 = "None of the above..."` as a literal candidate in
+the softmax. This fails: token-level log-likelihood is length-biased (summed
+logprob, or even mean logprob, penalises a ~12-token sentence against 1–3 token
+candidates like "Italy"), so `q(s_0|C)` was pinned at ~0 and the gate never
+fired (see log, fifth run). The fix is to read the meta-belief from a
+**single-token YES/NO probe** instead: prompt the model with the candidate list
+and "is the correct answer present among these? YES/NO", and set
+`escape_mass = P(NO) / (P(NO) + P(YES))` from one next-token distribution. Same
+quantity, no length bias. (Candidate scoring for the *within-set* belief is
+separately length-normalised to mean per-token logprob.)
+
+Entropy was also the wrong stopping gauge in the fixed-candidate loop: a
+confidently-wrong set converges at low `H` (e.g. q=0.9999 on a wrong famous
+name). Low `H` means "confident which candidate", not "the truth is in the set".
+Escape mass is precisely the signal `H` was missing.
+
+### Evidence-mined candidates
+
+The regeneration action does not sample candidates from priors — it **mines them
+from the accumulated evidence `C`**: "list specific entities (names, dates,
+titles) that actually appear in the evidence and could answer the question". The
+state space is thus *defined by what has been retrieved*. Obscure gold like
+`Amr Zaki` is never sampled from a 4B/27B prior but does appear verbatim in
+search snippets once the question's constraints are searched. Refusal-type
+strings are filtered out — that role belongs exclusively to `s_0`.
+
+### The hierarchical gate
+
+The loop becomes a two-level controller. Each step scores candidates ∪ {s₀},
+then gates on the meta-belief before acting within the model:
+
+```
+score candidates ∪ {s_0} against C  →  real_scores, escape_mass, H
+if escape_mass > τ_regen:            # meta-level: set is inadequate
+    regenerate(C)                    # mine new candidates from evidence (expand-only)
+elif H < threshold and escape_mass ≤ τ_regen and real_searches ≥ 1:
+    converge → argmax over REAL candidates (never s_0)
+else:
+    search(argmin_a G(a))            # base-level: existing EFE query selection
+```
+
+Regeneration is **expand-only**: new candidates are appended, the pool is capped
+by likelihood, and `s_0` persists to re-measure adequacy each round. The loop is
+self-terminating — once a fitting candidate lands, escape mass drops and control
+flows to search/converge. The `real_searches ≥ 1` and escape-mass conditions on
+convergence eliminate the premature t=0 confident-wrong exits.
+
+Two argmaxes, kept distinct:
+- **Action selection** — `argmin_a G(a)` over candidate *search queries* (unchanged).
+- **Final answer** — `argmax_i q(s_i|C)` over *real* candidates only (excludes `s_0`).
+
+### Relation to expected free energy
+
+This is the simple-controller form: regeneration is a *gate* triggered by the
+meta-belief, not scored in the same `argmin` as search. The principled unified
+version would put both action types in one EFE, using a currency comparable
+across state spaces — expected best-candidate log-evidence
+`G(a) = − E_{q(o|a)}[ max_i log p(s_i | C') ] + cost(a)` — where a search action
+changes `C` (set fixed) and a regenerate action changes the set (`C` fixed). The
+`max_i log p` (or `logsumexp_i`) is unnormalized, hence commensurable, whereas
+the entropy used in the base loop is not. Deferred; the gate is the first
+implementation.
+
+### Implementation
+
+Implemented in `scripts/active_learning_agent/eval_browsecomp.py`:
+`SENTINEL`, `score_with_sentinel()`, `mine_candidates()`, `is_refusal()`, and the
+rewritten `run_foraging` controller. Knobs: `--tau-regen` (default 0.4),
+`--max-regen` (default 3). See the experiment log for results.
 
 ---
 

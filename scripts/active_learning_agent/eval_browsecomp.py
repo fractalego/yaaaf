@@ -14,6 +14,10 @@ Usage:
 """
 
 import os
+
+# Reduce CUDA fragmentation (matters on a tight 48GB card with a ~30GB model).
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 import re
 import sys
 import json
@@ -27,7 +31,7 @@ import torch
 import pandas as pd
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-MODEL_NAME = "Qwen/Qwen2.5-14B-Instruct"
+MODEL_NAME = "Qwen/Qwen3.5-27B"
 
 
 # ---------------------------------------------------------------------------
@@ -67,38 +71,145 @@ def load_browsecomp(path="browse_comp_test_set.csv"):
 # ---------------------------------------------------------------------------
 
 
+BACKEND = "transformers"   # "transformers" | "vllm"
+LOAD_8BIT = False          # int8 via bitsandbytes (transformers backend only)
+VLLM_QUANT = None          # vllm quantization, e.g. "awq" / "gptq" (None = none)
+GPU_MEM_UTIL = 0.85        # vllm gpu_memory_utilization (headroom for logprob tensors)
+VLLM_MAX_LEN = 16384       # vllm max_model_len (caps KV cache; our contexts ~10-16k)
+VLLM_MAX_BATCHED = 2048    # vllm max_num_batched_tokens (bounds prompt_logprobs memory)
+
 _model = None
 _tokenizer = None
+_vllm = None
+
+
+def get_tokenizer():
+    """Tokenizer is needed by both backends (prompt building, token counting)."""
+    global _tokenizer
+    if _tokenizer is None:
+        _tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    return _tokenizer
 
 
 def get_model():
-    global _model, _tokenizer
+    """Transformers backend model. Returns (model, tokenizer)."""
+    global _model
     if _model is None:
-        print(f"Loading {MODEL_NAME}...")
-        _tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-        # Full bf16 -- no quantization. Small models (e.g. Qwen2.5-3B) fit easily
-        # on an 80GB GPU and run faster un-quantized; logprob scoring is also
-        # cleaner without 8-bit rounding.
-        _model = AutoModelForCausalLM.from_pretrained(
-            MODEL_NAME,
-            dtype=torch.bfloat16,
-            device_map="cuda",
-        )
+        tok = get_tokenizer()
+        print(f"Loading {MODEL_NAME}{' (int8)' if LOAD_8BIT else ' (bf16)'} [transformers]...")
+        if LOAD_8BIT:
+            from transformers import BitsAndBytesConfig
+
+            _model = AutoModelForCausalLM.from_pretrained(
+                MODEL_NAME,
+                quantization_config=BitsAndBytesConfig(load_in_8bit=True),
+                device_map="cuda",
+            )
+        else:
+            _model = AutoModelForCausalLM.from_pretrained(
+                MODEL_NAME, dtype=torch.bfloat16, device_map="cuda",
+            )
         _model.eval()
         print("Model loaded.")
-    return _model, _tokenizer
+    return _model, get_tokenizer()
+
+
+def _ensure_cuda_home():
+    """FlashInfer JIT-compiles CUDA kernels and needs nvcc + CUDA headers. vLLM's
+    deps ship a complete unified toolkit under site-packages/nvidia/cu1x; point
+    CUDA_HOME at it so JIT works without a system CUDA install."""
+    if os.environ.get("CUDA_HOME") and os.path.isfile(
+        os.path.join(os.environ["CUDA_HOME"], "bin", "nvcc")
+    ):
+        return
+    import sysconfig
+
+    bases = {sysconfig.get_paths().get(k) for k in ("purelib", "platlib")}
+    for base in filter(None, bases):
+        for sub in ("cu13", "cu12"):
+            cand = os.path.join(base, "nvidia", sub)
+            if os.path.isfile(os.path.join(cand, "bin", "nvcc")):
+                os.environ["CUDA_HOME"] = cand
+                os.environ["CUDA_PATH"] = cand
+                os.environ["PATH"] = (
+                    os.path.join(cand, "bin") + os.pathsep + os.environ.get("PATH", "")
+                )
+                os.environ["LD_LIBRARY_PATH"] = (
+                    os.path.join(cand, "lib")
+                    + os.pathsep
+                    + os.environ.get("LD_LIBRARY_PATH", "")
+                )
+                print(f"[cuda] CUDA_HOME -> {cand}")
+                return
+
+
+def _load_vllm():
+    global _vllm
+    if _vllm is None:
+        _ensure_cuda_home()
+        # FlashInfer JIT-compiles a sampling kernel, but the only available nvcc
+        # (13.2) is incompatible with FlashInfer's bundled CUDA-13.0 headers. We
+        # don't need it (scoring uses prompt_logprobs/greedy), so use vllm's
+        # native sampler instead of FlashInfer's.
+        os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
+        from vllm import LLM
+
+        print(f"Loading {MODEL_NAME} [vllm{(' ' + VLLM_QUANT) if VLLM_QUANT else ''}]...")
+        kwargs = dict(
+            model=MODEL_NAME,
+            gpu_memory_utilization=GPU_MEM_UTIL,
+            dtype="bfloat16",
+            # Shared long context (page bodies) is reused across the many
+            # candidate-scoring requests -> prefix caching is a big win here.
+            enable_prefix_caching=True,
+            # 48GB is tight with ~30GB Int4 weights: cap the KV cache to what we
+            # actually use (Qwen3.5 defaults to 262K context) and skip CUDA-graph
+            # capture (the step that OOM'd; negligible cost for batched scoring).
+            max_model_len=VLLM_MAX_LEN,
+            enforce_eager=True,
+            # prompt_logprobs computes log-softmax over the full vocab for every
+            # prompt position; chunking the prefill bounds that transient tensor.
+            max_num_batched_tokens=VLLM_MAX_BATCHED,
+        )
+        if VLLM_QUANT:
+            kwargs["quantization"] = VLLM_QUANT
+        _vllm = LLM(**kwargs)
+        print("Model loaded (vllm).")
+    return _vllm
 
 
 # ---------------------------------------------------------------------------
-# LLM primitives
+# The whole harness runs on two BATCHED primitives:
+#   gen_batch(prompts)           -> generated text (chat-templated)
+#   score_batch(prompts, conts)  -> Σ logprob of each continuation | prompt (raw)
+# generate/log_likelihood/yes_no_prob/score_candidates are thin wrappers, so the
+# backend is one flag. Scoring (operation B) reads the logprob the model assigns
+# to specific tokens: transformers reads the logits tensor; vllm reads
+# prompt_logprobs over (prompt+continuation). Same number, different plumbing.
 # ---------------------------------------------------------------------------
 
 
-def generate(prompt, max_new_tokens=256, temperature=0.7):
+def _chat(prompt):
+    return get_tokenizer().apply_chat_template(
+        [{"role": "user", "content": prompt}],
+        tokenize=False, add_generation_prompt=True, enable_thinking=False,
+    )
+
+
+def _continuation_start(p_ids, f_ids):
+    """First index of the continuation in f_ids -- longest common prefix with
+    p_ids (the join token can merge, so don't assume len(p_ids))."""
+    start = 0
+    while start < len(p_ids) and start < len(f_ids) and p_ids[start] == f_ids[start]:
+        start += 1
+    return start
+
+
+def _generate_tf_one(prompt, max_new_tokens, temperature):
     model, tokenizer = get_model()
-    messages = [{"role": "user", "content": prompt}]
-    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
-    inputs = tokenizer(text, return_tensors="pt", return_attention_mask=True).to(model.device)
+    inputs = tokenizer(_chat(prompt), return_tensors="pt", return_attention_mask=True).to(
+        model.device
+    )
     gen_kwargs = dict(
         max_new_tokens=max_new_tokens,
         pad_token_id=tokenizer.eos_token_id,
@@ -111,29 +222,86 @@ def generate(prompt, max_new_tokens=256, temperature=0.7):
         gen_kwargs["do_sample"] = False
     with torch.no_grad():
         out = model.generate(inputs["input_ids"], **gen_kwargs)
-    return tokenizer.decode(out[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True).strip()
+    return tokenizer.decode(
+        out[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
+    ).strip()
+
+
+def _score_tf_one(context, candidate):
+    model, tokenizer = get_model()
+    p_ids = tokenizer.encode(context, add_special_tokens=False)
+    f_ids = tokenizer.encode(context + candidate, add_special_tokens=False)
+    start = _continuation_start(p_ids, f_ids)
+    if start >= len(f_ids):
+        return -1e6
+    input_ids = torch.tensor([f_ids], device=model.device)
+    with torch.no_grad():
+        logits = model(input_ids).logits
+    log_probs = torch.log_softmax(logits[0], dim=-1)
+    return float(sum(log_probs[i - 1, f_ids[i]].item() for i in range(start, len(f_ids))))
+
+
+def _score_vllm_batch(prompts, continuations):
+    from vllm import SamplingParams
+
+    tok = get_tokenizer()
+    llm = _load_vllm()
+    full_ids, starts = [], []
+    for p, c in zip(prompts, continuations):
+        p_ids = tok.encode(p, add_special_tokens=False)
+        f_ids = tok.encode(p + c, add_special_tokens=False)
+        full_ids.append(f_ids)
+        starts.append(_continuation_start(p_ids, f_ids))
+    # max_tokens=1: we don't want generation, just the prompt's logprobs.
+    # prompt_logprobs=1 makes vllm return each prompt token's logprob (the actual
+    # token is always included).
+    sp = SamplingParams(max_tokens=1, temperature=0.0, prompt_logprobs=1)
+    outs = llm.generate([{"prompt_token_ids": ids} for ids in full_ids], sp)
+    scores = []
+    for o, f, start in zip(outs, full_ids, starts):
+        if start >= len(f):
+            scores.append(-1e6)
+            continue
+        plp = o.prompt_logprobs
+        total = 0.0
+        for i in range(start, len(f)):
+            entry = plp[i] if i < len(plp) else None
+            lp = entry.get(f[i]) if entry else None
+            total += lp.logprob if lp is not None else -20.0
+        scores.append(total)
+    return scores
+
+
+def gen_batch(prompts, max_new_tokens=256, temperature=0.7):
+    if BACKEND == "vllm":
+        from vllm import SamplingParams
+
+        llm = _load_vllm()
+        sp = SamplingParams(
+            max_tokens=max_new_tokens,
+            temperature=temperature if temperature > 0 else 0.0,
+        )
+        outs = llm.generate([_chat(p) for p in prompts], sp)
+        return [o.outputs[0].text.strip() for o in outs]
+    return [_generate_tf_one(p, max_new_tokens, temperature) for p in prompts]
+
+
+def score_batch(prompts, continuations):
+    """Σ logprob of each continuation given its prompt (raw text, no template)."""
+    if BACKEND == "vllm":
+        return _score_vllm_batch(prompts, continuations)
+    return [_score_tf_one(p, c) for p, c in zip(prompts, continuations)]
+
+
+# ---- thin single-item wrappers (unchanged call sites) ----------------------
+
+
+def generate(prompt, max_new_tokens=256, temperature=0.7):
+    return gen_batch([prompt], max_new_tokens=max_new_tokens, temperature=temperature)[0]
 
 
 def log_likelihood(context, candidate):
-    """log p(candidate | context) from token-level logprobs."""
-    model, tokenizer = get_model()
-
-    context_ids = tokenizer.encode(context, add_special_tokens=False)
-    full_ids = tokenizer.encode(context + candidate, add_special_tokens=False)
-    candidate_start = len(context_ids)
-
-    if candidate_start >= len(full_ids):
-        return -1e6
-
-    input_ids = torch.tensor([full_ids], device=model.device)
-    with torch.no_grad():
-        logits = model(input_ids).logits
-
-    log_probs = torch.log_softmax(logits[0], dim=-1)
-    total = 0.0
-    for i in range(candidate_start, len(full_ids)):
-        total += log_probs[i - 1, full_ids[i]].item()
-    return total
+    return score_batch([context], [candidate])[0]
 
 
 # ---------------------------------------------------------------------------
@@ -228,17 +396,32 @@ def extract_passages(text, query, max_passages=2, window=500):
 
 
 def gather_evidence(query, api_key, question=None, count=10, n_fetch=None):
-    """Search + fetch top page bodies. Returns (evidence_text, raw_results)."""
+    """Search + fetch top page bodies.
+
+    Returns (evidence_text, raw_results, fetched) where `fetched` is a list of
+    {url, title, page_chars, passages} for each page actually read -- so the
+    trace can record the real evidence, not just the search snippets.
+    """
     if n_fetch is None:
         n_fetch = N_FETCH
     results = brave_search(query, api_key, count=count)
     parts = [format_search_results(results)]
     target = question or query
+    fetched = []
     for r in results[:n_fetch]:
-        passages = extract_passages(fetch_page(r["url"]), target)
+        page = fetch_page(r["url"])
+        passages = extract_passages(page, target)
         if passages:
             parts.append(f"[{r['title']}] {passages}")
-    return "\n".join(parts), results
+            fetched.append(
+                {
+                    "url": r["url"],
+                    "title": r["title"],
+                    "page_chars": len(page),
+                    "passages": passages,
+                }
+            )
+    return "\n".join(parts), results, fetched
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +459,7 @@ def run_baseline(question):
 
 
 def run_single_search(question, api_key):
-    evidence, results = gather_evidence(question, api_key, question=question)
+    evidence, results, _ = gather_evidence(question, api_key, question=question)
 
     prompt = (
         f"Based on the following search results, answer the question "
@@ -412,7 +595,7 @@ def generate_types(question, m=3):
 
 def type_prior(question, type_label):
     """log p(T | question), length-normalized -- what the question asks for."""
-    _, tokenizer = get_model()
+    tokenizer = get_tokenizer()
     prefix = f"Question: {question}\n\nThe answer to this question is a"
     cand = " " + type_label + "."
     ntok = max(1, len(tokenizer.encode(cand, add_special_tokens=False)))
@@ -487,12 +670,16 @@ def score_candidates(candidates, context, question):
     a multi-token one regardless of fit. Dividing by token count makes candidates
     of different lengths comparable in the softmax.
     """
-    _, tokenizer = get_model()
+    tokenizer = get_tokenizer()
     prefix = f"Question: {question}\n\nEvidence:\n{context}\n\nAnswer:"
+    conts = [" " + c for c in candidates]
+    # ONE batched scoring call -- all candidates share the long evidence prefix
+    # (vllm prefix-caches it; transformers loops). This is the hot path.
+    raw = score_batch([prefix] * len(candidates), conts)
     scores = np.zeros(len(candidates))
     for i, c in enumerate(candidates):
-        ntok = max(1, len(tokenizer.encode(" " + c, add_special_tokens=False)))
-        scores[i] = log_likelihood(prefix, " " + c) / ntok
+        ntok = max(1, len(tokenizer.encode(conts[i], add_special_tokens=False)))
+        scores[i] = raw[i] / ntok
     return scores
 
 
@@ -602,17 +789,10 @@ def extract_constraints(question, max_constraints=6):
 
 
 def yes_no_prob(prompt):
-    """P(Yes) from a single forward pass -- next-token Yes/No probability."""
-    model, tokenizer = get_model()
-    ids = tokenizer.encode(prompt, add_special_tokens=False)
-    input_ids = torch.tensor([ids], device=model.device)
-    with torch.no_grad():
-        logits = model(input_ids).logits[0, -1]
-    lp = torch.log_softmax(logits, dim=-1)
-    yes_id = tokenizer.encode(" Yes", add_special_tokens=False)[0]
-    no_id = tokenizer.encode(" No", add_special_tokens=False)[0]
-    p = softmax(np.array([lp[no_id].item(), lp[yes_id].item()]))
-    return float(p[1])
+    """P(Yes) -- score " Yes" vs " No" as one-token continuations (backend-
+    agnostic; same primitive as candidate scoring)."""
+    ll_no, ll_yes = score_batch([prompt, prompt], [" No", " Yes"])
+    return float(softmax(np.array([ll_no, ll_yes]))[1])
 
 
 def candidate_constraint_sat(candidate, context, constraints):
@@ -731,6 +911,7 @@ def run_foraging(
     k_per_type=4,
     type_threshold=0.6,
     type_lam=1.0,
+    use_constraints=False,
 ):
     trace = {"candidates": [], "iterations": [], "final": {}}
 
@@ -755,7 +936,7 @@ def run_foraging(
         initial_query = initial_query[:400]
     if not initial_query:
         initial_query = " ".join(question.split()[:10])
-    initial_evidence, initial_results = gather_evidence(
+    initial_evidence, initial_results, initial_fetched = gather_evidence(
         initial_query, api_key, question=question
     )
     trace["initial_search"] = {
@@ -765,6 +946,8 @@ def run_foraging(
             {"title": r["title"], "snippet": r["snippet"][:120]}
             for r in initial_results[:5]
         ],
+        "fetched": initial_fetched,
+        "evidence_text": initial_evidence,
     }
 
     context = f"---\nSearch: {initial_query}\nResults:\n{initial_evidence}"
@@ -778,7 +961,10 @@ def run_foraging(
 
     # Constraint decomposition: the conjunction of conditions the answer must
     # satisfy. Drives constraint-grounded scoring, escape, and directed search.
-    constraints = extract_constraints(question)
+    # Opt-in (--use-constraints): empty list -> the whole stack falls back to the
+    # 3/10 path (logprob belief + YES/NO escape + free-form decomposition), which
+    # is also much faster (no per-candidate-per-constraint scoring).
+    constraints = extract_constraints(question) if use_constraints else []
     trace["constraints"] = list(constraints)
 
     pool, ptype = [], []
@@ -896,7 +1082,9 @@ def run_foraging(
             if decompositions < max_decomp:
                 subq = next_subquestion(question, known_facts, focus_constraint=weak_c)
                 if subq:
-                    ev, res = gather_evidence(subq, api_key, question=question)
+                    ev, res, fetched = gather_evidence(
+                        subq, api_key, question=question
+                    )
                     fact = extract_fact(subq, ev)
                     context += (
                         f"\n\n---\nSub-question: {subq}\nResolved: {fact}\n"
@@ -921,6 +1109,8 @@ def run_foraging(
                         {"title": r["title"], "snippet": r["snippet"][:120]}
                         for r in res[:5]
                     ]
+                    iteration["fetched"] = fetched
+                    iteration["evidence_text"] = ev
                     trace["iterations"].append(iteration)
                     continue
             # both regenerate and decompose exhausted -> fall through
@@ -957,7 +1147,9 @@ def run_foraging(
         iteration["selected_query"] = best_action
         iteration["selected_G"] = round(float(G_values[best_idx]), 4)
 
-        evidence, results = gather_evidence(best_action, api_key, question=question)
+        evidence, results, fetched = gather_evidence(
+            best_action, api_key, question=question
+        )
         context += f"\n\n---\nSearch: {best_action}\nResults:\n{evidence}"
         real_searches += 1
 
@@ -966,6 +1158,8 @@ def run_foraging(
             for r in results[:5]
         ]
         iteration["num_results"] = len(results)
+        iteration["fetched"] = fetched
+        iteration["evidence_text"] = evidence
         trace["iterations"].append(iteration)
 
     # final answer -- argmax of the type-marginalized, constraint-grounded belief
@@ -992,6 +1186,21 @@ def run_foraging(
             constraints[j]: round(float(sat[winner_idx][j]), 3)
             for j in range(len(constraints))
         }
+        trace["final"]["all_sat"] = {
+            pool[i]: {
+                constraints[j]: round(float(sat[i][j]), 3)
+                for j in range(len(constraints))
+            }
+            for i in range(len(pool))
+        }
+
+    # Full accumulated evidence + a search log -- so gold-in-context can be
+    # measured post-hoc (the page passages, not just snippets, live here).
+    trace["final_context"] = context
+    trace["context_chars"] = len(context)
+    trace["final_pool"] = list(pool)
+    trace["all_searches"] = list(searches)
+    trace["subquestions"] = [q for q, _ in known_facts]
 
     return winner, trace
 
@@ -1001,25 +1210,24 @@ def run_foraging(
 # ---------------------------------------------------------------------------
 
 
-def grade_answer_ollama(question, predicted, gold, ollama_url="http://localhost:11434", judge_model="qwen2.5:32b"):
-    """Grade using a separate LLM via ollama as judge (avoids circular self-grading)."""
+def grade_answer_llm(question, predicted, gold):
+    """Semantic-equivalence judge using the model already loaded in this process
+    (whatever --backend is active) -- no separate Ollama server. Equivalence
+    checking is low-risk self-grading: it compares two strings, it doesn't judge
+    its own reasoning."""
     prompt = (
-        f"You are grading an answer. Check if the predicted answer is "
-        f"essentially the same as the correct answer. Minor differences in "
-        f"formatting, capitalization, or phrasing are OK.\n\n"
+        f"You are grading an answer to a question. Does the predicted answer "
+        f"convey the SAME answer as the correct answer? Ignore differences in "
+        f"formatting, capitalization, punctuation, word order, accents, articles, "
+        f"and extra surrounding words.\n\n"
         f"Question: {question}\n"
         f"Correct answer: {gold}\n"
         f"Predicted answer: {predicted}\n\n"
-        f"Is the predicted answer correct? Reply with ONLY 'yes' or 'no'."
+        f"Reply with ONLY 'yes' or 'no'."
     )
     try:
-        resp = requests.post(
-            f"{ollama_url}/api/generate",
-            json={"model": judge_model, "prompt": prompt, "stream": False,
-                  "options": {"temperature": 0.0, "num_predict": 8}},
-            timeout=30,
-        )
-        return "yes" in resp.json().get("response", "").lower()
+        out = generate(prompt, max_new_tokens=4, temperature=0.0).lower()
+        return "yes" in out
     except Exception:
         return False
 
@@ -1035,6 +1243,46 @@ def is_correct(predicted, gold):
     if len(p) < 3 or len(g) < 3:
         return p == g
     return g in p or p in g
+
+
+def _alnum(s):
+    return re.sub(r"[^a-z0-9 ]", " ", s.lower())
+
+
+def text_contains_gold(text, gold):
+    """Diagnostic: does `text` contain the gold answer (substring OR all
+    significant words present)? Used post-hoc only -- never seen by the agent."""
+    if not text:
+        return False
+    t = " ".join(_alnum(text).split())
+    g = " ".join(_alnum(gold).split())
+    if len(g) >= 3 and g in t:
+        return True
+    words = [w for w in g.split() if len(w) > 3]
+    return bool(words) and all(w in t for w in words)
+
+
+def gold_diagnostics(trace, gold):
+    """Post-hoc: where does the gold answer reach? Separates the retrieval
+    ceiling (gold never in evidence) from the scoring ceiling (gold in evidence
+    but not selected)."""
+    if not trace:
+        return {}
+    snippets = []
+    s = trace.get("initial_search", {})
+    for it in s.get("results", []):
+        snippets.append(it.get("title", "") + " " + it.get("snippet", ""))
+    for it in trace.get("iterations", []):
+        for sr in it.get("search_results", []):
+            snippets.append(sr.get("title", "") + " " + sr.get("snippet", ""))
+    context = trace.get("final_context", "")
+    pool = trace.get("final_pool", [])
+    return {
+        "gold_in_snippets": text_contains_gold(" ".join(snippets), gold),
+        "gold_in_context": text_contains_gold(context, gold),
+        "gold_in_candidates": any(text_contains_gold(c, gold) for c in pool),
+        "context_chars": trace.get("context_chars", 0),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1089,6 +1337,34 @@ def main():
         "--type-threshold", type=float, default=0.6,
         help="Type-entropy H[q(T|C)] below which the answer type is 'confident'",
     )
+    parser.add_argument(
+        "--load-8bit", action="store_true",
+        help="int8 via bitsandbytes (transformers backend; 32B-class on 48GB)",
+    )
+    parser.add_argument(
+        "--backend", choices=["transformers", "vllm"], default="transformers",
+        help="Inference backend. vllm is much faster (batched scoring + prefix cache).",
+    )
+    parser.add_argument(
+        "--quantization", type=str, default=None,
+        help="vllm quantization, e.g. 'awq' or 'gptq' (point --model at a quantized repo)",
+    )
+    parser.add_argument(
+        "--gpu-mem-util", type=float, default=0.85,
+        help="vllm gpu_memory_utilization",
+    )
+    parser.add_argument(
+        "--vllm-max-len", type=int, default=16384,
+        help="vllm max_model_len (caps KV cache; lower if OOM, raise if contexts truncate)",
+    )
+    parser.add_argument(
+        "--vllm-max-batched", type=int, default=2048,
+        help="vllm max_num_batched_tokens (lower if prompt_logprobs OOMs)",
+    )
+    parser.add_argument(
+        "--use-constraints", action="store_true",
+        help="Enable constraint-grounded scoring/search (slower). Off = 3/10 baseline.",
+    )
     parser.add_argument("--output", type=str, default="browsecomp_results.jsonl")
     parser.add_argument(
         "--dataset", type=str, default="browse_comp_test_set.csv",
@@ -1102,8 +1378,14 @@ def main():
 
     MODEL_NAME = args.model
 
-    global N_FETCH
+    global N_FETCH, LOAD_8BIT, BACKEND, VLLM_QUANT, GPU_MEM_UTIL, VLLM_MAX_LEN, VLLM_MAX_BATCHED
     N_FETCH = args.n_fetch
+    LOAD_8BIT = args.load_8bit
+    BACKEND = args.backend
+    VLLM_QUANT = args.quantization
+    GPU_MEM_UTIL = args.gpu_mem_util
+    VLLM_MAX_LEN = args.vllm_max_len
+    VLLM_MAX_BATCHED = args.vllm_max_batched
 
     api_key = args.brave_key or os.getenv("BRAVE_API_KEY")
     if not api_key and args.mode in ("single_search", "foraging", "all"):
@@ -1157,6 +1439,7 @@ def main():
                         regen_patience=args.regen_patience,
                         n_types=args.n_types,
                         type_threshold=args.type_threshold,
+                        use_constraints=args.use_constraints,
                     )
                 else:
                     continue
@@ -1164,9 +1447,10 @@ def main():
                 predicted = f"ERROR: {e}"
             elapsed = time.time() - t0
 
-            # score with both methods
+            # score with both methods: cheap substring first, model judge only
+            # if that misses (so exact matches never need the model).
             correct_str = is_correct(predicted, gold)
-            correct_llm = grade_answer_ollama(question, predicted, gold)
+            correct_llm = correct_str or grade_answer_llm(question, predicted, gold)
             correct = correct_str or correct_llm
 
             results[mode]["correct"] += int(correct)
@@ -1184,11 +1468,20 @@ def main():
                 "topic": topic,
             }
             if trace is not None:
+                detail["diagnostics"] = gold_diagnostics(trace, gold)
                 detail["trace"] = trace
             results[mode]["details"].append(detail)
 
             mark = "OK" if correct else "WRONG"
-            print(f"  [{mode}] {mark} -> {predicted}  ({elapsed:.1f}s)")
+            diag = detail.get("diagnostics", {})
+            diag_str = ""
+            if diag:
+                diag_str = (
+                    f"  [gold: snip={int(diag['gold_in_snippets'])} "
+                    f"ctx={int(diag['gold_in_context'])} "
+                    f"cand={int(diag['gold_in_candidates'])}]"
+                )
+            print(f"  [{mode}] {mark} -> {predicted}  ({elapsed:.1f}s){diag_str}")
 
     # summary
     print("\n" + "=" * 60)
@@ -1198,6 +1491,30 @@ def main():
         r = results[mode]
         acc = r["correct"] / r["total"] if r["total"] > 0 else 0
         print(f"  {mode:15s}: {r['correct']}/{r['total']} = {acc:.1%}")
+
+    # foraging ceiling breakdown: retrieval (gold reaches evidence?) vs scoring
+    # (gold in evidence but not selected?)
+    if "foraging" in results:
+        dets = [d for d in results["foraging"]["details"] if d.get("diagnostics")]
+        if dets:
+            n = len(dets)
+            snip = sum(d["diagnostics"]["gold_in_snippets"] for d in dets)
+            ctx = sum(d["diagnostics"]["gold_in_context"] for d in dets)
+            cand = sum(d["diagnostics"]["gold_in_candidates"] for d in dets)
+            correct_n = sum(d["correct"] for d in dets)
+            # of the ones where gold reached the context, how many did we get right?
+            in_ctx = [d for d in dets if d["diagnostics"]["gold_in_context"]]
+            got_in_ctx = sum(d["correct"] for d in in_ctx)
+            print("\n  --- foraging gold-reach breakdown ---")
+            print(f"  gold in snippets:   {snip}/{n}")
+            print(f"  gold in context:    {ctx}/{n}   (page bodies, the real test)")
+            print(f"  gold in candidates: {cand}/{n}")
+            print(f"  correct:            {correct_n}/{n}")
+            if in_ctx:
+                print(
+                    f"  when gold in context -> correct: {got_in_ctx}/{len(in_ctx)} "
+                    f"(retrieval miss = {n - ctx}/{n}; scoring miss = {len(in_ctx) - got_in_ctx})"
+                )
 
     # save details
     with open(args.output, "w") as f:

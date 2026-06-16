@@ -321,6 +321,49 @@ Switched to `Qwen/Qwen2.5-3B-Instruct`, full bf16 (8-bit quant removed — point
 
 **Finding for the project goal:** the harness has a **minimum-capability floor**. The active-inference machinery (type inference, sub-question generation, clean entity mining, structured output) all assume a model competent enough to drive them; at 3B those steps degrade and the controller has nothing coherent to work with. The harness can recover *agency* from a non-agentic model, but not *base competence* from a model that lacks it. This bounds the thesis: the target is capable-but-non-agentic models, not arbitrarily small ones. Moving up to Qwen2.5-14B-Instruct (bf16) to find where the stack starts working.
 
+### Tenth run setup: Qwen2.5-14B-Instruct, constraint-grounded foraging
+
+14B restored single-entity type inference (`winner_type` mostly correct) but scored 0/10 — every miss a retrieval/wrong-candidate failure, as at 27B. Focusing on the **single-entity** case (deferring multi-type/compound answers): a BrowseComp question is a *conjunction of constraints*, but we were treating it as one blob for both search and scoring, so (a) famous-but-wrong entities could win, and (b) search was never targeted.
+
+Added **constraint-grounded foraging**:
+- `extract_constraints()` decomposes the question into individual checkable conditions.
+- `candidate_constraint_sat()` + `yes_no_prob()` (single forward pass) score, per candidate, `P(constraint_j satisfied | candidate, evidence)`.
+- `constraint_belief()`: candidate score = `Σ_j log p(c_j|s)`; this *replaces* answer-string logprob as the within-type score (flows into `infer_type_belief` and `marginal_belief`, so the type latent is preserved). Escape mass = `1 − (best candidate's mean satisfaction)`.
+- Foraging is **directed**: `weakest_constraint()` finds the constraint no candidate satisfies (`argmin_j max_i sat_ij`) and `next_subquestion(..., focus_constraint=)` searches specifically for an entity satisfying it.
+
+Offline validation (mocked satisfaction): gold (satisfies all) → q=0.993; a famous-but-wrong entity failing the year constraints → q=0.006; a junk paraphrase → q=0.001. The famous-wrong candidate is crushed even though its raw logprob would be high — the Q4/Q7 fix. Weakest-constraint selection picks the right hop.
+
+Cost: constraint scoring is `n_candidates × n_constraints` forward passes per belief recompute (~12×6); slower than logprob scoring but bounded. Trace now logs `constraints`, per-iteration `weakest_constraint` + `leader_sat`, and `winner_sat`.
+
+### Tenth run result: 0/10, but the belief is now honestly calibrated
+
+Qwen2.5-14B-Instruct, constraint-grounded, 10 Sports. **0/10**. The constraint layer works as designed even though the score didn't move:
+
+- **Famous-but-wrong winners are gone.** `winner_mean_sat` is ~0 for the misses (0.0 on Q1/Q5/Q7/Q10) — the winners are no longer confident famous names; they're just the least-bad of a bad pool. The Q4/Q7 "famous-wrong wins" failure is fixed.
+- **Escape mass stays correctly HIGH on every miss** (0.72–1.0). The system honestly reports "no candidate satisfies the constraints" and exhausts its regen+decomp budget (mostly 3+3) trying — it *knows* it failed rather than committing confidently. This calibration is a real gain for the project goal.
+- **But retrieval is still the wall: `gold_in_evidence` = 1/10.** Constraint-directed search didn't lift retrieval at 14B. Honest calibration + budget exhaustion can't manufacture gold the searches never surface.
+- **14B's verification is miscalibrated when gold IS present (Q8).** Gold was in evidence (`gold_in_evid=True`, escape 0.25) but the wrong date "25 October 2016" won with `winner_mean_sat=0.75` — the 14B's YES/NO constraint judgments wrongly affirmed a wrong candidate. 27B got Q8 right; 14B doesn't. Another instance of the capability floor — constraint verification needs a stronger judge.
+
+Conclusion: the belief machinery (type + structure + constraints) is sound and now well-calibrated, but two things bind at 14B — retrieval (dominant) and verification calibration. Moving to **Qwen2.5-32B-Instruct** (bf16): a stronger non-agentic judge should sharpen both the YES/NO constraint verification and the sub-question quality that drives retrieval.
+
+### Eleventh run: Qwen2.5-32B-Instruct (int8) — 1/10, and a measurement-integrity correction
+
+GPU is actually **48GB** (A6000 — earlier log entries saying "80GB" were wrong), so 32B needs int8 (bf16 OOMs). Added a `--load-8bit` flag. Result: **1/10** (Q1 only) — best of the non-agentic Qwen2.5 family (32B=1 > 14B=0 > 3B=0), but very slow (~30–43 min/question in int8). Q8 still confidently wrong (`25 October 2016`, `winner_sat=0.71`) → verification calibration not fixed by scale; famous-but-wrong otherwise crushed (7/10 misses `winner_sat≈0`, escape high — honest).
+
+**Important correction — the `gold_in_evidence` metric was broken.** It only ever scanned search-result *snippets*, never the fetched *page-body passages* that actually enter the evidence context. Proof: Q1 was answered correctly while the snippet-only metric reported `gold_in_evidence=False` — the gold was in the page bodies, which the metric couldn't see. So **all prior "retrieval is the ceiling" conclusions are suspect** — they rested on a metric measuring the wrong text. The real split (retrieval vs scoring) was never actually measured.
+
+**Instrumentation fix (this commit).** `gather_evidence` now returns the fetched pages (`url`, `title`, `page_chars`, `passages`); the trace records, per search/decompose, the full `evidence_text` and `fetched` pages, plus a final `final_context`, `final_pool`, `all_searches`, `subquestions`, and `all_sat` (full candidate×constraint satisfaction matrix). A post-hoc `gold_diagnostics()` in `main()` (uses the gold answer as a *diagnostic only* — never seen by the agent) computes `gold_in_snippets`, `gold_in_context`, `gold_in_candidates`, and the run summary prints the ceiling breakdown: of questions where gold reached the context, how many we got right (scoring miss) vs. gold never reaching context (retrieval miss). This is the instrument that will finally separate the two ceilings; rerun pending.
+
+### Twelfth run setup: constraints made opt-in, and a vLLM backend for speed
+
+Two infra changes (no new science, both about iterating faster / cleaner):
+
+1. **Constraints are now opt-in (`--use-constraints`, default off).** With them off, every `if constraints:` branch falls back to the 3/10 path (logprob belief + YES/NO escape + free-form decomposition), which is also much faster (drops the `n_candidates × n_constraints` YES/NO passes). This both restores the best-known baseline and gives a clean A/B toggle.
+
+2. **Pluggable inference backend (`--backend transformers|vllm`).** The whole harness now runs on two batched primitives — `gen_batch(prompts)` and `score_batch(prompts, continuations)` — and `generate`/`log_likelihood`/`yes_no_prob`/`score_candidates` are thin wrappers. Scoring (the dominant cost) reads the logprob the model assigns to specific tokens: transformers reads the logits tensor; **vLLM reads `prompt_logprobs` over (prompt+continuation)** — same number, but batched and with `enable_prefix_caching=True` so the shared long evidence prefix is computed once across all candidate scorings. `score_candidates` now issues ONE batched call instead of K sequential forward passes. Transformers stays the default (unchanged behavior; only change is continuation alignment now uses longest-common-prefix, which is strictly more correct at token boundaries).
+
+vLLM path: `--backend vllm --model Qwen/Qwen3.5-27B-GPTQ-Int4 --quantization gptq` (official Int4 checkpoint, ~30GB, fits 48GB; A6000 is Ampere so no FP8). Needs `uv add vllm` — caveat: vLLM pins torch versions and may fight torch 2.12, so a separate env may be safer. Speed validation + logprob-parity check (vllm-int4 vs transformers-int8 scores) pending.
+
 ### Open questions / next
 
 - **Calibrating `τ_regen`.** The sentinel string's wording sets `s_0`'s baseline logprob, hence the effective threshold. Needs tuning on a few real traces.

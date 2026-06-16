@@ -12,6 +12,9 @@ dependencies = [
     "requests>=2.25.0",
     "accelerate>=0.26.0",
     "bitsandbytes>=0.46.1",
+    "vllm>=0.23.0",
+    "beautifulsoup4>=4.15.0",
+    "lxml>=6.1.1",
 ]
 
 [tool.setuptools]
